@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(125, 223, 195, 0.14), transparent 28rem),
+    linear-gradient(135deg, #101820 0%, #14212a 42%, #1f2426 100%);
+  color: #f4f7f6;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+@keyframes ai-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.45rem);
+  }
+}
+
+.animate-ai-bounce {
+  animation: ai-bounce 0.7s ease-in-out infinite;
+}

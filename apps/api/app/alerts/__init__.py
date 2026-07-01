@@ -1,0 +1,1 @@
+"""Saved search alert domain."""

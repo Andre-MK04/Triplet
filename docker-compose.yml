@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: triplet-db
+    environment:
+      POSTGRES_DB: triplet
+      POSTGRES_USER: triplet
+      POSTGRES_PASSWORD: triplet
+    ports:
+      - "5433:5432"
+    volumes:
+      - triplet_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  triplet_postgres_data:
