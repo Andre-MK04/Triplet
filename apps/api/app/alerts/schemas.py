@@ -39,6 +39,28 @@ class CreateSavedSearchRequest(BaseModel):
         return list(dict.fromkeys(code.strip().upper() for code in value if code.strip()))
 
 
+class UpdateSavedSearchRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=160)
+    originAirports: list[str] | None = Field(default=None, min_length=1, max_length=12)
+    startDate: date | None = None
+    endDate: date | None = None
+    minTripLengthDays: int | None = Field(default=None, ge=1)
+    maxTripLengthDays: int | None = Field(default=None, ge=1)
+    maxBudget: float | None = Field(default=None, ge=20, le=5000)
+    maxGroundTransferHours: float | None = Field(default=None, ge=0, le=12)
+    tripStyle: TripStyle | None = None
+    directOnly: bool | None = None
+    includeBaggage: bool | None = None
+    frequency: Frequency | None = None
+
+    @field_validator("originAirports")
+    @classmethod
+    def normalize_airports(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return list(dict.fromkeys(code.strip().upper() for code in value if code.strip()))
+
+
 class SavedSearchResponse(BaseModel):
     id: str
     email: str
@@ -58,6 +80,8 @@ class SavedSearchResponse(BaseModel):
     createdAt: datetime
     lastCheckedAt: datetime | None = None
     lastNotifiedAt: datetime | None = None
+    lastBestPrice: float | None = None
+    lastBestTripId: str | None = None
     manageUrl: str | None = None
     unsubscribeUrl: str | None = None
 

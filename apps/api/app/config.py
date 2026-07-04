@@ -6,7 +6,8 @@ load_dotenv()
 
 
 class Settings:
-    environment: str = os.getenv("ENVIRONMENT", "development")
+    app_env: str = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "local"))
+    environment: str = app_env
     app_name: str = os.getenv("APP_NAME", "Triplet")
     database_url: str = os.getenv(
         "DATABASE_URL",
@@ -14,12 +15,29 @@ class Settings:
     )
     flight_provider: str = os.getenv("FLIGHT_PROVIDER", "database")
     enable_dev_tool_endpoints: bool = os.getenv("ENABLE_DEV_TOOL_ENDPOINTS", "true").lower() == "true"
-    amadeus_client_id: str | None = os.getenv("AMADEUS_CLIENT_ID") or None
-    amadeus_client_secret: str | None = os.getenv("AMADEUS_CLIENT_SECRET") or None
-    amadeus_base_url: str = os.getenv("AMADEUS_BASE_URL", "https://test.api.amadeus.com")
-    amadeus_timeout_seconds: float = float(os.getenv("AMADEUS_TIMEOUT_SECONDS", "20"))
-    amadeus_max_requests_per_search: int = int(os.getenv("AMADEUS_MAX_REQUESTS_PER_SEARCH", "40"))
-    amadeus_cache_enabled: bool = os.getenv("AMADEUS_CACHE_ENABLED", "true").lower() == "true"
+    skyscanner_api_enabled: bool = os.getenv("SKYSCANNER_API_ENABLED", "false").lower() == "true"
+    skyscanner_api_key: str | None = os.getenv("SKYSCANNER_API_KEY") or None
+    skyscanner_base_url: str = os.getenv("SKYSCANNER_BASE_URL", "https://partners.api.skyscanner.net")
+    skyscanner_timeout_seconds: float = float(os.getenv("SKYSCANNER_TIMEOUT_SECONDS", "20"))
+    skyscanner_max_requests_per_search: int = int(os.getenv("SKYSCANNER_MAX_REQUESTS_PER_SEARCH", "30"))
+    skyscanner_cache_enabled: bool = os.getenv("SKYSCANNER_CACHE_ENABLED", "true").lower() == "true"
+    skyscanner_cache_max_age_hours: int = int(os.getenv("SKYSCANNER_CACHE_MAX_AGE_HOURS", "6"))
+    skyscanner_market: str = os.getenv("SKYSCANNER_MARKET", "SI")
+    skyscanner_locale: str = os.getenv("SKYSCANNER_LOCALE", "en-GB")
+    skyscanner_currency: str = os.getenv("SKYSCANNER_CURRENCY", "EUR")
+    skyscanner_use_indicative_prices: bool = os.getenv("SKYSCANNER_USE_INDICATIVE_PRICES", "true").lower() == "true"
+    skyscanner_use_live_prices: bool = os.getenv("SKYSCANNER_USE_LIVE_PRICES", "true").lower() == "true"
+    skyscanner_poll_attempts: int = int(os.getenv("SKYSCANNER_POLL_ATTEMPTS", "3"))
+    skyscanner_poll_delay_seconds: float = float(os.getenv("SKYSCANNER_POLL_DELAY_SECONDS", "1"))
+    skyscanner_affiliate_enabled: bool = os.getenv("SKYSCANNER_AFFILIATE_ENABLED", "true").lower() == "true"
+    skyscanner_media_partner_id: str | None = os.getenv("SKYSCANNER_MEDIA_PARTNER_ID") or None
+    skyscanner_affiliate_base_url: str = os.getenv(
+        "SKYSCANNER_AFFILIATE_BASE_URL",
+        "https://skyscanner.net/g/referrals/v1",
+    )
+    skyscanner_affiliate_utm_source: str = os.getenv("SKYSCANNER_AFFILIATE_UTM_SOURCE", "triplet")
+    skyscanner_affiliate_utm_medium: str = os.getenv("SKYSCANNER_AFFILIATE_UTM_MEDIUM", "affiliate")
+    skyscanner_affiliate_utm_campaign: str = os.getenv("SKYSCANNER_AFFILIATE_UTM_CAMPAIGN", "triplet_search")
     ai_enabled: bool = os.getenv("AI_ENABLED", "false").lower() == "true"
     ai_provider: str = os.getenv("AI_PROVIDER", "openai")
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY") or None
@@ -40,9 +58,14 @@ class Settings:
     auth_cookie_domain: str | None = os.getenv("AUTH_COOKIE_DOMAIN") or None
     auth_password_min_length: int = int(os.getenv("AUTH_PASSWORD_MIN_LENGTH", "12"))
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    api_public_base_url: str = os.getenv("API_PUBLIC_BASE_URL", os.getenv("AUTH_PUBLIC_BASE_URL", "http://localhost:8001"))
     auth_rate_limit_window_seconds: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "300"))
     auth_rate_limit_max_attempts: int = int(os.getenv("AUTH_RATE_LIMIT_MAX_ATTEMPTS", "20"))
-    auth_public_base_url: str = os.getenv("AUTH_PUBLIC_BASE_URL", "http://localhost:8001")
+    auth_public_base_url: str = os.getenv("AUTH_PUBLIC_BASE_URL", api_public_base_url)
+    api_rate_limit_window_seconds: int = int(os.getenv("API_RATE_LIMIT_WINDOW_SECONDS", "60"))
+    trips_search_rate_limit_max_attempts: int = int(os.getenv("TRIPS_SEARCH_RATE_LIMIT_MAX_ATTEMPTS", "60"))
+    ai_search_rate_limit_max_attempts: int = int(os.getenv("AI_SEARCH_RATE_LIMIT_MAX_ATTEMPTS", "20"))
+    provider_smoke_test_rate_limit_max_attempts: int = int(os.getenv("PROVIDER_SMOKE_TEST_RATE_LIMIT_MAX_ATTEMPTS", "10"))
     google_oauth_client_id: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_ID") or None
     google_oauth_client_secret: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET") or None
     apple_oauth_client_id: str | None = os.getenv("APPLE_OAUTH_CLIENT_ID") or None

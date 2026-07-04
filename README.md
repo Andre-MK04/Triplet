@@ -68,15 +68,21 @@ Connection defaults:
 
 ```text
 APP_NAME=Triplet
-ENVIRONMENT=development
+APP_ENV=local
 DATABASE_URL=postgresql+psycopg://triplet:triplet@localhost:5433/triplet
 FLIGHT_PROVIDER=database
-AMADEUS_CLIENT_ID=
-AMADEUS_CLIENT_SECRET=
-AMADEUS_BASE_URL=https://test.api.amadeus.com
-AMADEUS_TIMEOUT_SECONDS=20
-AMADEUS_MAX_REQUESTS_PER_SEARCH=40
-AMADEUS_CACHE_ENABLED=true
+ENABLE_DEV_TOOL_ENDPOINTS=true
+SKYSCANNER_API_ENABLED=false
+SKYSCANNER_API_KEY=
+SKYSCANNER_BASE_URL=https://partners.api.skyscanner.net
+SKYSCANNER_TIMEOUT_SECONDS=20
+SKYSCANNER_MAX_REQUESTS_PER_SEARCH=30
+SKYSCANNER_CACHE_ENABLED=true
+SKYSCANNER_MARKET=SI
+SKYSCANNER_LOCALE=en-GB
+SKYSCANNER_CURRENCY=EUR
+SKYSCANNER_AFFILIATE_ENABLED=true
+SKYSCANNER_MEDIA_PARTNER_ID=
 APP_SECRET=dev-secret-change-me
 AUTH_ENABLED=true
 AUTH_ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -87,6 +93,11 @@ AUTH_COOKIE_DOMAIN=
 AUTH_PASSWORD_MIN_LENGTH=12
 AUTH_RATE_LIMIT_WINDOW_SECONDS=300
 AUTH_RATE_LIMIT_MAX_ATTEMPTS=20
+API_RATE_LIMIT_WINDOW_SECONDS=60
+TRIPS_SEARCH_RATE_LIMIT_MAX_ATTEMPTS=60
+AI_SEARCH_RATE_LIMIT_MAX_ATTEMPTS=20
+PROVIDER_SMOKE_TEST_RATE_LIMIT_MAX_ATTEMPTS=10
+API_PUBLIC_BASE_URL=http://localhost:8001
 AUTH_PUBLIC_BASE_URL=http://localhost:8001
 GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
@@ -136,7 +147,7 @@ AUTH_RATE_LIMIT_MAX_ATTEMPTS=20
 FRONTEND_URL=http://localhost:3000
 ```
 
-Use a strong `APP_SECRET` outside local development. Set `ENVIRONMENT=production` and `AUTH_COOKIE_SECURE=true` when serving the API over HTTPS. The API refuses to start in production if it still uses the default development secret or insecure auth cookies.
+Use a strong `APP_SECRET` outside local development. Set `APP_ENV=production` and `AUTH_COOKIE_SECURE=true` when serving the API over HTTPS. The API refuses to start in production if it still uses the default development secret, insecure auth cookies, or non-HTTPS public URLs. `ENVIRONMENT` is still accepted as a legacy fallback.
 
 Account routes:
 
@@ -259,6 +270,81 @@ Local modes:
 - Billing disabled: no Stripe calls; billing status returns free plan entitlements.
 - Billing enabled: requires Stripe test keys and price IDs; Checkout and Portal sessions can be created.
 
+## Skyscanner Flight Provider
+
+Local development uses cached/demo database fares by default:
+
+```text
+FLIGHT_PROVIDER=database
+SKYSCANNER_API_ENABLED=false
+SKYSCANNER_API_KEY=
+```
+
+Skyscanner Travel API access requires partner approval or a commercial agreement. Keep the API key only in the backend environment. To test real Skyscanner data, keep database fallback available and switch to hybrid mode:
+
+```text
+FLIGHT_PROVIDER=hybrid
+SKYSCANNER_API_ENABLED=true
+SKYSCANNER_API_KEY=<backend only>
+SKYSCANNER_BASE_URL=https://partners.api.skyscanner.net
+SKYSCANNER_MARKET=SI
+SKYSCANNER_LOCALE=en-GB
+SKYSCANNER_CURRENCY=EUR
+```
+
+Affiliate links can be enabled separately:
+
+```text
+SKYSCANNER_AFFILIATE_ENABLED=true
+SKYSCANNER_MEDIA_PARTNER_ID=<partner id>
+```
+
+Then run the sanitized smoke test:
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python -m app.providers.skyscanner.smoke_test --origin VIE --destination ALC --date 2026-08-15 --max-results 3
+```
+
+The smoke test reports API/link/mapping status and counts only. It does not print secrets or full Skyscanner responses.
+
+Provider diagnostics are available only when `ENABLE_DEV_TOOL_ENDPOINTS=true`:
+
+```text
+GET /providers/smoke-test?origin=VIE&destination=ALC&departureDate=2026-08-15&maxResults=3
+```
+
+Triplet does not sell or book flights. It sends users to Skyscanner or partner pages through provider deep links or affiliate links.
+
+## Production Readiness
+
+See [docs/deployment.md](docs/deployment.md) for the full checklist.
+
+Minimum production settings:
+
+```text
+APP_ENV=production
+DATABASE_URL=postgresql+psycopg://...
+FRONTEND_URL=https://your-frontend-domain
+API_PUBLIC_BASE_URL=https://your-api-domain
+APP_SECRET=<long random secret>
+AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAMESITE=none
+ENABLE_DEV_TOOL_ENDPOINTS=false
+```
+
+The API refuses to start in production if the development secret, insecure auth cookies, or non-HTTPS public URLs are configured.
+
+Manual QA before deploy:
+
+- `GET /health` returns `ok`.
+- `GET /ready` returns a ready or clearly degraded status without secrets.
+- Manual trip search works with database fallback.
+- AI search uses the rule-based fallback when `AI_ENABLED=false`.
+- Skyscanner smoke test succeeds when real API access is configured.
+- Browser responses include `X-Request-ID` and security headers.
+
 For local webhook testing, use the Stripe CLI conceptually to forward events to:
 
 ```text
@@ -289,6 +375,65 @@ Pro limits:
 - Daily and weekly alerts
 
 iOS note: this step implements web Stripe subscriptions only. A future iOS app may require StoreKit / Apple in-app purchases for digital premium features. Do not add Stripe Checkout inside the iOS app without reviewing App Store rules.
+
+## Step 10 Product Flow Polish
+
+Triplet now has a more complete early-product flow across search, onboarding, saved alerts, billing, and account settings.
+
+Pages:
+
+- `/` search homepage with AI/advanced search tabs, example prompts, onboarding, trip results, and save-alert flow.
+- `/dashboard` account dashboard with plan summary, usage, saved alerts, preview, edit, pause, resume, and delete actions.
+- `/pricing` Free/Pro pricing with monthly/yearly toggle, comparison, and FAQ.
+- `/billing/success` Stripe checkout success page.
+- `/billing/cancel` checkout canceled page.
+- `/account` profile, password, billing, and logout settings.
+
+Dashboard features:
+
+- Current plan and subscription status.
+- Saved alert usage and AI search usage.
+- Saved alert cards showing dates, airports, budget, frequency, last checked, last notified, and best price seen.
+- Edit saved alert name, airports, date range, budget, and frequency.
+- Pause, resume, delete, and preview saved alerts.
+
+Provider/demo messaging:
+
+- Database mode is presented as demo/cached fares.
+- Hybrid fallback warnings are shown when live provider data is unavailable.
+- Results remain usable in local development without live provider credentials.
+
+Manual QA checklist:
+
+Logged out:
+
+- Open `/`.
+- Try an example AI prompt.
+- Switch to Advanced search and run a structured search.
+- Save an email alert.
+- Open `/pricing`.
+- Sign up or log in.
+
+Logged in Free:
+
+- Save an alert from search results.
+- Open `/dashboard`.
+- Preview an alert.
+- Edit alert budget/name/date/frequency.
+- Pause, resume, and delete an alert.
+- Try exceeding the saved-alert limit.
+- Open `/pricing` and start checkout if billing is enabled.
+
+Logged in Pro:
+
+- Dashboard should show Pro plan and higher limits.
+- Billing card should show Manage billing when a Stripe customer exists.
+
+Provider:
+
+- `FLIGHT_PROVIDER=database` should show demo/cached fare messaging.
+- Hybrid fallback should show cached-fare warning.
+- No-results state should suggest widening budget, dates, or transfer limits.
 
 ### Database Troubleshooting
 
@@ -357,26 +502,28 @@ Trip search now reads flights through a provider abstraction:
 Available provider names:
 
 - `database`: default. Reads seeded or cached flights from PostgreSQL through `DatabaseFlightProvider`.
-- `amadeus`: uses Amadeus Flight Offers Search through `AmadeusFlightProvider`.
-- `hybrid`: reads cached/database fares and tries Amadeus for fresh fares, falling back to database if Amadeus is unavailable.
+- `skyscanner`: uses Skyscanner Travel API through `SkyscannerFlightProvider`.
+- `hybrid`: reads cached/database fares and tries Skyscanner for fresh fares, falling back to database if Skyscanner is unavailable.
 - `mock`: available for unit tests and local service-level experiments.
 
 The trip builder is provider-agnostic. External flight APIs can be added later by normalizing their results into the internal `Flight` model without changing scoring, explanations, or frontend response models.
 
-### Amadeus Provider
+### Skyscanner Provider
 
-Amadeus is optional and isolated. The app still works without Amadeus credentials when `FLIGHT_PROVIDER=database`.
+Skyscanner is optional and isolated. The app still works without Skyscanner API access when `FLIGHT_PROVIDER=database`.
 
 Environment variables:
 
 ```text
 FLIGHT_PROVIDER=database
-AMADEUS_CLIENT_ID=
-AMADEUS_CLIENT_SECRET=
-AMADEUS_BASE_URL=https://test.api.amadeus.com
-AMADEUS_TIMEOUT_SECONDS=20
-AMADEUS_MAX_REQUESTS_PER_SEARCH=40
-AMADEUS_CACHE_ENABLED=true
+SKYSCANNER_API_ENABLED=false
+SKYSCANNER_API_KEY=
+SKYSCANNER_BASE_URL=https://partners.api.skyscanner.net
+SKYSCANNER_TIMEOUT_SECONDS=20
+SKYSCANNER_MAX_REQUESTS_PER_SEARCH=30
+SKYSCANNER_CACHE_ENABLED=true
+SKYSCANNER_AFFILIATE_ENABLED=true
+SKYSCANNER_MEDIA_PARTNER_ID=
 ```
 
 Provider modes:
@@ -385,10 +532,10 @@ Provider modes:
 # Seeded/cached database fares only
 FLIGHT_PROVIDER=database uvicorn app.main:app --reload --port 8001
 
-# Live Amadeus fares only. Requires credentials.
-FLIGHT_PROVIDER=amadeus uvicorn app.main:app --reload --port 8001
+# Live Skyscanner fares only. Requires backend API access.
+FLIGHT_PROVIDER=skyscanner SKYSCANNER_API_ENABLED=true uvicorn app.main:app --reload --port 8001
 
-# Database fares plus live Amadeus when available. Falls back to database.
+# Database fares plus live Skyscanner when available. Falls back to database.
 FLIGHT_PROVIDER=hybrid uvicorn app.main:app --reload --port 8001
 ```
 
@@ -396,17 +543,18 @@ Diagnostics, when development tool endpoints are enabled:
 
 ```bash
 curl http://localhost:8001/providers/status
-curl http://localhost:8001/providers/smoke-test
+curl "http://localhost:8001/providers/smoke-test?origin=VIE&destination=ALC&departureDate=2026-08-15&maxResults=3"
 ```
 
-The Amadeus provider:
+The Skyscanner provider:
 
-- Authenticates with OAuth client credentials.
+- Authenticates with `x-api-key` from the backend only.
 - Searches controlled one-way origin/destination/date combinations.
-- Limits request count via `AMADEUS_MAX_REQUESTS_PER_SEARCH`.
-- Normalizes direct offers into the internal `Flight` model.
-- Caches normalized Amadeus flights into the existing `flights` table.
-- Does not expose secrets or access tokens.
+- Limits request count via `SKYSCANNER_MAX_REQUESTS_PER_SEARCH`.
+- Normalizes direct offers and simple single-itinerary connections into the internal `Flight` model.
+- Caches normalized Skyscanner flights into the existing `flights` table.
+- Prefers Skyscanner deep links and can generate affiliate fallback links.
+- Does not expose secrets or raw provider payloads.
 
 Provider metadata is included in trip search responses:
 
@@ -417,10 +565,14 @@ Provider metadata is included in trip search responses:
     "liveProviderAttempted": true,
     "liveProviderSucceeded": false,
     "cachedResultsUsed": true,
-    "amadeusRequestsAttempted": 12,
-    "amadeusRequestsLimit": 40,
+    "providerName": "skyscanner",
+    "requestsAttempted": 12,
+    "requestsLimit": 30,
     "rawOffersCount": 3,
     "mappedFlightsCount": 2,
+    "skippedOffersCount": 1,
+    "affiliateLinksGenerated": 0,
+    "deepLinksReturned": 2,
     "providerWarnings": []
   }
 }
@@ -438,44 +590,44 @@ Check:
 
 ```bash
 curl http://localhost:8001/providers/status
-curl http://localhost:8001/providers/smoke-test
+curl "http://localhost:8001/providers/smoke-test?origin=VIE&destination=ALC&departureDate=2026-08-15&maxResults=3"
 ```
 
 Expected: database available and cached flights present.
 
-Hybrid mode without credentials:
+Hybrid mode without Skyscanner API access:
 
 ```bash
-FLIGHT_PROVIDER=hybrid AMADEUS_CLIENT_ID= AMADEUS_CLIENT_SECRET= uvicorn app.main:app --reload --port 8001
+FLIGHT_PROVIDER=hybrid SKYSCANNER_API_ENABLED=false SKYSCANNER_API_KEY= uvicorn app.main:app --reload --port 8001
 ```
 
 Expected: app still works, live provider warning is returned, database fallback is used.
 
-Amadeus mode without credentials:
+Skyscanner mode without API key:
 
 ```bash
-FLIGHT_PROVIDER=amadeus AMADEUS_CLIENT_ID= AMADEUS_CLIENT_SECRET= uvicorn app.main:app --reload --port 8001
+FLIGHT_PROVIDER=skyscanner SKYSCANNER_API_ENABLED=true SKYSCANNER_API_KEY= uvicorn app.main:app --reload --port 8001
 ```
 
 Expected: clean error, no crash, no secrets exposed.
 
-Amadeus mode with credentials:
+Skyscanner mode with API access:
 
 ```bash
-FLIGHT_PROVIDER=amadeus \
-AMADEUS_CLIENT_ID=your_id \
-AMADEUS_CLIENT_SECRET=your_secret \
+FLIGHT_PROVIDER=skyscanner \
+SKYSCANNER_API_ENABLED=true \
+SKYSCANNER_API_KEY=your_backend_key \
 uvicorn app.main:app --reload --port 8001
 ```
 
-Expected: smoke-test shows `authOk=true`; `apiOk` is true or a controlled API error is returned; `mappedFlightsCount` is visible; no tokens or secrets are exposed.
+Expected: smoke-test shows `apiOk=true` or a controlled API warning; `mappedFlightsCount` is visible; no keys or raw provider payloads are exposed.
 
 Hybrid mode with credentials:
 
 ```bash
 FLIGHT_PROVIDER=hybrid \
-AMADEUS_CLIENT_ID=your_id \
-AMADEUS_CLIENT_SECRET=your_secret \
+SKYSCANNER_API_ENABLED=true \
+SKYSCANNER_API_KEY=your_backend_key \
 uvicorn app.main:app --reload --port 8001
 ```
 
@@ -569,7 +721,7 @@ AI enabled mode:
 - Allows the model to call only selected internal tools.
 - Enforces `AI_MAX_TOOL_CALLS`.
 - Sends compact trip summaries only, capped by `AI_MAX_TRIPS_SENT_TO_MODEL`.
-- Does not send raw Amadeus responses or full provider payloads to the model.
+- Does not send raw Skyscanner responses or full provider payloads to the model.
 - Keeps trip results sourced from deterministic `search_trips`, not model-generated text.
 
 Local without AI:
@@ -759,14 +911,13 @@ Each trip totals flight prices plus any ground-transfer cost, filters by budget,
 - `directOnly` is accepted in the request model, but every mock flight is currently treated as direct.
 - Ground transfers are static city/airport pairs, not live train or bus schedules.
 - Repository tests use SQLite in memory; local development uses PostgreSQL.
-- Amadeus tests use mocked HTTP responses; no real external API calls run in tests.
-- Amadeus mapping currently supports direct one-way offers and skips complex multi-segment/multi-itinerary offers.
+- Skyscanner tests use mocked HTTP responses; no real external API calls run in tests.
+- Skyscanner mapping supports direct one-way offers and simple single-itinerary connections; complex multi-itinerary offers may be skipped.
 - AI is optional. OpenAI is called only when `AI_ENABLED=true`; otherwise rule-based fallback is used.
-- Alerts have no accounts yet; management uses secure token links.
 - Alert emails are console/log output by default.
 - MCP is documentation and a stub only; no production MCP server is exposed.
-- No booking, user accounts, payments, scraping, or production email provider integration is included yet.
+- No booking, scraping, or production email provider integration is included yet.
 
 ## Next Step
 
-Implement a real flight provider behind the existing provider interface, then cache normalized results in PostgreSQL.
+Expand Skyscanner indicative-price discovery and add live train or bus transfers.

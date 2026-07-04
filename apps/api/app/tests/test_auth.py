@@ -166,6 +166,31 @@ def test_account_saved_searches_are_owned_by_current_user(db_session):
     assert row.is_active is False
 
 
+def test_account_dashboard_usage_and_saved_search_edit_flow(db_session):
+    client = make_client(db_session)
+    client.post("/auth/signup", json=signup_payload())
+    created = client.post("/me/saved-searches", json=saved_search_payload())
+    saved_id = created.json()["id"]
+
+    usage = client.get("/me/usage")
+    dashboard = client.get("/me/dashboard")
+    patched = client.patch(f"/me/saved-searches/{saved_id}", json={"name": "Updated alert", "maxBudget": 260})
+    paused = client.post(f"/me/saved-searches/{saved_id}/pause")
+    resumed = client.post(f"/me/saved-searches/{saved_id}/resume")
+    app.dependency_overrides.clear()
+
+    assert usage.status_code == 200
+    assert dashboard.status_code == 200
+    assert dashboard.json()["savedSearchSummary"]["total"] == 1
+    assert patched.status_code == 200
+    assert patched.json()["name"] == "Updated alert"
+    assert patched.json()["maxBudget"] == 260
+    assert paused.status_code == 200
+    assert paused.json()["isActive"] is False
+    assert resumed.status_code == 200
+    assert resumed.json()["isActive"] is True
+
+
 def test_account_saved_searches_require_login(db_session):
     client = make_client(db_session)
 

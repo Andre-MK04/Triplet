@@ -33,17 +33,30 @@ class TripOption(BaseModel):
     explanation: str
     warnings: list[str]
     tags: list[str]
+    bookingUrl: str | None = None
+    bookingLabel: str | None = None
+    affiliateUrl: str | None = None
+    providerDeepLink: str | None = None
+    outboundBookingUrl: str | None = None
+    returnBookingUrl: str | None = None
+    provider: str | None = None
+    linkType: Literal["provider_deeplink", "affiliate_referral", "none"] = "none"
 
 
 class ProviderMetadata(BaseModel):
     providerUsed: str | None = None
+    providerName: str | None = None
     liveProviderAttempted: bool = False
     liveProviderSucceeded: bool = False
     cachedResultsUsed: bool = False
-    amadeusRequestsAttempted: int | None = None
-    amadeusRequestsLimit: int | None = None
+    cachedResultsStale: bool = False
+    requestsAttempted: int | None = None
+    requestsLimit: int | None = None
     rawOffersCount: int | None = None
     mappedFlightsCount: int | None = None
+    skippedOffersCount: int | None = None
+    affiliateLinksGenerated: int | None = None
+    deepLinksReturned: int | None = None
     providerWarnings: list[str] = []
 
 

@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Flight, ProviderMetadata, TripSearchRequest
-from app.providers.amadeus import AmadeusApiError, AmadeusAuthError, AmadeusConfigError
-from app.providers import AmadeusFlightProvider, DatabaseFlightProvider, FlightProvider, MockFlightProvider
+from app.providers import DatabaseFlightProvider, FlightProvider, MockFlightProvider, SkyscannerFlightProvider
+from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
 
 
 class UnknownFlightProviderError(ValueError):
@@ -57,16 +57,21 @@ class FlightSearchService:
         flights_by_id = {flight.id: flight for flight in outbound_flights + return_flights}
         flights = list(flights_by_id.values())
         metadata = ProviderMetadata(providerUsed=self.provider_name)
-        if self.provider_name == "amadeus":
+        if self.provider_name == "skyscanner":
             metadata.liveProviderAttempted = True
             metadata.liveProviderSucceeded = bool(flights)
-            metadata.amadeusRequestsAttempted = getattr(self.provider, "requests_attempted", None)
-            metadata.amadeusRequestsLimit = getattr(self.provider, "max_requests", None)
+            metadata.providerName = "skyscanner"
+            metadata.requestsAttempted = getattr(self.provider, "requests_attempted", None)
+            metadata.requestsLimit = getattr(self.provider, "max_requests", None)
             metadata.rawOffersCount = getattr(self.provider, "raw_offers_count", None)
             metadata.mappedFlightsCount = getattr(self.provider, "mapped_flights_count", None)
+            metadata.skippedOffersCount = getattr(self.provider, "skipped_offers_count", None)
+            metadata.deepLinksReturned = getattr(self.provider, "deep_links_returned", None)
+            metadata.affiliateLinksGenerated = getattr(self.provider, "affiliate_links_generated", None)
             metadata.providerWarnings = list(dict.fromkeys(getattr(self.provider, "warnings", [])))
         else:
             metadata.cachedResultsUsed = self.provider_name == "database"
+            metadata.providerName = self.provider_name
 
         logging.getLogger(__name__).info(
             "flight_search provider=%s flights=%s live_attempted=%s cached=%s",
@@ -96,8 +101,8 @@ class FlightSearchService:
             return DatabaseFlightProvider(db)
         if self.provider_name == "mock":
             return MockFlightProvider([])
-        if self.provider_name == "amadeus":
-            return AmadeusFlightProvider(db=db)
+        if self.provider_name == "skyscanner":
+            return SkyscannerFlightProvider(db=db)
         if self.provider_name == "hybrid":
             if db is None:
                 raise UnknownFlightProviderError("Hybrid flight provider requires a database session.")
@@ -113,45 +118,56 @@ class FlightSearchService:
         database_provider = DatabaseFlightProvider(self.db)
         cached_flights = self._search_with_provider(database_provider, request)
         try:
-            amadeus_provider = AmadeusFlightProvider(db=self.db)
-            amadeus_flights = self._search_with_provider(amadeus_provider, request)
-            merged = deduplicate_flights(cached_flights + amadeus_flights)
+            skyscanner_provider = SkyscannerFlightProvider(db=self.db)
+            skyscanner_flights = self._search_with_provider(skyscanner_provider, request)
+            merged = deduplicate_flights(cached_flights + skyscanner_flights)
             metadata = ProviderMetadata(
                 providerUsed="hybrid",
+                providerName="skyscanner",
                 liveProviderAttempted=True,
-                liveProviderSucceeded=bool(amadeus_flights),
+                liveProviderSucceeded=bool(skyscanner_flights),
                 cachedResultsUsed=bool(cached_flights),
-                amadeusRequestsAttempted=getattr(amadeus_provider, "requests_attempted", None)
-                if "amadeus_provider" in locals()
+                requestsAttempted=getattr(skyscanner_provider, "requests_attempted", None)
+                if "skyscanner_provider" in locals()
                 else None,
-                amadeusRequestsLimit=getattr(amadeus_provider, "max_requests", None)
-                if "amadeus_provider" in locals()
+                requestsLimit=getattr(skyscanner_provider, "max_requests", None)
+                if "skyscanner_provider" in locals()
                 else None,
-                rawOffersCount=getattr(amadeus_provider, "raw_offers_count", None)
-                if "amadeus_provider" in locals()
+                rawOffersCount=getattr(skyscanner_provider, "raw_offers_count", None)
+                if "skyscanner_provider" in locals()
                 else None,
-                mappedFlightsCount=getattr(amadeus_provider, "mapped_flights_count", None)
-                if "amadeus_provider" in locals()
+                mappedFlightsCount=getattr(skyscanner_provider, "mapped_flights_count", None)
+                if "skyscanner_provider" in locals()
                 else None,
-                providerWarnings=list(dict.fromkeys(getattr(amadeus_provider, "warnings", [])))
-                if "amadeus_provider" in locals()
+                skippedOffersCount=getattr(skyscanner_provider, "skipped_offers_count", None)
+                if "skyscanner_provider" in locals()
+                else None,
+                deepLinksReturned=getattr(skyscanner_provider, "deep_links_returned", None)
+                if "skyscanner_provider" in locals()
+                else None,
+                affiliateLinksGenerated=getattr(skyscanner_provider, "affiliate_links_generated", None)
+                if "skyscanner_provider" in locals()
+                else None,
+                providerWarnings=list(dict.fromkeys(getattr(skyscanner_provider, "warnings", [])))
+                if "skyscanner_provider" in locals()
                 else [],
             )
             return FlightSearchResult(
                 flights=merged,
                 metadata=metadata,
             )
-        except (AmadeusConfigError, AmadeusAuthError, AmadeusApiError) as exc:
+        except (SkyscannerConfigError, SkyscannerAuthError, SkyscannerApiError) as exc:
             logging.getLogger(__name__).warning("hybrid_fallback reason=%s cached_flights=%s", type(exc).__name__, len(cached_flights))
             return FlightSearchResult(
                 flights=cached_flights,
                 metadata=ProviderMetadata(
                     providerUsed="database",
+                    providerName="skyscanner",
                     liveProviderAttempted=True,
                     liveProviderSucceeded=False,
                     cachedResultsUsed=True,
-                    amadeusRequestsLimit=settings.amadeus_max_requests_per_search,
-                    providerWarnings=[f"Using cached/database fares because Amadeus failed: {exc}"],
+                    requestsLimit=settings.skyscanner_max_requests_per_search,
+                    providerWarnings=[f"Using cached/database fares because Skyscanner was unavailable: {exc}"],
                 ),
             )
 
@@ -184,7 +200,7 @@ def deduplicate_flights(flights: list[Flight]) -> list[Flight]:
         existing = by_key.get(key)
         if not existing:
             by_key[key] = flight
-        elif flight.provider == "amadeus" and existing.provider != "amadeus":
+        elif flight.provider == "skyscanner" and existing.provider != "skyscanner":
             by_key[key] = flight
         elif flight.price < existing.price:
             by_key[key] = flight

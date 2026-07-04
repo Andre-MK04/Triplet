@@ -1,13 +1,23 @@
-from fastapi import APIRouter, HTTPException
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import SessionLocal
 from app.db.repositories.flights_repository import FlightsRepository
-from app.providers.amadeus import AmadeusApiError, AmadeusAuthError, AmadeusConfigError
-from app.providers.amadeus.client import AmadeusHttpClient, AmadeusNoResultsError
-from app.providers.amadeus.mapper import map_amadeus_offers
+from app.providers.skyscanner.affiliate_links import SkyscannerAffiliateLinkBuilder
+from app.providers.skyscanner.client import (
+    SkyscannerApiError,
+    SkyscannerAuthError,
+    SkyscannerConfigError,
+    SkyscannerHttpClient,
+    SkyscannerNoResultsError,
+)
+from app.providers.skyscanner.flight_provider import build_one_way_live_search_payload
+from app.providers.skyscanner.mapper import map_live_response_to_flights
+from app.rate_limit import rate_limit
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
@@ -17,64 +27,59 @@ def provider_status() -> dict:
     if not settings.enable_dev_tool_endpoints:
         raise HTTPException(status_code=404, detail="Provider diagnostics are disabled.")
 
-    database_available = True
-    try:
-        with SessionLocal() as db:
-            db.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        database_available = False
-
-    warnings = []
-    amadeus_configured = bool(settings.amadeus_client_id and settings.amadeus_client_secret)
-    if not amadeus_configured:
-        warnings.append("Amadeus credentials are missing.")
-
-    return {
-        "configuredProvider": settings.flight_provider,
-        "databaseProviderAvailable": database_available,
-        "amadeusConfigured": amadeus_configured,
-        "amadeusBaseUrl": settings.amadeus_base_url,
-        "cacheEnabled": settings.amadeus_cache_enabled,
-        "warnings": warnings,
-    }
-
-
-@router.get("/smoke-test")
-def provider_smoke_test() -> dict:
-    if not settings.enable_dev_tool_endpoints:
-        raise HTTPException(status_code=404, detail="Provider diagnostics are disabled.")
-
     database = check_database()
-    amadeus = {
-        "configured": bool(settings.amadeus_client_id and settings.amadeus_client_secret),
-        "authOk": False,
-        "apiOk": False,
-        "rawOffersCount": 0,
-        "mappedFlightsCount": 0,
-        "warnings": [],
-    }
     warnings = []
-
-    if settings.flight_provider == "database":
-        overall = "ok" if database["available"] and database["cachedFlightsCount"] > 0 else "warning"
-    elif settings.flight_provider == "hybrid" and not amadeus["configured"]:
-        warnings.append("Hybrid provider is using database fallback because Amadeus credentials are missing.")
-        overall = "ok" if database["available"] and database["cachedFlightsCount"] > 0 else "warning"
-    elif settings.flight_provider in {"amadeus", "hybrid"}:
-        amadeus = run_amadeus_smoke_test()
-        overall = "ok" if amadeus["apiOk"] else "warning"
-        if settings.flight_provider == "hybrid" and database["available"]:
-            overall = "ok"
-    else:
-        warnings.append(f"Unknown provider '{settings.flight_provider}'.")
-        overall = "warning"
+    if settings.flight_provider in {"skyscanner", "hybrid"} and not settings.skyscanner_api_key:
+        warnings.append("Skyscanner API key is missing.")
+    if settings.skyscanner_affiliate_enabled and not settings.skyscanner_media_partner_id:
+        warnings.append("Skyscanner affiliate media partner ID is missing.")
 
     return {
         "configuredProvider": settings.flight_provider,
         "database": database,
-        "amadeus": amadeus,
-        "overallStatus": overall,
+        "skyscanner": skyscanner_config_status(),
         "warnings": warnings,
+    }
+
+
+def provider_diagnostics_rate_limit(request: Request) -> None:
+    rate_limit(
+        "provider_smoke_test",
+        settings.provider_smoke_test_rate_limit_max_attempts,
+        settings.api_rate_limit_window_seconds,
+    )(request)
+
+
+@router.get("/smoke-test")
+def provider_smoke_test(
+    _: None = Depends(provider_diagnostics_rate_limit),
+    origin: str = Query("VIE", min_length=3, max_length=3),
+    destination: str = Query("ALC", min_length=3, max_length=3),
+    departureDate: date = Query(date(2026, 8, 15)),
+    maxResults: int = Query(3, ge=1, le=10),
+) -> dict:
+    if not settings.enable_dev_tool_endpoints:
+        raise HTTPException(status_code=404, detail="Provider diagnostics are disabled.")
+
+    database = check_database()
+    query = {
+        "origin": origin.upper(),
+        "destination": destination.upper(),
+        "departureDate": departureDate.isoformat(),
+        "maxResults": maxResults,
+    }
+    skyscanner = run_skyscanner_smoke_test(query["origin"], query["destination"], departureDate, maxResults)
+    overall = "ok" if database["available"] and (skyscanner["apiOk"] or skyscanner["affiliateLinkGenerated"]) else "warning"
+    if settings.flight_provider == "database" and database["available"]:
+        overall = "ok"
+
+    return {
+        "configuredProvider": settings.flight_provider,
+        "query": query,
+        "database": database,
+        "skyscanner": skyscanner,
+        "overallStatus": overall,
+        "warnings": skyscanner["warnings"],
     }
 
 
@@ -88,48 +93,83 @@ def check_database() -> dict:
         return {"available": False, "cachedFlightsCount": 0}
 
 
-def run_amadeus_smoke_test() -> dict:
+def skyscanner_config_status() -> dict:
+    return {
+        "configured": bool(settings.skyscanner_api_key or settings.skyscanner_media_partner_id),
+        "apiEnabled": settings.skyscanner_api_enabled,
+        "apiKeyConfigured": bool(settings.skyscanner_api_key),
+        "affiliateEnabled": settings.skyscanner_affiliate_enabled,
+        "mediaPartnerIdConfigured": bool(settings.skyscanner_media_partner_id),
+        "baseUrl": settings.skyscanner_base_url,
+        "market": settings.skyscanner_market,
+        "locale": settings.skyscanner_locale,
+        "currency": settings.skyscanner_currency,
+        "cacheEnabled": settings.skyscanner_cache_enabled,
+    }
+
+
+def run_skyscanner_smoke_test(origin: str, destination: str, departure_date: date, max_results: int = 3) -> dict:
     result = {
-        "configured": bool(settings.amadeus_client_id and settings.amadeus_client_secret),
-        "authOk": False,
+        **skyscanner_config_status(),
         "apiOk": False,
+        "createOk": False,
+        "pollOk": False,
+        "origin": origin.upper(),
+        "destination": destination.upper(),
+        "departureDate": departure_date.isoformat(),
         "rawOffersCount": 0,
         "mappedFlightsCount": 0,
+        "skippedOffersCount": 0,
+        "deepLinksReturned": 0,
+        "affiliateLinkGenerated": False,
+        "firstMappedFlight": None,
         "warnings": [],
     }
-    if not result["configured"]:
-        result["warnings"].append("Amadeus credentials are missing.")
+
+    builder = SkyscannerAffiliateLinkBuilder()
+    affiliate_link = builder.build_day_view_link(origin, destination, departure_date, utm_term=f"{origin}-{destination}")
+    if affiliate_link:
+        result["affiliateLinkGenerated"] = True
+        result["affiliateUrl"] = affiliate_link
+
+    if not settings.skyscanner_api_enabled:
+        result["warnings"].append("Skyscanner API is disabled.")
+        if not result["affiliateLinkGenerated"]:
+            result["warnings"].append("Skyscanner affiliate link is not configured.")
+        return result
+    if not settings.skyscanner_api_key:
+        result["warnings"].append("Skyscanner API key is missing.")
         return result
 
     try:
-        payload = AmadeusHttpClient().get(
-            "/v2/shopping/flight-offers",
-            {
-                "originLocationCode": "VIE",
-                "destinationLocationCode": "ALC",
-                "departureDate": "2026-07-12",
-                "adults": 1,
-                "currencyCode": "EUR",
-                "max": 3,
-                "nonStop": "true",
-            },
-        )
-        result["authOk"] = True
+        payload = build_one_way_live_search_payload(origin, destination, departure_date)
+        client = SkyscannerHttpClient()
+        response = client.run_live_price_search(payload)
+        result["createOk"] = True
+        result["pollOk"] = True
         result["apiOk"] = True
-        mapped = map_amadeus_offers(payload)
+        mapped = map_live_response_to_flights(response)
         result["rawOffersCount"] = mapped.raw_offers_count
         result["mappedFlightsCount"] = mapped.mapped_flights_count
+        result["skippedOffersCount"] = mapped.skipped_offers_count
+        result["deepLinksReturned"] = mapped.deep_links_returned
         result["warnings"].extend(mapped.warnings)
-    except AmadeusNoResultsError:
-        result["authOk"] = True
+        if mapped.flights:
+            first = mapped.flights[0]
+            result["firstMappedFlight"] = {
+                "origin": first.origin,
+                "destination": first.destination,
+                "departureDateTime": first.departureDateTime.isoformat(),
+                "price": first.price,
+                "currency": first.currency,
+                "deepLinkPresent": bool(first.deepLink),
+            }
+    except SkyscannerNoResultsError:
+        result["createOk"] = True
+        result["pollOk"] = True
         result["apiOk"] = True
-        result["warnings"].append("Amadeus returned no offers for the smoke-test route.")
-    except AmadeusConfigError as exc:
-        result["warnings"].append(str(exc))
-    except AmadeusAuthError as exc:
-        result["warnings"].append(str(exc))
-    except AmadeusApiError as exc:
-        result["authOk"] = True
+        result["warnings"].append("Skyscanner returned no flight offers for the smoke-test route.")
+    except (SkyscannerConfigError, SkyscannerAuthError, SkyscannerApiError) as exc:
         result["warnings"].append(str(exc))
 
     return result

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.providers.amadeus import AmadeusApiError, AmadeusAuthError, AmadeusConfigError
+from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
 from app.tools.base import ToolContext
 from app.tools.registry import (
@@ -55,7 +55,7 @@ def run_tool(request: RunToolRequest, db: Session = Depends(get_db)) -> Any:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except UnknownFlightProviderError as exc:
         raise HTTPException(status_code=500, detail="Flight provider is not configured correctly.") from exc
-    except AmadeusConfigError as exc:
+    except SkyscannerConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except (AmadeusAuthError, AmadeusApiError) as exc:
+    except (SkyscannerAuthError, SkyscannerApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

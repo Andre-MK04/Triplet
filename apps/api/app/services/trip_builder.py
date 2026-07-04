@@ -84,6 +84,14 @@ def build_trips(
                 explanation="",
                 warnings=warnings,
                 tags=[],
+                bookingUrl=pick_trip_booking_url(outbound, return_flight),
+                bookingLabel=pick_trip_booking_label(outbound, return_flight),
+                affiliateUrl=pick_trip_affiliate_url(outbound, return_flight),
+                providerDeepLink=pick_trip_deep_link(outbound, return_flight),
+                outboundBookingUrl=outbound.bookingUrl or outbound.deepLink,
+                returnBookingUrl=return_flight.bookingUrl or return_flight.deepLink,
+                provider=pick_trip_provider(outbound, return_flight),
+                linkType=pick_trip_link_type(outbound, return_flight),
             )
             trip.score = calculate_trip_score(trip, request)
             trip.explanation = build_explanation(trip, request, airports_by_code)
@@ -162,3 +170,51 @@ def mark_relative_tags(trips: list[TripOption]) -> None:
         cheapest.tags.insert(0, "Cheapest")
     if "Best score" not in best_score.tags:
         best_score.tags.insert(0, "Best score")
+
+
+def pick_trip_provider(outbound: Flight, return_flight: Flight) -> str | None:
+    if outbound.provider == return_flight.provider:
+        return outbound.provider
+    if "skyscanner" in {outbound.provider, return_flight.provider}:
+        return "skyscanner"
+    return outbound.provider or return_flight.provider
+
+
+def pick_trip_deep_link(outbound: Flight, return_flight: Flight) -> str | None:
+    if outbound.deepLink:
+        return outbound.deepLink
+    if return_flight.deepLink:
+        return return_flight.deepLink
+    if outbound.provider == "skyscanner" and outbound.bookingUrl:
+        return outbound.bookingUrl
+    if return_flight.provider == "skyscanner" and return_flight.bookingUrl:
+        return return_flight.bookingUrl
+    return None
+
+
+def pick_trip_affiliate_url(outbound: Flight, return_flight: Flight) -> str | None:
+    for flight in (outbound, return_flight):
+        if flight.provider == "skyscanner" and flight.bookingUrl and not flight.deepLink:
+            return flight.bookingUrl
+    return None
+
+
+def pick_trip_booking_url(outbound: Flight, return_flight: Flight) -> str | None:
+    return pick_trip_deep_link(outbound, return_flight) or pick_trip_affiliate_url(outbound, return_flight)
+
+
+def pick_trip_link_type(outbound: Flight, return_flight: Flight) -> str:
+    if pick_trip_deep_link(outbound, return_flight):
+        return "provider_deeplink"
+    if pick_trip_affiliate_url(outbound, return_flight):
+        return "affiliate_referral"
+    return "none"
+
+
+def pick_trip_booking_label(outbound: Flight, return_flight: Flight) -> str | None:
+    link_type = pick_trip_link_type(outbound, return_flight)
+    if link_type == "provider_deeplink":
+        return "View on Skyscanner"
+    if link_type == "affiliate_referral":
+        return "Check price"
+    return None

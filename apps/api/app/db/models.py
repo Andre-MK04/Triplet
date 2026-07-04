@@ -47,6 +47,14 @@ class FlightDB(Base):
     baggage_included: Mapped[bool] = mapped_column(Boolean, default=False)
     provider: Mapped[str] = mapped_column(String(80), default="mock")
     observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    provider_offer_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    deep_link: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    agent_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    stops: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_live: Mapped[bool] = mapped_column(Boolean, default=False)
+    raw_provider_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
 
 class GroundTransferDB(Base):

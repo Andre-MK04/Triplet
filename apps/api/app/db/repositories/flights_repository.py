@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -93,6 +93,13 @@ class FlightsRepository:
         row.baggage_included = flight.baggageIncluded
         row.provider = flight.provider
         row.observed_at = datetime.utcnow()
+        row.provider_offer_id = flight.providerOfferId
+        row.deep_link = flight.deepLink
+        row.agent_name = flight.agentName
+        row.stops = flight.stops
+        row.duration_minutes = flight.durationMinutes
+        row.is_live = flight.isLive
+        row.expires_at = datetime.utcnow() + timedelta(hours=6) if flight.isLive else None
 
     def upsert_flights(self, flights: list[Flight]) -> None:
         for flight in flights:
@@ -113,4 +120,10 @@ class FlightsRepository:
             bookingUrl=row.booking_url,
             baggageIncluded=row.baggage_included,
             provider=row.provider,
+            providerOfferId=row.provider_offer_id,
+            deepLink=row.deep_link,
+            agentName=row.agent_name,
+            stops=row.stops,
+            durationMinutes=row.duration_minutes,
+            isLive=row.is_live,
         )

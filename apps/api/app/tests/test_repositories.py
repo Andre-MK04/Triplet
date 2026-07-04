@@ -50,16 +50,16 @@ def test_transfer_repository_can_find_area_match(db_session):
 
 def test_upsert_flights_stores_new_flights(db_session):
     repository = FlightsRepository(db_session)
-    flight = repository.list_all_mock_flights()[0].model_copy(update={"id": "cache-test-1", "provider": "amadeus"})
+    flight = repository.list_all_mock_flights()[0].model_copy(update={"id": "cache-test-1", "provider": "skyscanner"})
 
     repository.upsert_flights([flight])
 
-    assert db_session.get(FlightDB, "cache-test-1").provider == "amadeus"
+    assert db_session.get(FlightDB, "cache-test-1").provider == "skyscanner"
 
 
 def test_upsert_flights_updates_existing_flights_without_duplication(db_session):
     repository = FlightsRepository(db_session)
-    flight = repository.list_all_mock_flights()[0].model_copy(update={"id": "cache-test-2", "price": 100, "provider": "amadeus"})
+    flight = repository.list_all_mock_flights()[0].model_copy(update={"id": "cache-test-2", "price": 100, "provider": "skyscanner"})
     repository.upsert_flights([flight])
     repository.upsert_flights([flight.model_copy(update={"price": 80})])
 

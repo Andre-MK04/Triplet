@@ -6,6 +6,7 @@ from app.ai.orchestrator import sanitize_ai_message
 from app.config import settings
 from app.database import get_db
 from app.main import app
+from app.rate_limit import clear_rate_limits
 
 
 def override_db(db_session):
@@ -283,8 +284,12 @@ def test_provider_smoke_test_disabled_when_dev_endpoints_disabled(monkeypatch):
 
 def test_provider_smoke_test_database_mode(db_session, monkeypatch):
     app.dependency_overrides.clear()
+    clear_rate_limits()
     monkeypatch.setattr(settings, "enable_dev_tool_endpoints", True)
     monkeypatch.setattr(settings, "flight_provider", "database")
+    monkeypatch.setattr(settings, "skyscanner_api_enabled", False)
+    monkeypatch.setattr(settings, "skyscanner_api_key", "secret-api-key")
+    monkeypatch.setattr(settings, "skyscanner_media_partner_id", "partner-id")
 
     # Smoke-test uses the app SessionLocal, so assert response shape rather than
     # coupling this test to external PostgreSQL availability.
@@ -294,17 +299,20 @@ def test_provider_smoke_test_database_mode(db_session, monkeypatch):
     assert response.status_code == 200
     assert response.json()["configuredProvider"] == "database"
     assert "database" in response.json()
+    assert "secret-api-key" not in response.text
 
 
-def test_provider_smoke_test_hybrid_warns_without_credentials(monkeypatch):
+def test_provider_smoke_test_hybrid_warns_without_skyscanner_config(monkeypatch):
+    clear_rate_limits()
     client = TestClient(app)
     monkeypatch.setattr(settings, "enable_dev_tool_endpoints", True)
     monkeypatch.setattr(settings, "flight_provider", "hybrid")
-    monkeypatch.setattr(settings, "amadeus_client_id", None)
-    monkeypatch.setattr(settings, "amadeus_client_secret", None)
+    monkeypatch.setattr(settings, "skyscanner_api_enabled", False)
+    monkeypatch.setattr(settings, "skyscanner_api_key", None)
+    monkeypatch.setattr(settings, "skyscanner_media_partner_id", None)
 
     response = client.get("/providers/smoke-test")
 
     assert response.status_code == 200
-    assert response.json()["amadeus"]["configured"] is False
-    assert "credentials" in " ".join(response.json()["warnings"]).lower()
+    assert response.json()["skyscanner"]["apiKeyConfigured"] is False
+    assert "skyscanner" in " ".join(response.json()["warnings"]).lower()

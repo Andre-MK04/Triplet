@@ -11,6 +11,13 @@ type Flight = {
   airline: string;
   price: number;
   currency: string;
+  bookingUrl?: string | null;
+  deepLink?: string | null;
+  provider?: string;
+  agentName?: string | null;
+  stops?: number | null;
+  durationMinutes?: number | null;
+  isLive?: boolean;
 };
 
 type GroundTransfer = {
@@ -36,6 +43,14 @@ type TripOption = {
   explanation: string;
   warnings: string[];
   tags: string[];
+  bookingUrl?: string | null;
+  bookingLabel?: string | null;
+  affiliateUrl?: string | null;
+  providerDeepLink?: string | null;
+  outboundBookingUrl?: string | null;
+  returnBookingUrl?: string | null;
+  provider?: string | null;
+  linkType?: "provider_deeplink" | "affiliate_referral" | "none";
 };
 
 type TripSearchPayload = {
@@ -59,10 +74,15 @@ type TripSearchResponse = {
     liveProviderAttempted?: boolean;
     liveProviderSucceeded?: boolean;
     cachedResultsUsed?: boolean;
-    amadeusRequestsAttempted?: number | null;
-    amadeusRequestsLimit?: number | null;
+    cachedResultsStale?: boolean;
+    providerName?: string | null;
+    requestsAttempted?: number | null;
+    requestsLimit?: number | null;
     rawOffersCount?: number | null;
     mappedFlightsCount?: number | null;
+    skippedOffersCount?: number | null;
+    affiliateLinksGenerated?: number | null;
+    deepLinksReturned?: number | null;
     providerWarnings?: string[];
   } | null;
 };
@@ -144,9 +164,15 @@ const airportNames: Record<string, string> = {
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
+const examplePrompts = [
+  "Find me a 5-7 day trip in August from Vienna or Zagreb under €180.",
+  "Show me warm two-city trips from airports near Slovenia.",
+  "Find cheap weekend trips from Venice, Trieste, or Ljubljana.",
+];
 
 export default function Home() {
   const [form, setForm] = useState(defaultForm);
+  const [searchMode, setSearchMode] = useState<"ai" | "advanced">("ai");
   const [aiMessage, setAiMessage] = useState(
     "Find me a cheap 5 to 7 day trip in August from Vienna or Zagreb under €180. I like two-city trips.",
   );
@@ -356,6 +382,20 @@ export default function Home() {
     setAuthUser(null);
   }
 
+  function editParsedSearch(parsed: TripSearchPayload) {
+    setForm({
+      originAirports: parsed.originAirports.join(", "),
+      startDate: parsed.startDate,
+      endDate: parsed.endDate,
+      minTripLengthDays: parsed.minTripLengthDays,
+      maxTripLengthDays: parsed.maxTripLengthDays,
+      maxBudget: parsed.maxBudget,
+      maxGroundTransferHours: parsed.maxGroundTransferHours,
+      tripStyle: parsed.tripStyle,
+    });
+    setSearchMode("advanced");
+  }
+
   return (
     <main className="min-h-screen px-5 py-8 sm:px-8 lg:px-12">
       <section className="mx-auto flex max-w-7xl flex-col gap-8">
@@ -370,12 +410,41 @@ export default function Home() {
               Find cheap trips, not just cheap flights.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-              Combine nearby airports, one-way deals, and smart open-jaw routes across Europe.
+              Triplet searches nearby airports, flexible dates, and smart open-jaw routes to help you discover cheaper European trips.
             </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button type="button" onClick={() => setSearchMode("ai")} className="rounded-md bg-mint px-4 py-2.5 font-semibold text-ink">
+                Try AI search
+              </button>
+              <button type="button" onClick={() => setSearchMode("advanced")} className="rounded-md border border-line px-4 py-2.5 font-semibold text-white hover:border-mint">
+                Search trips
+              </button>
+            </div>
 
-            <form
+            {!authUser ? <OnboardingCard /> : null}
+          </div>
+
+          <div className="rounded-lg border border-line bg-panel/92 p-5 shadow-deal backdrop-blur">
+            <div className="mb-4 grid grid-cols-2 rounded-md border border-line bg-ink/60 p-1">
+              <button
+                type="button"
+                onClick={() => setSearchMode("ai")}
+                className={`rounded px-3 py-2 text-sm font-semibold ${searchMode === "ai" ? "bg-mint text-ink" : "text-slate-300"}`}
+              >
+                AI search
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchMode("advanced")}
+                className={`rounded px-3 py-2 text-sm font-semibold ${searchMode === "advanced" ? "bg-mint text-ink" : "text-slate-300"}`}
+              >
+                Advanced search
+              </button>
+            </div>
+
+            {searchMode === "ai" ? (
+              <form
               onSubmit={searchWithAi}
-              className="mt-6 rounded-lg border border-line bg-panel/92 p-5 shadow-deal backdrop-blur"
             >
               <Field label="Natural-language search">
                 <textarea
@@ -391,14 +460,24 @@ export default function Home() {
                 disabled={isAiLoading || !aiMessage.trim()}
                 className="mt-4 w-full rounded-md bg-mint px-4 py-3 font-semibold text-ink transition hover:bg-[#93efd6] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isAiLoading ? "Searching with AI..." : "Search with AI"}
+                {isAiLoading ? "Understanding your request..." : "Search with AI"}
               </button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {examplePrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setAiMessage(prompt)}
+                    className="rounded-md border border-line bg-ink/60 px-3 py-2 text-left text-xs text-slate-300 hover:border-mint"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </form>
-          </div>
-
-          <form
+            ) : (
+              <form
             onSubmit={searchTrips}
-            className="rounded-lg border border-line bg-panel/92 p-5 shadow-deal backdrop-blur"
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Origin airports" className="sm:col-span-2">
@@ -483,6 +562,8 @@ export default function Home() {
               {isLoading ? "Searching routes..." : "Find trips"}
             </button>
           </form>
+            )}
+          </div>
         </div>
 
         {error ? (
@@ -508,7 +589,22 @@ export default function Home() {
             {isAiLoading || aiResponseMessage ? (
               <AiSummary message={aiResponseMessage} isLoading={isAiLoading} />
             ) : null}
-            {aiParsedRequest ? <ParsedSummary parsed={aiParsedRequest} /> : null}
+            {aiParsedRequest ? (
+              <>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-md border border-line px-2 py-1 text-slate-300">AI parsed</span>
+                  <span className="rounded-md border border-line px-2 py-1 text-slate-300">{trips.length} trips found</span>
+                </div>
+                <ParsedSummary parsed={aiParsedRequest} />
+                <button
+                  type="button"
+                  onClick={() => editParsedSearch(aiParsedRequest)}
+                  className="mt-3 rounded-md border border-line px-3 py-2 text-sm font-semibold text-white hover:border-mint"
+                >
+                  Edit search
+                </button>
+              </>
+            ) : null}
             {aiMissingFields.length ? (
               <p className="mt-3 text-sm text-coral">
                 Missing: {aiMissingFields.join(", ")}
@@ -518,11 +614,11 @@ export default function Home() {
         ) : null}
 
         {lastSearchPayload && trips.length ? (
-          <form onSubmit={saveAlert} className="max-w-4xl rounded-lg border border-line bg-panel/80 p-5">
+          <form id="save-alert" onSubmit={saveAlert} className="max-w-4xl rounded-lg border border-line bg-panel/80 p-5">
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-white">Want to be notified when trips like this appear?</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Save this search as an alert. Local development prints emails in backend logs.
+                {authUser ? "Save this search to your Triplet dashboard." : "Save an email alert or create an account to manage alerts."}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
@@ -560,8 +656,17 @@ export default function Home() {
               disabled={isSavingAlert}
               className="mt-4 rounded-md bg-mint px-4 py-2.5 font-semibold text-ink transition hover:bg-[#93efd6] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSavingAlert ? "Saving alert..." : "Save alert"}
+              {isSavingAlert ? "Saving alert..." : authUser ? "Save alert" : "Save email alert"}
             </button>
+            {!authUser ? (
+              <button
+                type="button"
+                onClick={() => setAuthMode("signup")}
+                className="ml-3 mt-4 rounded-md border border-line px-4 py-2.5 font-semibold text-white hover:border-mint"
+              >
+                Create account to manage alerts
+              </button>
+            ) : null}
             {alertStatus ? <p className="mt-3 text-sm text-slate-300">{alertStatus}</p> : null}
             {savedAlert ? (
               <div className="mt-3 flex flex-wrap gap-3 text-sm">
@@ -590,16 +695,18 @@ export default function Home() {
             <div>
               <h2 className="text-2xl font-semibold text-white">Trip deals</h2>
               <p className="mt-1 text-sm text-slate-400">
-                {trips.length ? `${trips.length} mock routes found` : "Search uses mock flights and ground transfers."}
+                {trips.length ? `${trips.length} routes found` : "Search uses demo/cached fares in this environment."}
               </p>
             </div>
           </div>
 
           {hasSearched && !isLoading && !error && trips.length === 0 ? (
             <div className="rounded-lg border border-line bg-panel/80 p-8 text-center text-slate-300">
-              No trips match this search. Try a higher budget, wider date range, or longer transfer limit.
+              No matching trips found. Try increasing your budget, widening your dates, or allowing longer ground transfers.
             </div>
           ) : null}
+
+          {(isLoading || isAiLoading) && !trips.length ? <LoadingState /> : null}
 
           <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
             {trips.map((trip) => (
@@ -640,9 +747,23 @@ function AccountBar({
       <a className="text-sm font-semibold uppercase tracking-[0.22em] text-mint" href="/">
         TRIPLET
       </a>
+      <nav className="hidden items-center gap-4 text-sm text-slate-300 sm:flex">
+        <a className="hover:text-white" href="/">
+          Search
+        </a>
+        <a className="hover:text-white" href="/pricing">
+          Pricing
+        </a>
+        {user ? (
+          <a className="hover:text-white" href="/dashboard">
+            Dashboard
+          </a>
+        ) : null}
+      </nav>
       {user ? (
         <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
-          <span className="text-slate-300">{user.displayName || user.email}</span>
+          <span className="rounded-md border border-line px-2 py-1 text-xs text-mint">Free</span>
+          <a className="text-slate-300 hover:text-white" href="/account">{user.displayName || user.email}</a>
           <a className="rounded-md border border-line px-3 py-2 text-white hover:border-mint" href="/dashboard">
             Dashboard
           </a>
@@ -660,6 +781,40 @@ function AccountBar({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function OnboardingCard() {
+  return (
+    <div className="mt-6 rounded-lg border border-line bg-panel/70 p-5">
+      <h2 className="text-lg font-semibold text-white">Plan a flexible trip in three steps</h2>
+      <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+        <div>
+          <p className="font-semibold text-mint">1. Search flexibly</p>
+          <p className="mt-1">Choose nearby airports and flexible dates.</p>
+        </div>
+        <div>
+          <p className="font-semibold text-mint">2. Compare smart trips</p>
+          <p className="mt-1">Triplet combines cheap flights, open-jaw routes, and manageable transfers.</p>
+        </div>
+        <div>
+          <p className="font-semibold text-mint">3. Save alerts</p>
+          <p className="mt-1">Get notified when similar cheap trips appear.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="rounded-lg border border-line bg-panel/80 p-6 text-sm text-slate-300">
+      <div className="flex flex-wrap gap-3">
+        <span>Understanding your request...</span>
+        <span>Searching trip combinations...</span>
+        <span>Ranking results...</span>
+      </div>
     </div>
   );
 }
@@ -911,22 +1066,31 @@ function TripCard({ trip }: { trip: TripOption }) {
   const tags = trip.tags ?? [];
   const warnings = trip.warnings ?? [];
   const nights = trip.nights ?? trip.tripLengthDays;
+  const isOpenJaw = trip.tripType === "open_jaw";
 
   return (
     <article className="rounded-lg border border-line bg-panel/90 p-5 shadow-deal">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint">
-            {trip.tripType === "open_jaw" ? "Open jaw" : "One city"}
-          </p>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-md border border-mint/35 bg-mint/10 px-2 py-1 text-xs font-semibold text-mint">
+              {isOpenJaw ? (trip.groundTransfer ? "Two-city trip" : "Open-jaw") : "Simple return"}
+            </span>
+            <span className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-white">
+              Score {trip.score}/100
+            </span>
+          </div>
           <h3 className="mt-2 text-xl font-semibold text-white">
-            {cityLabel(trip.outboundFlight.destination)}
-            {trip.groundTransfer ? ` + ${trip.groundTransfer.toCity}` : ""}
+            {trip.outboundFlight.origin} &rarr; {trip.outboundFlight.destination}
+            {isOpenJaw ? ` / ${trip.returnFlight.origin} → ${trip.returnFlight.destination}` : ""}
           </h3>
+          <p className="mt-1 text-sm text-slate-400">
+            {formatDateTime(trip.outboundFlight.departureDateTime)} · {nights} nights
+          </p>
         </div>
         <div className="text-right">
           <p className="text-3xl font-semibold text-white">€{Math.round(trip.totalPrice)}</p>
-          <p className="text-sm text-slate-400">{nights} nights</p>
+          <p className="text-sm text-slate-400">total estimate</p>
         </div>
       </div>
 
@@ -949,12 +1113,23 @@ function TripCard({ trip }: { trip: TripOption }) {
         <RouteLine label="Return" flight={trip.returnFlight} />
       </div>
 
-      <div className="mt-5 flex items-center justify-between rounded-md border border-line bg-ink/70 px-3 py-2">
-        <span className="text-sm text-slate-300">Trip score</span>
-        <span className="font-semibold text-mint">{trip.score}/100</span>
-      </div>
-
       <p className="mt-4 text-sm leading-6 text-slate-300">{trip.explanation}</p>
+
+      {trip.bookingUrl ? (
+        <div className="mt-4">
+          <a
+            href={trip.bookingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex rounded-md bg-mint px-3 py-2 text-sm font-semibold text-ink hover:bg-[#93efd6]"
+          >
+            {trip.bookingLabel ?? (trip.linkType === "affiliate_referral" ? "Check price" : "View on Skyscanner")}
+          </a>
+          <p className="mt-2 text-xs leading-5 text-slate-400">
+            Prices are not guaranteed and may change on Skyscanner or partner sites.
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {warnings.map((warning) => (
@@ -966,6 +1141,9 @@ function TripCard({ trip }: { trip: TripOption }) {
           </span>
         ))}
       </div>
+      <a href="#save-alert" className="mt-4 inline-block rounded-md border border-line px-3 py-2 text-sm font-semibold text-white hover:border-mint">
+        Save alert like this
+      </a>
     </article>
   );
 }
@@ -1017,21 +1195,22 @@ function buildProviderNotice(data: TripSearchResponse) {
     return warnings.join(" ");
   }
   const providerUsed = metadata?.providerUsed ?? data.providerUsed;
-  if (providerUsed === "amadeus") {
-    const attempted = metadata?.amadeusRequestsAttempted;
-    const limit = metadata?.amadeusRequestsLimit;
+  if (providerUsed === "skyscanner" || metadata?.providerName === "skyscanner") {
+    const attempted = metadata?.requestsAttempted;
+    const limit = metadata?.requestsLimit;
+    const links = metadata?.deepLinksReturned ?? 0;
     return attempted && limit
-      ? `Using Amadeus live fares. Live provider searched ${attempted}/${limit} allowed requests.`
-      : "Using Amadeus live fares.";
+      ? `Using Skyscanner live fares. Live provider searched ${attempted}/${limit} allowed requests. ${links ? "Skyscanner links are available for some results." : "Live prices can change. Check final price on Skyscanner."}`
+      : "Using Skyscanner live fares. Live prices can change. Check final price on Skyscanner.";
   }
   if (metadata?.cachedResultsUsed ?? data.cachedResultsUsed) {
-    return "Using cached fares because live provider data was unavailable.";
+    return "Using cached fares because Skyscanner was unavailable.";
   }
   if (providerUsed === "database") {
-    return "Using database demo fares.";
+    return "Using demo/cached fares.";
   }
   if (providerUsed === "hybrid") {
-    return "Using database fares with live provider checks.";
+    return "Using cached fares with Skyscanner live fare checks.";
   }
   return "";
 }

@@ -80,6 +80,7 @@ export default function PricingPage() {
         <div>
           <h1 className="text-3xl font-semibold text-white">Plans</h1>
           <p className="mt-2 text-slate-300">Start free and upgrade when you need more alerts and AI searches.</p>
+          <p className="mt-2 text-sm text-slate-500">Triplet helps discover fare opportunities. Prices can change and fares are not guaranteed.</p>
         </div>
         <div className="flex w-fit rounded-md border border-line bg-panel p-1">
           {(["monthly", "yearly"] as const).map((option) => (
@@ -102,6 +103,21 @@ export default function PricingPage() {
             <PlanCard plan={pro} actionLabel="Upgrade to Pro" onAction={upgrade} highlight />
           ) : null}
         </div>
+        <section className="rounded-lg border border-line bg-panel/80 p-5">
+          <h2 className="text-xl font-semibold text-white">Feature comparison</h2>
+          <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+            <div>Free: basic trip search, 3 saved alerts, 5 AI searches/day, daily alerts.</div>
+            <div>Pro: 30 saved alerts, 100 AI searches/day, more origin airports, daily or weekly alerts.</div>
+          </div>
+        </section>
+        <section className="rounded-lg border border-line bg-panel/80 p-5">
+          <h2 className="text-xl font-semibold text-white">FAQ</h2>
+          <div className="mt-4 space-y-4 text-sm text-slate-300">
+            <p><span className="font-semibold text-white">Does Triplet book flights?</span> No. Triplet helps find and monitor trip ideas; booking stays outside the app.</p>
+            <p><span className="font-semibold text-white">Are prices guaranteed?</span> No. Fares can change quickly, especially in demo or cached data modes.</p>
+            <p><span className="font-semibold text-white">Can I cancel Pro?</span> Yes, paid web subscriptions are managed through Stripe billing portal.</p>
+          </div>
+        </section>
       </section>
     </main>
   );

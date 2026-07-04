@@ -14,7 +14,7 @@ from app.billing.usage import assert_saved_search_allowed
 from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
-from app.providers.amadeus import AmadeusApiError, AmadeusAuthError, AmadeusConfigError
+from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
 from app.tools.registry import ToolValidationError
 
@@ -100,7 +100,7 @@ def _handle_alert_errors(callback):
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except UnknownFlightProviderError as exc:
         raise HTTPException(status_code=500, detail="Flight provider is not configured correctly.") from exc
-    except AmadeusConfigError as exc:
+    except SkyscannerConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except (AmadeusAuthError, AmadeusApiError) as exc:
+    except (SkyscannerAuthError, SkyscannerApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

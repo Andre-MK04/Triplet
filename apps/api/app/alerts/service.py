@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.alerts.email import EmailProviderError, build_email_provider
-from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse
+from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse, UpdateSavedSearchRequest
 from app.alerts.token_utils import generate_token, hash_token, verify_token
 from app.config import settings
 from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB
@@ -76,11 +76,62 @@ class SavedSearchService:
             request = request.model_copy(update={"email": user.email})
         return self.create_saved_search(request, user=user)
 
-    def deactivate_user_saved_search(self, user: UserDB, saved_search_id: str) -> None:
+    def deactivate_user_saved_search(self, user: UserDB, saved_search_id: str) -> SavedSearchResponse:
         row = self._get_user_saved_search(user, saved_search_id)
         row.is_active = False
         row.updated_at = datetime.utcnow()
         self.db.commit()
+        self.db.refresh(row)
+        return self._to_response(row)
+
+    def get_user_saved_search(self, user: UserDB, saved_search_id: str) -> SavedSearchResponse:
+        row = self._get_user_saved_search(user, saved_search_id)
+        return self._to_response(row)
+
+    def resume_user_saved_search(self, user: UserDB, saved_search_id: str) -> SavedSearchResponse:
+        row = self._get_user_saved_search(user, saved_search_id)
+        row.is_active = True
+        row.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return self._to_response(row)
+
+    def update_user_saved_search(
+        self,
+        user: UserDB,
+        saved_search_id: str,
+        request: UpdateSavedSearchRequest,
+    ) -> SavedSearchResponse:
+        row = self._get_user_saved_search(user, saved_search_id)
+        if request.name is not None:
+            row.name = request.name
+        if request.originAirports is not None:
+            row.origin_airports = request.originAirports
+        if request.startDate is not None:
+            row.start_date = request.startDate
+        if request.endDate is not None:
+            row.end_date = request.endDate
+        if request.minTripLengthDays is not None:
+            row.min_trip_length_days = request.minTripLengthDays
+        if request.maxTripLengthDays is not None:
+            row.max_trip_length_days = request.maxTripLengthDays
+        if request.maxBudget is not None:
+            row.max_budget = request.maxBudget
+        if request.maxGroundTransferHours is not None:
+            row.max_ground_transfer_hours = request.maxGroundTransferHours
+        if request.tripStyle is not None:
+            row.trip_style = request.tripStyle
+        if request.directOnly is not None:
+            row.direct_only = request.directOnly
+        if request.includeBaggage is not None:
+            row.include_baggage = request.includeBaggage
+        if request.frequency is not None:
+            row.frequency = request.frequency
+        self._validate_row(row)
+        row.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return self._to_response(row)
 
     def preview_user_saved_search(self, user: UserDB, saved_search_id: str) -> AlertPreviewResponse:
         row = self._get_user_saved_search(user, saved_search_id)
@@ -212,6 +263,24 @@ class SavedSearchService:
         if invalid:
             raise AlertValidationError(f"Unknown origin airport code(s): {', '.join(invalid)}.")
 
+    def _validate_row(self, row: SavedSearchDB) -> None:
+        request = CreateSavedSearchRequest(
+            email=row.email,
+            name=row.name,
+            originAirports=row.origin_airports,
+            startDate=row.start_date,
+            endDate=row.end_date,
+            minTripLengthDays=row.min_trip_length_days,
+            maxTripLengthDays=row.max_trip_length_days,
+            maxBudget=row.max_budget,
+            maxGroundTransferHours=row.max_ground_transfer_hours,
+            tripStyle=row.trip_style,
+            directOnly=row.direct_only,
+            includeBaggage=row.include_baggage,
+            frequency=row.frequency,
+        )
+        self._validate_request(request)
+
     def _get_authorized(self, saved_search_id: str, token: str, allow_unsubscribe: bool = False) -> SavedSearchDB:
         row = self.db.get(SavedSearchDB, saved_search_id)
         if not row:
@@ -295,6 +364,8 @@ def saved_search_to_response(
         createdAt=row.created_at,
         lastCheckedAt=row.last_checked_at,
         lastNotifiedAt=row.last_notified_at,
+        lastBestPrice=row.last_best_price,
+        lastBestTripId=row.last_best_trip_id,
         manageUrl=f"{base_url}/alerts/{row.id}?token={manage_token}" if manage_token else None,
         unsubscribeUrl=f"{base_url}/alerts/{row.id}/unsubscribe?token={unsubscribe_token}" if unsubscribe_token else None,
     )
@@ -312,7 +383,16 @@ def build_alert_text(row: SavedSearchDB, output: SearchTripsOutput, token_note: 
             f"{trip.returnFlight.origin}->{trip.returnFlight.destination}: "
             f"EUR {round(trip.totalPrice)} · {trip.nights} nights · score {trip.score}"
         )
+        if trip.bookingUrl:
+            lines.append(f"  View on Skyscanner: {trip.bookingUrl}")
         if trip.warnings:
             lines.append(f"  Warnings: {'; '.join(trip.warnings)}")
-    lines.extend(["", token_note, f"You are receiving this because you saved a {settings.app_name} alert."])
+    lines.extend(
+        [
+            "",
+            "Triplet does not sell flights directly. Prices and availability may change after you open Skyscanner or the travel partner site.",
+            token_note,
+            f"You are receiving this because you saved a {settings.app_name} alert.",
+        ]
+    )
     return "\n".join(lines)

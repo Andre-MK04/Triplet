@@ -6,7 +6,6 @@ from app.db.repositories.airports_repository import AirportsRepository
 from app.db.repositories.search_logs_repository import SearchLogsRepository
 from app.db.repositories.transfers_repository import TransfersRepository
 from app.models import TripSearchRequest
-from app.providers.amadeus import AmadeusApiError, AmadeusAuthError, AmadeusConfigError
 from app.services.flight_search_service import FlightSearchService
 from app.services.trip_builder import build_trips
 from app.tools.base import Tool, ToolContext

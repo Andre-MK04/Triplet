@@ -5,7 +5,7 @@ import pytest
 from app.db.repositories.flights_repository import FlightsRepository
 from app.providers.database_flight_provider import DatabaseFlightProvider
 from app.providers.mock_flight_provider import MockFlightProvider
-from app.providers.amadeus import AmadeusApiError
+from app.providers.skyscanner import SkyscannerApiError
 from app.models import TripSearchRequest
 from app.services.flight_search_service import (
     FlightSearchService,
@@ -72,24 +72,24 @@ def test_flight_search_service_rejects_unknown_provider(db_session):
         FlightSearchService(db=db_session, provider_name="unknown")
 
 
-def test_flight_search_service_recognizes_amadeus_provider(db_session):
-    service = FlightSearchService(db=db_session, provider_name="amadeus")
+def test_flight_search_service_recognizes_skyscanner_provider(db_session):
+    service = FlightSearchService(db=db_session, provider_name="skyscanner")
 
-    assert service.provider_name == "amadeus"
+    assert service.provider_name == "skyscanner"
 
 
-def test_hybrid_mode_falls_back_to_database_when_amadeus_fails(db_session, monkeypatch):
-    class FailingAmadeusProvider:
+def test_hybrid_mode_falls_back_to_database_when_skyscanner_fails(db_session, monkeypatch):
+    class FailingSkyscannerProvider:
         def __init__(self, db=None):
             pass
 
         def search_outbound_flights(self, *args, **kwargs):
-            raise AmadeusApiError("mock Amadeus failure")
+            raise SkyscannerApiError("mock Skyscanner failure")
 
         def search_return_flights(self, *args, **kwargs):
-            raise AmadeusApiError("mock Amadeus failure")
+            raise SkyscannerApiError("mock Skyscanner failure")
 
-    monkeypatch.setattr("app.services.flight_search_service.AmadeusFlightProvider", FailingAmadeusProvider)
+    monkeypatch.setattr("app.services.flight_search_service.SkyscannerFlightProvider", FailingSkyscannerProvider)
     service = FlightSearchService(db=db_session, provider_name="hybrid")
     request = TripSearchRequest(
         originAirports=["VIE", "ZAG"],
