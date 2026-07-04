@@ -5,31 +5,39 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.providers.errors import (
+    ProviderApiError,
+    ProviderAuthError,
+    ProviderConfigError,
+    ProviderMappingError,
+    ProviderNoResultsError,
+    ProviderRateLimitError,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class SkyscannerConfigError(RuntimeError):
+class SkyscannerConfigError(ProviderConfigError):
     pass
 
 
-class SkyscannerAuthError(RuntimeError):
+class SkyscannerAuthError(ProviderAuthError):
     pass
 
 
-class SkyscannerApiError(RuntimeError):
+class SkyscannerApiError(ProviderApiError):
     pass
 
 
-class SkyscannerRateLimitError(SkyscannerApiError):
+class SkyscannerRateLimitError(SkyscannerApiError, ProviderRateLimitError):
     pass
 
 
-class SkyscannerNoResultsError(SkyscannerApiError):
+class SkyscannerNoResultsError(SkyscannerApiError, ProviderNoResultsError):
     pass
 
 
-class SkyscannerMappingError(RuntimeError):
+class SkyscannerMappingError(ProviderMappingError):
     pass
 
 

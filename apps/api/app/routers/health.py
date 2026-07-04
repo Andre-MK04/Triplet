@@ -26,17 +26,19 @@ def database_health() -> dict[str, str]:
 
 @router.get("/ready")
 def readiness() -> dict:
+    from app.providers.registry import LIVE_PROVIDER_NAMES, build_provider
+
+    live_name = (
+        settings.live_flight_provider
+        if settings.flight_provider == "hybrid"
+        else settings.flight_provider
+    )
     checks = {
         "database": {"ok": False},
         "provider": {
             "ok": True,
             "configuredProvider": settings.flight_provider,
-            "providerName": "skyscanner" if settings.flight_provider in {"skyscanner", "hybrid"} else settings.flight_provider,
-            "skyscannerApiEnabled": settings.skyscanner_api_enabled,
-            "skyscannerApiKeyConfigured": bool(settings.skyscanner_api_key),
-            "skyscannerAffiliateConfigured": bool(
-                settings.skyscanner_affiliate_enabled and settings.skyscanner_media_partner_id
-            ),
+            "providerName": live_name,
         },
         "ai": {"ok": not settings.ai_enabled or bool(settings.openai_api_key), "enabled": settings.ai_enabled},
     }
@@ -48,11 +50,12 @@ def readiness() -> dict:
     except SQLAlchemyError:
         checks["database"]["error"] = "unavailable"
 
-    if settings.flight_provider == "skyscanner" and not (
-        settings.skyscanner_api_enabled and settings.skyscanner_api_key
-    ):
-        checks["provider"]["ok"] = False
-        checks["provider"]["error"] = "Skyscanner API access is not configured."
+    if settings.flight_provider in LIVE_PROVIDER_NAMES:
+        provider_status = build_provider(settings.flight_provider).get_provider_status()
+        checks["provider"]["accessStatus"] = provider_status.accessStatus
+        if provider_status.accessStatus != "available":
+            checks["provider"]["ok"] = False
+            checks["provider"]["error"] = f"{settings.flight_provider} API access is not configured."
 
     status = "ready" if all(check["ok"] for check in checks.values()) else "degraded"
     return {"status": status, "environment": settings.app_env, "checks": checks}

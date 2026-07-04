@@ -1,10 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha1
 from typing import Any
 
 from pydantic import BaseModel
 
 from app.models import Flight
+
+LIVE_PRICE_VALIDITY_HOURS = 6
 
 
 class SkyscannerMappingResult(BaseModel):
@@ -93,6 +95,7 @@ def map_live_itinerary(
     stable = sha1(f"{offer_id}-{origin}-{destination}-{departure.isoformat()}".encode()).hexdigest()[:12]
     duration = leg.get("durationInMinutes") or leg.get("durationMinutes")
     stops = max(len(resolved_segments) - 1, 0) if resolved_segments else int(leg.get("stopCount") or 0)
+    observed_at = datetime.utcnow()
     return Flight(
         id=f"skyscanner-{stable}",
         origin=origin,
@@ -111,6 +114,10 @@ def map_live_itinerary(
         stops=stops,
         durationMinutes=int(duration) if duration else None,
         isLive=True,
+        confidenceLevel="live",
+        observedAt=observed_at,
+        expiresAt=observed_at + timedelta(hours=LIVE_PRICE_VALIDITY_HOURS),
+        rawProviderRef=offer_id,
     )
 
 

@@ -49,12 +49,30 @@ class FlightDB(Base):
     observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     provider_offer_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
     deep_link: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    affiliate_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     agent_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     stops: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_live: Mapped[bool] = mapped_column(Boolean, default=False)
     raw_provider_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+
+class PriceObservationDB(Base):
+    __tablename__ = "price_observations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    provider: Mapped[str] = mapped_column(String(80), index=True)
+    origin_code: Mapped[str] = mapped_column(String(8), index=True)
+    destination_code: Mapped[str] = mapped_column(String(8), index=True)
+    departure_date: Mapped[date] = mapped_column(Date, index=True)
+    return_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    observed_price: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="EUR")
+    observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    confidence: Mapped[str] = mapped_column(String(16), default="indicative")
+    link_available: Mapped[bool] = mapped_column(Boolean, default=False)
+    raw_hash: Mapped[str] = mapped_column(String(64), index=True)
 
 
 class GroundTransferDB(Base):

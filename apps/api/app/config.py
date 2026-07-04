@@ -14,7 +14,25 @@ class Settings:
         "postgresql+psycopg://triplet:triplet@localhost:5433/triplet",
     )
     flight_provider: str = os.getenv("FLIGHT_PROVIDER", "database")
+    live_flight_provider: str = os.getenv("LIVE_FLIGHT_PROVIDER", "duffel")
     enable_dev_tool_endpoints: bool = os.getenv("ENABLE_DEV_TOOL_ENDPOINTS", "true").lower() == "true"
+    duffel_api_enabled: bool = os.getenv("DUFFEL_API_ENABLED", "false").lower() == "true"
+    duffel_api_key: str | None = os.getenv("DUFFEL_API_KEY") or None
+    duffel_base_url: str = os.getenv("DUFFEL_BASE_URL", "https://api.duffel.com")
+    duffel_api_version: str = os.getenv("DUFFEL_API_VERSION", "v2")
+    duffel_timeout_seconds: float = float(os.getenv("DUFFEL_TIMEOUT_SECONDS", "30"))
+    duffel_max_requests_per_search: int = int(os.getenv("DUFFEL_MAX_REQUESTS_PER_SEARCH", "10"))
+    duffel_cache_enabled: bool = os.getenv("DUFFEL_CACHE_ENABLED", "true").lower() == "true"
+    duffel_currency: str = os.getenv("DUFFEL_CURRENCY", "EUR")
+    travelpayouts_api_enabled: bool = os.getenv("TRAVELPAYOUTS_API_ENABLED", "false").lower() == "true"
+    travelpayouts_api_token: str | None = os.getenv("TRAVELPAYOUTS_API_TOKEN") or None
+    travelpayouts_marker: str | None = os.getenv("TRAVELPAYOUTS_MARKER") or None
+    travelpayouts_base_url: str = os.getenv("TRAVELPAYOUTS_BASE_URL", "https://api.travelpayouts.com")
+    travelpayouts_affiliate_base_url: str = os.getenv("TRAVELPAYOUTS_AFFILIATE_BASE_URL", "https://www.aviasales.com")
+    travelpayouts_timeout_seconds: float = float(os.getenv("TRAVELPAYOUTS_TIMEOUT_SECONDS", "20"))
+    travelpayouts_max_requests_per_search: int = int(os.getenv("TRAVELPAYOUTS_MAX_REQUESTS_PER_SEARCH", "30"))
+    travelpayouts_cache_enabled: bool = os.getenv("TRAVELPAYOUTS_CACHE_ENABLED", "true").lower() == "true"
+    travelpayouts_currency: str = os.getenv("TRAVELPAYOUTS_CURRENCY", "EUR")
     skyscanner_api_enabled: bool = os.getenv("SKYSCANNER_API_ENABLED", "false").lower() == "true"
     skyscanner_api_key: str | None = os.getenv("SKYSCANNER_API_KEY") or None
     skyscanner_base_url: str = os.getenv("SKYSCANNER_BASE_URL", "https://partners.api.skyscanner.net")

@@ -302,11 +302,12 @@ def test_provider_smoke_test_database_mode(db_session, monkeypatch):
     assert "secret-api-key" not in response.text
 
 
-def test_provider_smoke_test_hybrid_warns_without_skyscanner_config(monkeypatch):
+def test_provider_smoke_test_hybrid_warns_without_live_provider_config(monkeypatch):
     clear_rate_limits()
     client = TestClient(app)
     monkeypatch.setattr(settings, "enable_dev_tool_endpoints", True)
     monkeypatch.setattr(settings, "flight_provider", "hybrid")
+    monkeypatch.setattr(settings, "live_flight_provider", "skyscanner")
     monkeypatch.setattr(settings, "skyscanner_api_enabled", False)
     monkeypatch.setattr(settings, "skyscanner_api_key", None)
     monkeypatch.setattr(settings, "skyscanner_media_partner_id", None)
@@ -314,5 +315,9 @@ def test_provider_smoke_test_hybrid_warns_without_skyscanner_config(monkeypatch)
     response = client.get("/providers/smoke-test")
 
     assert response.status_code == 200
-    assert response.json()["skyscanner"]["apiKeyConfigured"] is False
-    assert "skyscanner" in " ".join(response.json()["warnings"]).lower()
+    body = response.json()
+    assert body["result"]["provider"] == "skyscanner"
+    assert body["result"]["configured"] is False
+    assert body["result"]["apiOk"] is False
+    assert body["overallStatus"] == "warning"
+    assert "skyscanner" in " ".join(body["warnings"]).lower()

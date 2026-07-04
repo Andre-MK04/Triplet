@@ -115,30 +115,17 @@ def test_airports_route_returns_503_when_database_is_not_ready(db_session, monke
     assert "Database is not ready" in response.json()["detail"]
 
 
-def test_trip_search_route_works_in_hybrid_mode_with_mocked_skyscanner(db_session, monkeypatch):
-    class FakeSkyscannerProvider:
-        def __init__(self, db=None):
-            self.requests_attempted = 0
-            self.max_requests = 1
-            self.raw_offers_count = 0
-            self.mapped_flights_count = 0
-            self.skipped_offers_count = 0
-            self.deep_links_returned = 0
-            self.affiliate_links_generated = 0
-            self.warnings = []
-            pass
-
-        def search_outbound_flights(self, *args, **kwargs):
-            return []
-
-        def search_return_flights(self, *args, **kwargs):
-            return []
+def test_trip_search_route_works_in_hybrid_mode_with_mocked_live_provider(db_session, monkeypatch):
+    from app.providers.mock_flight_provider import MockFlightProvider
 
     def override_get_db():
         yield db_session
 
     monkeypatch.setattr(flight_search_service.settings, "flight_provider", "hybrid")
-    monkeypatch.setattr("app.services.flight_search_service.SkyscannerFlightProvider", FakeSkyscannerProvider)
+    monkeypatch.setattr(
+        "app.services.flight_search_service.build_live_provider",
+        lambda db=None: MockFlightProvider([]),
+    )
     app.dependency_overrides[get_db] = override_get_db
     client = TestClient(app)
 

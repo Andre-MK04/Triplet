@@ -9,7 +9,7 @@ from app.db.models import UserDB
 from app.models import TripSearchRequest, TripSearchResponse
 from app.config import settings
 from app.rate_limit import rate_limit
-from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
+from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import (
     FlightProviderNotImplementedError,
     UnknownFlightProviderError,
@@ -55,9 +55,9 @@ def search_trips(
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except UnknownFlightProviderError as exc:
         raise HTTPException(status_code=500, detail="Flight provider is not configured correctly.") from exc
-    except SkyscannerConfigError as exc:
+    except ProviderConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except (SkyscannerAuthError, SkyscannerApiError) as exc:
+    except (ProviderAuthError, ProviderApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return TripSearchResponse.model_validate(result.model_dump())

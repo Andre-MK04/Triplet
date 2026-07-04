@@ -5,13 +5,13 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.db.repositories.price_observations_repository import PriceObservationsRepository
 from app.models import Flight, ProviderMetadata, TripSearchRequest
-from app.providers import DatabaseFlightProvider, FlightProvider, MockFlightProvider, SkyscannerFlightProvider
-from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
+from app.providers import DatabaseFlightProvider, FlightProvider
+from app.providers.errors import ProviderError
+from app.providers.registry import UnknownFlightProviderError, build_live_provider, build_provider
 
-
-class UnknownFlightProviderError(ValueError):
-    pass
+logger = logging.getLogger(__name__)
 
 
 class FlightProviderNotImplementedError(NotImplementedError):
@@ -40,50 +40,22 @@ class FlightSearchService:
 
     def search_candidate_flights_with_metadata(self, request: TripSearchRequest) -> FlightSearchResult:
         if self.provider_name == "hybrid":
-            return self._search_hybrid(request)
-
-        outbound_flights = self.provider.search_outbound_flights(
-            origin_codes=request.originAirports,
-            start_date=request.startDate,
-            end_date=request.endDate,
-            direct_only=request.directOnly,
-        )
-        return_flights = self.provider.search_return_flights(
-            return_destination_codes=request.originAirports,
-            start_date=request.startDate,
-            end_date=request.endDate + timedelta(days=request.maxTripLengthDays),
-            direct_only=request.directOnly,
-        )
-        flights_by_id = {flight.id: flight for flight in outbound_flights + return_flights}
-        flights = list(flights_by_id.values())
-        metadata = ProviderMetadata(providerUsed=self.provider_name)
-        if self.provider_name == "skyscanner":
-            metadata.liveProviderAttempted = True
-            metadata.liveProviderSucceeded = bool(flights)
-            metadata.providerName = "skyscanner"
-            metadata.requestsAttempted = getattr(self.provider, "requests_attempted", None)
-            metadata.requestsLimit = getattr(self.provider, "max_requests", None)
-            metadata.rawOffersCount = getattr(self.provider, "raw_offers_count", None)
-            metadata.mappedFlightsCount = getattr(self.provider, "mapped_flights_count", None)
-            metadata.skippedOffersCount = getattr(self.provider, "skipped_offers_count", None)
-            metadata.deepLinksReturned = getattr(self.provider, "deep_links_returned", None)
-            metadata.affiliateLinksGenerated = getattr(self.provider, "affiliate_links_generated", None)
-            metadata.providerWarnings = list(dict.fromkeys(getattr(self.provider, "warnings", [])))
+            result = self._search_hybrid(request)
         else:
-            metadata.cachedResultsUsed = self.provider_name == "database"
-            metadata.providerName = self.provider_name
+            flights = self._search_with_provider(self.provider, request)
+            metadata = self._metadata_from_provider(self.provider, provider_used=self.provider_name)
+            metadata.liveProviderSucceeded = metadata.liveProviderAttempted and bool(flights)
+            result = FlightSearchResult(flights=flights, metadata=metadata)
 
-        logging.getLogger(__name__).info(
+        self._record_price_observations(result.flights)
+        logger.info(
             "flight_search provider=%s flights=%s live_attempted=%s cached=%s",
-            metadata.providerUsed,
-            len(flights),
-            metadata.liveProviderAttempted,
-            metadata.cachedResultsUsed,
+            result.metadata.providerUsed,
+            len(result.flights),
+            result.metadata.liveProviderAttempted,
+            result.metadata.cachedResultsUsed,
         )
-        return FlightSearchResult(
-            flights=flights,
-            metadata=metadata,
-        )
+        return result
 
     def search_flights(
         self,
@@ -95,21 +67,11 @@ class FlightSearchService:
         return self.provider.search_flights(origin_codes, start_date, end_date, destination_codes)
 
     def _build_provider(self, db: Session | None) -> FlightProvider:
-        if self.provider_name == "database":
-            if db is None:
-                raise UnknownFlightProviderError("Database flight provider requires a database session.")
-            return DatabaseFlightProvider(db)
-        if self.provider_name == "mock":
-            return MockFlightProvider([])
-        if self.provider_name == "skyscanner":
-            return SkyscannerFlightProvider(db=db)
         if self.provider_name == "hybrid":
             if db is None:
                 raise UnknownFlightProviderError("Hybrid flight provider requires a database session.")
             return DatabaseFlightProvider(db)
-        raise UnknownFlightProviderError(
-            f"Unknown flight provider '{self.provider_name}'. Use FLIGHT_PROVIDER=database."
-        )
+        return build_provider(self.provider_name, db)
 
     def _search_hybrid(self, request: TripSearchRequest) -> FlightSearchResult:
         if self.db is None:
@@ -118,58 +80,35 @@ class FlightSearchService:
         database_provider = DatabaseFlightProvider(self.db)
         cached_flights = self._search_with_provider(database_provider, request)
         try:
-            skyscanner_provider = SkyscannerFlightProvider(db=self.db)
-            skyscanner_flights = self._search_with_provider(skyscanner_provider, request)
-            merged = deduplicate_flights(cached_flights + skyscanner_flights)
-            metadata = ProviderMetadata(
-                providerUsed="hybrid",
-                providerName="skyscanner",
-                liveProviderAttempted=True,
-                liveProviderSucceeded=bool(skyscanner_flights),
-                cachedResultsUsed=bool(cached_flights),
-                requestsAttempted=getattr(skyscanner_provider, "requests_attempted", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                requestsLimit=getattr(skyscanner_provider, "max_requests", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                rawOffersCount=getattr(skyscanner_provider, "raw_offers_count", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                mappedFlightsCount=getattr(skyscanner_provider, "mapped_flights_count", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                skippedOffersCount=getattr(skyscanner_provider, "skipped_offers_count", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                deepLinksReturned=getattr(skyscanner_provider, "deep_links_returned", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                affiliateLinksGenerated=getattr(skyscanner_provider, "affiliate_links_generated", None)
-                if "skyscanner_provider" in locals()
-                else None,
-                providerWarnings=list(dict.fromkeys(getattr(skyscanner_provider, "warnings", [])))
-                if "skyscanner_provider" in locals()
-                else [],
+            live_provider = build_live_provider(self.db)
+            live_flights = self._search_with_provider(live_provider, request)
+        except ProviderError as exc:
+            logger.warning(
+                "hybrid_fallback live_provider=%s reason=%s cached_flights=%s",
+                settings.live_flight_provider,
+                type(exc).__name__,
+                len(cached_flights),
             )
-            return FlightSearchResult(
-                flights=merged,
-                metadata=metadata,
-            )
-        except (SkyscannerConfigError, SkyscannerAuthError, SkyscannerApiError) as exc:
-            logging.getLogger(__name__).warning("hybrid_fallback reason=%s cached_flights=%s", type(exc).__name__, len(cached_flights))
             return FlightSearchResult(
                 flights=cached_flights,
                 metadata=ProviderMetadata(
                     providerUsed="database",
-                    providerName="skyscanner",
+                    providerName=settings.live_flight_provider,
                     liveProviderAttempted=True,
                     liveProviderSucceeded=False,
                     cachedResultsUsed=True,
-                    requestsLimit=settings.skyscanner_max_requests_per_search,
-                    providerWarnings=[f"Using cached/database fares because Skyscanner was unavailable: {exc}"],
+                    providerWarnings=[
+                        f"Using cached/database fares because {settings.live_flight_provider} was unavailable: {exc}"
+                    ],
                 ),
             )
+
+        merged = deduplicate_flights(cached_flights + live_flights)
+        metadata = self._metadata_from_provider(live_provider, provider_used="hybrid")
+        metadata.liveProviderAttempted = True
+        metadata.liveProviderSucceeded = bool(live_flights)
+        metadata.cachedResultsUsed = bool(cached_flights)
+        return FlightSearchResult(flights=merged, metadata=metadata)
 
     def _search_with_provider(self, provider: FlightProvider, request: TripSearchRequest) -> list[Flight]:
         outbound_flights = provider.search_outbound_flights(
@@ -186,8 +125,37 @@ class FlightSearchService:
         )
         return deduplicate_flights(outbound_flights + return_flights)
 
+    def _metadata_from_provider(self, provider: FlightProvider, provider_used: str) -> ProviderMetadata:
+        is_live_provider = provider.name not in {"database", "mock"}
+        return ProviderMetadata(
+            providerUsed=provider_used,
+            providerName=provider.name,
+            liveProviderAttempted=is_live_provider,
+            cachedResultsUsed=provider.name == "database",
+            requestsAttempted=provider.requests_attempted or None,
+            requestsLimit=getattr(provider, "max_requests", None),
+            rawOffersCount=provider.raw_offers_count or None,
+            mappedFlightsCount=provider.mapped_flights_count or None,
+            skippedOffersCount=provider.skipped_offers_count or None,
+            deepLinksReturned=provider.deep_links_returned or None,
+            affiliateLinksGenerated=provider.affiliate_links_generated or None,
+            providerWarnings=list(dict.fromkeys(provider.warnings)),
+        )
+
+    def _record_price_observations(self, flights: list[Flight]) -> None:
+        if not self.db or not flights:
+            return
+        try:
+            recorded = PriceObservationsRepository(self.db).record_flights(flights)
+            if recorded:
+                logger.info("price_observations recorded=%s", recorded)
+        except Exception:
+            # Price history is best-effort; never fail a search over it.
+            logger.exception("price_observation_recording_failed")
+
 
 def deduplicate_flights(flights: list[Flight]) -> list[Flight]:
+    confidence_rank = {"live": 3, "indicative": 2, "cached": 1, "mock": 0}
     by_key: dict[tuple, Flight] = {}
     for flight in flights:
         key = (
@@ -200,8 +168,9 @@ def deduplicate_flights(flights: list[Flight]) -> list[Flight]:
         existing = by_key.get(key)
         if not existing:
             by_key[key] = flight
-        elif flight.provider == "skyscanner" and existing.provider != "skyscanner":
-            by_key[key] = flight
-        elif flight.price < existing.price:
+            continue
+        new_rank = confidence_rank.get(flight.confidenceLevel, 0)
+        old_rank = confidence_rank.get(existing.confidenceLevel, 0)
+        if new_rank > old_rank or (new_rank == old_rank and flight.price < existing.price):
             by_key[key] = flight
     return list(by_key.values())

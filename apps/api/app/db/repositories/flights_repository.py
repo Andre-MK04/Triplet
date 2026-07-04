@@ -92,14 +92,16 @@ class FlightsRepository:
         row.booking_url = flight.bookingUrl
         row.baggage_included = flight.baggageIncluded
         row.provider = flight.provider
-        row.observed_at = datetime.utcnow()
+        row.observed_at = flight.observedAt or datetime.utcnow()
         row.provider_offer_id = flight.providerOfferId
         row.deep_link = flight.deepLink
+        row.affiliate_url = flight.affiliateUrl
         row.agent_name = flight.agentName
         row.stops = flight.stops
         row.duration_minutes = flight.durationMinutes
         row.is_live = flight.isLive
-        row.expires_at = datetime.utcnow() + timedelta(hours=6) if flight.isLive else None
+        row.expires_at = flight.expiresAt or (datetime.utcnow() + timedelta(hours=6) if flight.isLive else None)
+        row.raw_provider_hash = flight.rawProviderRef
 
     def upsert_flights(self, flights: list[Flight]) -> None:
         for flight in flights:
@@ -108,6 +110,8 @@ class FlightsRepository:
 
     @staticmethod
     def _to_schema(row: FlightDB) -> Flight:
+        # A price read back from the database is never live, no matter how it was stored.
+        confidence = "mock" if row.provider == "mock" else "cached"
         return Flight(
             id=row.id,
             origin=row.origin_code,
@@ -122,8 +126,13 @@ class FlightsRepository:
             provider=row.provider,
             providerOfferId=row.provider_offer_id,
             deepLink=row.deep_link,
+            affiliateUrl=row.affiliate_url,
             agentName=row.agent_name,
             stops=row.stops,
             durationMinutes=row.duration_minutes,
-            isLive=row.is_live,
+            isLive=False,
+            confidenceLevel=confidence,
+            observedAt=row.observed_at,
+            expiresAt=row.expires_at,
+            rawProviderRef=row.raw_provider_hash,
         )

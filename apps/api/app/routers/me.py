@@ -14,7 +14,7 @@ from app.billing.service import billing_status
 from app.billing.usage import assert_saved_search_allowed
 from app.database import get_db
 from app.db.models import UserDB
-from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
+from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
 from app.tools.registry import ToolValidationError
 
@@ -159,7 +159,7 @@ def _handle_saved_search_errors(callback):
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except UnknownFlightProviderError as exc:
         raise HTTPException(status_code=500, detail="Flight provider is not configured correctly.") from exc
-    except SkyscannerConfigError as exc:
+    except ProviderConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except (SkyscannerAuthError, SkyscannerApiError) as exc:
+    except (ProviderAuthError, ProviderApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import routes as auth_routes
 from app.config import settings
 from app.billing import routes as billing_routes
+from app.providers.registry import LIVE_PROVIDER_NAMES, build_provider
 from app.routers import ai, alerts, airports, health, me, providers, tools, trips
 
 allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
@@ -41,10 +42,13 @@ def validate_security_settings() -> None:
         errors.append("Wildcard CORS origins are not allowed with credentials in production.")
     if settings.ai_enabled and not settings.openai_api_key:
         errors.append("OPENAI_API_KEY is required when AI_ENABLED=true in production.")
-    if settings.flight_provider == "skyscanner" and not (
-        settings.skyscanner_api_enabled and settings.skyscanner_api_key
-    ):
-        errors.append("SKYSCANNER_API_ENABLED=true and SKYSCANNER_API_KEY are required when FLIGHT_PROVIDER=skyscanner.")
+    if settings.flight_provider in LIVE_PROVIDER_NAMES:
+        provider_status = build_provider(settings.flight_provider).get_provider_status()
+        if provider_status.accessStatus != "available":
+            errors.append(
+                f"FLIGHT_PROVIDER={settings.flight_provider} requires the provider to be enabled and "
+                f"configured ({', '.join(provider_status.requiredEnvVars)})."
+            )
     if settings.billing_enabled:
         missing_billing = [
             name
@@ -65,10 +69,13 @@ def validate_security_settings() -> None:
     if errors:
         raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
 
-    if settings.flight_provider == "hybrid" and not (
-        settings.skyscanner_api_enabled and settings.skyscanner_api_key
-    ):
-        logger.warning("FLIGHT_PROVIDER=hybrid is running without Skyscanner API access; database fallback will be used.")
+    if settings.flight_provider == "hybrid":
+        live_status = build_provider(settings.live_flight_provider).get_provider_status()
+        if live_status.accessStatus != "available":
+            logger.warning(
+                "FLIGHT_PROVIDER=hybrid is running without %s API access; database fallback will be used.",
+                settings.live_flight_provider,
+            )
 
 
 @asynccontextmanager

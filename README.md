@@ -270,52 +270,85 @@ Local modes:
 - Billing disabled: no Stripe calls; billing status returns free plan entitlements.
 - Billing enabled: requires Stripe test keys and price IDs; Checkout and Portal sessions can be created.
 
-## Skyscanner Flight Provider
+## Flight Provider Strategy
 
-Local development uses cached/demo database fares by default:
+Triplet is provider-agnostic. All flight data flows through the `FlightProvider` interface
+(`search_one_way`, `search_return`, `search_flexible`, `get_provider_status`, `smoke_test`,
+`normalize_response_to_internal_flights`), and every fare carries a `confidenceLevel`
+(`live` / `cached` / `indicative` / `mock`) plus `observedAt`/`expiresAt` so the UI can always
+say "last checked X ago" and never present stale or demo data as live.
+
+**Do not treat live flight search as working until one provider has a successful smoke test
+with real credentials.** Without credentials, everything runs on the mock/database providers,
+clearly labeled as demo/cached fares.
+
+### Provider Matrix
+
+| Capability | Mock | Database | Duffel | Travelpayouts / Aviasales | Skyscanner | FutureProvider |
+| --- | --- | --- | --- | --- | --- | --- |
+| Access status | available | available | **not configured** (self-serve signup) | **not configured** (affiliate signup) | requires approval (partner program) | planned |
+| One-way search | yes | yes (cached) | yes | yes | yes | — |
+| Return search | yes | yes (cached) | yes (two one-ways) | yes | yes (two one-ways) | — |
+| Multi-city / open-jaw | no (trip builder composes) | no (trip builder composes) | yes (multi-slice, not mapped yet) | no | no | — |
+| Flexible date search | yes | yes | no (per-date requests) | yes (per-month queries) | yes (sampled dates) | — |
+| Price history | no | yes (`price_observations`) | no (we record observations) | yes (cached market data) | no | — |
+| Deep links | no | cached links | **no** (booking API, no public link) | yes (Aviasales search links) | yes | — |
+| Affiliate links | no | cached links | no | yes (`marker` attribution) | yes (media partner ID) | — |
+| Baggage info | no | cached flag | yes | no | no | — |
+| Live availability | no | **never** | yes | **no — indicative prices only** | yes | — |
+| Pricing / rate limits | none | local reads | metered per search request; cap `DUFFEL_MAX_REQUESTS_PER_SEARCH` | generous but cached data; cap `TRAVELPAYOUTS_MAX_REQUESTS_PER_SEARCH` | partner terms; cap `SKYSCANNER_MAX_REQUESTS_PER_SEARCH` | — |
+| Required env vars | — | `DATABASE_URL` | `DUFFEL_API_ENABLED`, `DUFFEL_API_KEY` | `TRAVELPAYOUTS_API_ENABLED`, `TRAVELPAYOUTS_API_TOKEN`, `TRAVELPAYOUTS_MARKER` | `SKYSCANNER_API_ENABLED`, `SKYSCANNER_API_KEY`, `SKYSCANNER_MEDIA_PARTNER_ID` | — |
+| Implementation status | implemented | implemented | implemented (needs credentials for smoke test) | implemented (needs token for smoke test) | adapter only, dormant | planned |
+
+Notes:
+
+- **Duffel** is the active live-price candidate: self-service API access, real offers with baggage
+  data and offer expiry. It is a booking API, so there are no public deep links; in the MVP it is
+  a price/availability source and users are sent to a general search link elsewhere.
+- **Travelpayouts/Aviasales** is the active affiliate/deep-link candidate: cached market prices
+  (`confidenceLevel=indicative`, never shown as live) with attributable Aviasales search links.
+- **Skyscanner** stays dormant (`requires_approval`) until partner access exists. The adapter is
+  kept so it can be activated by configuration alone.
+- The AI layer never invents fares; it only ranks and explains flights returned by these providers.
+
+### Configuring a Real Provider
+
+Keep API keys in the backend environment only. Then:
 
 ```text
-FLIGHT_PROVIDER=database
-SKYSCANNER_API_ENABLED=false
-SKYSCANNER_API_KEY=
-```
-
-Skyscanner Travel API access requires partner approval or a commercial agreement. Keep the API key only in the backend environment. To test real Skyscanner data, keep database fallback available and switch to hybrid mode:
-
-```text
+# Duffel (live offers)
 FLIGHT_PROVIDER=hybrid
-SKYSCANNER_API_ENABLED=true
-SKYSCANNER_API_KEY=<backend only>
-SKYSCANNER_BASE_URL=https://partners.api.skyscanner.net
-SKYSCANNER_MARKET=SI
-SKYSCANNER_LOCALE=en-GB
-SKYSCANNER_CURRENCY=EUR
+LIVE_FLIGHT_PROVIDER=duffel
+DUFFEL_API_ENABLED=true
+DUFFEL_API_KEY=<backend only>
+
+# or Travelpayouts (indicative prices + affiliate links)
+FLIGHT_PROVIDER=hybrid
+LIVE_FLIGHT_PROVIDER=travelpayouts
+TRAVELPAYOUTS_API_ENABLED=true
+TRAVELPAYOUTS_API_TOKEN=<backend only>
+TRAVELPAYOUTS_MARKER=<affiliate marker>
 ```
 
-Affiliate links can be enabled separately:
-
-```text
-SKYSCANNER_AFFILIATE_ENABLED=true
-SKYSCANNER_MEDIA_PARTNER_ID=<partner id>
-```
-
-Then run the sanitized smoke test:
+Run the sanitized smoke tests (counts and status only; no secrets, no raw payloads):
 
 ```bash
 cd apps/api
 source .venv/bin/activate
-python -m app.providers.skyscanner.smoke_test --origin VIE --destination ALC --date 2026-08-15 --max-results 3
+python -m app.providers.duffel.smoke_test --origin VIE --destination ALC
+python -m app.providers.travelpayouts.smoke_test --origin VIE --destination ALC
+python -m app.providers.skyscanner.smoke_test --origin VIE --destination ALC
 ```
-
-The smoke test reports API/link/mapping status and counts only. It does not print secrets or full Skyscanner responses.
 
 Provider diagnostics are available only when `ENABLE_DEV_TOOL_ENDPOINTS=true`:
 
 ```text
-GET /providers/smoke-test?origin=VIE&destination=ALC&departureDate=2026-08-15&maxResults=3
+GET /providers/status
+GET /providers/smoke-test?provider=duffel&origin=VIE&destination=ALC&maxResults=3
 ```
 
-Triplet does not sell or book flights. It sends users to Skyscanner or partner pages through provider deep links or affiliate links.
+Triplet does not sell or book flights. It sends users to provider or partner pages through
+deep links or affiliate links, labeled "Check price" / "View deal" — never "Book now".
 
 ## Production Readiness
 
@@ -502,29 +535,13 @@ Trip search now reads flights through a provider abstraction:
 Available provider names:
 
 - `database`: default. Reads seeded or cached flights from PostgreSQL through `DatabaseFlightProvider`.
-- `skyscanner`: uses Skyscanner Travel API through `SkyscannerFlightProvider`.
-- `hybrid`: reads cached/database fares and tries Skyscanner for fresh fares, falling back to database if Skyscanner is unavailable.
+- `duffel`: live offers through `DuffelFlightProvider` (requires `DUFFEL_API_KEY`).
+- `travelpayouts`: indicative cached prices and affiliate links through `TravelpayoutsAviasalesProvider` (requires `TRAVELPAYOUTS_API_TOKEN`).
+- `skyscanner`: dormant `SkyscannerFlightProvider`; requires partner approval.
+- `hybrid`: reads cached/database fares and tries the provider named by `LIVE_FLIGHT_PROVIDER` for fresh fares, falling back to database if it is unavailable.
 - `mock`: available for unit tests and local service-level experiments.
 
 The trip builder is provider-agnostic. External flight APIs can be added later by normalizing their results into the internal `Flight` model without changing scoring, explanations, or frontend response models.
-
-### Skyscanner Provider
-
-Skyscanner is optional and isolated. The app still works without Skyscanner API access when `FLIGHT_PROVIDER=database`.
-
-Environment variables:
-
-```text
-FLIGHT_PROVIDER=database
-SKYSCANNER_API_ENABLED=false
-SKYSCANNER_API_KEY=
-SKYSCANNER_BASE_URL=https://partners.api.skyscanner.net
-SKYSCANNER_TIMEOUT_SECONDS=20
-SKYSCANNER_MAX_REQUESTS_PER_SEARCH=30
-SKYSCANNER_CACHE_ENABLED=true
-SKYSCANNER_AFFILIATE_ENABLED=true
-SKYSCANNER_MEDIA_PARTNER_ID=
-```
 
 Provider modes:
 
@@ -532,29 +549,19 @@ Provider modes:
 # Seeded/cached database fares only
 FLIGHT_PROVIDER=database uvicorn app.main:app --reload --port 8001
 
-# Live Skyscanner fares only. Requires backend API access.
-FLIGHT_PROVIDER=skyscanner SKYSCANNER_API_ENABLED=true uvicorn app.main:app --reload --port 8001
-
-# Database fares plus live Skyscanner when available. Falls back to database.
-FLIGHT_PROVIDER=hybrid uvicorn app.main:app --reload --port 8001
+# Database fares plus a live provider when available. Falls back to database.
+FLIGHT_PROVIDER=hybrid LIVE_FLIGHT_PROVIDER=duffel uvicorn app.main:app --reload --port 8001
 ```
 
 Diagnostics, when development tool endpoints are enabled:
 
 ```bash
 curl http://localhost:8001/providers/status
-curl "http://localhost:8001/providers/smoke-test?origin=VIE&destination=ALC&departureDate=2026-08-15&maxResults=3"
+curl "http://localhost:8001/providers/smoke-test?provider=duffel&origin=VIE&destination=ALC&maxResults=3"
 ```
 
-The Skyscanner provider:
-
-- Authenticates with `x-api-key` from the backend only.
-- Searches controlled one-way origin/destination/date combinations.
-- Limits request count via `SKYSCANNER_MAX_REQUESTS_PER_SEARCH`.
-- Normalizes direct offers and simple single-itinerary connections into the internal `Flight` model.
-- Caches normalized Skyscanner flights into the existing `flights` table.
-- Prefers Skyscanner deep links and can generate affiliate fallback links.
-- Does not expose secrets or raw provider payloads.
+Every live/indicative fare fetched from a provider is also recorded in the `price_observations`
+table, building the price history that deal scoring will compare against.
 
 Provider metadata is included in trip search responses:
 
@@ -595,43 +602,33 @@ curl "http://localhost:8001/providers/smoke-test?origin=VIE&destination=ALC&depa
 
 Expected: database available and cached flights present.
 
-Hybrid mode without Skyscanner API access:
+Hybrid mode without live provider credentials:
 
 ```bash
-FLIGHT_PROVIDER=hybrid SKYSCANNER_API_ENABLED=false SKYSCANNER_API_KEY= uvicorn app.main:app --reload --port 8001
+FLIGHT_PROVIDER=hybrid LIVE_FLIGHT_PROVIDER=duffel DUFFEL_API_ENABLED=false uvicorn app.main:app --reload --port 8001
 ```
 
 Expected: app still works, live provider warning is returned, database fallback is used.
 
-Skyscanner mode without API key:
+Live provider mode without credentials:
 
 ```bash
-FLIGHT_PROVIDER=skyscanner SKYSCANNER_API_ENABLED=true SKYSCANNER_API_KEY= uvicorn app.main:app --reload --port 8001
+FLIGHT_PROVIDER=duffel DUFFEL_API_ENABLED=true DUFFEL_API_KEY= uvicorn app.main:app --reload --port 8001
 ```
 
 Expected: clean error, no crash, no secrets exposed.
 
-Skyscanner mode with API access:
-
-```bash
-FLIGHT_PROVIDER=skyscanner \
-SKYSCANNER_API_ENABLED=true \
-SKYSCANNER_API_KEY=your_backend_key \
-uvicorn app.main:app --reload --port 8001
-```
-
-Expected: smoke-test shows `apiOk=true` or a controlled API warning; `mappedFlightsCount` is visible; no keys or raw provider payloads are exposed.
-
-Hybrid mode with credentials:
+Live provider mode with credentials (any of duffel / travelpayouts / skyscanner):
 
 ```bash
 FLIGHT_PROVIDER=hybrid \
-SKYSCANNER_API_ENABLED=true \
-SKYSCANNER_API_KEY=your_backend_key \
+LIVE_FLIGHT_PROVIDER=duffel \
+DUFFEL_API_ENABLED=true \
+DUFFEL_API_KEY=your_backend_key \
 uvicorn app.main:app --reload --port 8001
 ```
 
-Expected: live provider attempted, cached/database fallback available, trips still generated.
+Expected: smoke-test shows `apiOk=true` or a controlled API warning; `mappedFlightsCount` is visible; cached/database fallback stays available; no keys or raw provider payloads are exposed.
 
 ## Internal Tools And AI Search
 
@@ -911,8 +908,10 @@ Each trip totals flight prices plus any ground-transfer cost, filters by budget,
 - `directOnly` is accepted in the request model, but every mock flight is currently treated as direct.
 - Ground transfers are static city/airport pairs, not live train or bus schedules.
 - Repository tests use SQLite in memory; local development uses PostgreSQL.
-- Skyscanner tests use mocked HTTP responses; no real external API calls run in tests.
-- Skyscanner mapping supports direct one-way offers and simple single-itinerary connections; complex multi-itinerary offers may be skipped.
+- Provider tests (Duffel, Travelpayouts, Skyscanner) use mocked HTTP responses; no real external API calls run in tests.
+- Duffel and Travelpayouts adapters are implemented but not smoke-tested against live APIs yet: no credentials are configured. Do not treat live search as working until a smoke test passes.
+- Duffel offers have no public deep link (it is a booking API); Travelpayouts prices are indicative, never live.
+- Skyscanner mapping supports direct one-way offers and simple single-itinerary connections; complex multi-itinerary offers may be skipped. The adapter is dormant pending partner approval.
 - AI is optional. OpenAI is called only when `AI_ENABLED=true`; otherwise rule-based fallback is used.
 - Alert emails are console/log output by default.
 - MCP is documentation and a stub only; no production MCP server is exposed.
@@ -920,4 +919,5 @@ Each trip totals flight prices plus any ground-transfer cost, filters by budget,
 
 ## Next Step
 
-Expand Skyscanner indicative-price discovery and add live train or bus transfers.
+Obtain Duffel and/or Travelpayouts credentials and run the provider smoke tests, then build the
+frontend shell (landing, onboarding quiz, discover/results/detail pages) on top of the existing API.

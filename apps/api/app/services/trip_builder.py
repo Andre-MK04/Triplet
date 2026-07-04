@@ -172,11 +172,16 @@ def mark_relative_tags(trips: list[TripOption]) -> None:
         best_score.tags.insert(0, "Best score")
 
 
+# Providers whose links point at an external search/booking page.
+LINKABLE_PROVIDERS = {"skyscanner", "duffel", "travelpayouts"}
+
+
 def pick_trip_provider(outbound: Flight, return_flight: Flight) -> str | None:
     if outbound.provider == return_flight.provider:
         return outbound.provider
-    if "skyscanner" in {outbound.provider, return_flight.provider}:
-        return "skyscanner"
+    for provider in (outbound.provider, return_flight.provider):
+        if provider in LINKABLE_PROVIDERS:
+            return provider
     return outbound.provider or return_flight.provider
 
 
@@ -185,16 +190,18 @@ def pick_trip_deep_link(outbound: Flight, return_flight: Flight) -> str | None:
         return outbound.deepLink
     if return_flight.deepLink:
         return return_flight.deepLink
-    if outbound.provider == "skyscanner" and outbound.bookingUrl:
-        return outbound.bookingUrl
-    if return_flight.provider == "skyscanner" and return_flight.bookingUrl:
-        return return_flight.bookingUrl
+    for flight in (outbound, return_flight):
+        if flight.provider in LINKABLE_PROVIDERS and flight.bookingUrl:
+            return flight.bookingUrl
     return None
 
 
 def pick_trip_affiliate_url(outbound: Flight, return_flight: Flight) -> str | None:
     for flight in (outbound, return_flight):
-        if flight.provider == "skyscanner" and flight.bookingUrl and not flight.deepLink:
+        if flight.affiliateUrl:
+            return flight.affiliateUrl
+    for flight in (outbound, return_flight):
+        if flight.provider in LINKABLE_PROVIDERS and flight.bookingUrl and not flight.deepLink:
             return flight.bookingUrl
     return None
 
@@ -214,7 +221,7 @@ def pick_trip_link_type(outbound: Flight, return_flight: Flight) -> str:
 def pick_trip_booking_label(outbound: Flight, return_flight: Flight) -> str | None:
     link_type = pick_trip_link_type(outbound, return_flight)
     if link_type == "provider_deeplink":
-        return "View on Skyscanner"
+        return "View deal"
     if link_type == "affiliate_referral":
         return "Check price"
     return None

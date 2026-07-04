@@ -19,7 +19,7 @@ from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
 from app.rate_limit import rate_limit
-from app.providers.skyscanner import SkyscannerApiError, SkyscannerAuthError, SkyscannerConfigError
+from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
 from app.tools.base import ToolContext
 from app.tools.registry import build_default_tool_registry
@@ -68,9 +68,9 @@ def ai_search(
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except UnknownFlightProviderError as exc:
         raise HTTPException(status_code=500, detail="Flight provider is not configured correctly.") from exc
-    except SkyscannerConfigError as exc:
+    except ProviderConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except (SkyscannerAuthError, SkyscannerApiError) as exc:
+    except (ProviderAuthError, ProviderApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
@@ -85,7 +85,7 @@ def search_preview(request: SearchPreviewRequest, db: Session = Depends(get_db))
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except UnknownFlightProviderError as exc:
         raise HTTPException(status_code=500, detail="Flight provider is not configured correctly.") from exc
-    except SkyscannerConfigError as exc:
+    except ProviderConfigError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except (SkyscannerAuthError, SkyscannerApiError) as exc:
+    except (ProviderAuthError, ProviderApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

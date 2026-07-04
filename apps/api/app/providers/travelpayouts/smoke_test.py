@@ -4,7 +4,7 @@ from datetime import date
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a sanitized Skyscanner live-price smoke test.")
+    parser = argparse.ArgumentParser(description="Run a sanitized Travelpayouts prices-for-dates smoke test.")
     parser.add_argument("--origin", default="VIE", help="Origin IATA code, for example VIE.")
     parser.add_argument("--destination", default="ALC", help="Destination IATA code, for example ALC.")
     parser.add_argument("--date", default=None, help="Departure date in YYYY-MM-DD format.")
@@ -13,11 +13,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    from app.providers.skyscanner.flight_provider import SkyscannerFlightProvider
+    from app.providers.travelpayouts.flight_provider import TravelpayoutsAviasalesProvider
 
     args = parse_args()
     departure_date = date.fromisoformat(args.date) if args.date else None
-    result = SkyscannerFlightProvider().smoke_test(
+    result = TravelpayoutsAviasalesProvider().smoke_test(
         origin=args.origin,
         destination=args.destination,
         departure_date=departure_date,

@@ -51,7 +51,7 @@ def test_readiness_response_has_no_secrets(monkeypatch):
 
     assert response.status_code == 200
     assert "secret-api-key" not in body
-    assert "skyscannerApiKeyConfigured" in body
+    assert "accessStatus" in body
 
 
 def test_generic_rate_limit_blocks_after_threshold():

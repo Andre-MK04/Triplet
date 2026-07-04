@@ -5,7 +5,7 @@ import pytest
 from app.db.repositories.flights_repository import FlightsRepository
 from app.providers.database_flight_provider import DatabaseFlightProvider
 from app.providers.mock_flight_provider import MockFlightProvider
-from app.providers.skyscanner import SkyscannerApiError
+from app.providers.errors import ProviderApiError
 from app.models import TripSearchRequest
 from app.services.flight_search_service import (
     FlightSearchService,
@@ -78,18 +78,17 @@ def test_flight_search_service_recognizes_skyscanner_provider(db_session):
     assert service.provider_name == "skyscanner"
 
 
-def test_hybrid_mode_falls_back_to_database_when_skyscanner_fails(db_session, monkeypatch):
-    class FailingSkyscannerProvider:
-        def __init__(self, db=None):
-            pass
+def test_hybrid_mode_falls_back_to_database_when_live_provider_fails(db_session, monkeypatch):
+    class FailingLiveProvider(MockFlightProvider):
+        name = "failing-live"
 
-        def search_outbound_flights(self, *args, **kwargs):
-            raise SkyscannerApiError("mock Skyscanner failure")
+        def search_flexible(self, *args, **kwargs):
+            raise ProviderApiError("mock live provider failure")
 
-        def search_return_flights(self, *args, **kwargs):
-            raise SkyscannerApiError("mock Skyscanner failure")
-
-    monkeypatch.setattr("app.services.flight_search_service.SkyscannerFlightProvider", FailingSkyscannerProvider)
+    monkeypatch.setattr(
+        "app.services.flight_search_service.build_live_provider",
+        lambda db=None: FailingLiveProvider([]),
+    )
     service = FlightSearchService(db=db_session, provider_name="hybrid")
     request = TripSearchRequest(
         originAirports=["VIE", "ZAG"],
