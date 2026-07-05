@@ -192,6 +192,30 @@ class UserDB(Base):
     refresh_sessions: Mapped[list["RefreshTokenSessionDB"]] = relationship(back_populates="user")
     oauth_accounts: Mapped[list["UserOAuthAccountDB"]] = relationship(back_populates="user")
     billing_subscriptions: Mapped[list["BillingSubscriptionDB"]] = relationship(back_populates="user")
+    travel_profile: Mapped["UserTravelProfileDB | None"] = relationship(back_populates="user")
+
+
+class UserTravelProfileDB(Base):
+    __tablename__ = "user_travel_profiles"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    home_location: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    origin_airports: Mapped[list[str]] = mapped_column(JSON, default=list)
+    max_airport_travel_time_minutes: Mapped[int] = mapped_column(Integer, default=120)
+    preferred_trip_types: Mapped[list[str]] = mapped_column(JSON, default=list)
+    preferred_trip_length_min: Mapped[int] = mapped_column(Integer, default=2)
+    preferred_trip_length_max: Mapped[int] = mapped_column(Integer, default=7)
+    budget_comfort_zone: Mapped[str] = mapped_column(String(40), default="under_200")
+    spontaneity: Mapped[str] = mapped_column(String(40), default="next_month")
+    comfort_rules: Mapped[list[str]] = mapped_column(JSON, default=list)
+    open_jaw_willingness: Mapped[str] = mapped_column(String(40), default="simple_returns_only")
+    notification_frequency: Mapped[str] = mapped_column(String(40), default="weekly_digest")
+    excluded_airlines: Mapped[list[str]] = mapped_column(JSON, default=list)
+    preferred_months: Mapped[list[int]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user: Mapped[UserDB] = relationship(back_populates="travel_profile")
 
 
 class UserOAuthAccountDB(Base):

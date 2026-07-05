@@ -11,9 +11,14 @@ from app.alerts.service import (
 from app.auth.dependencies import get_current_user_required
 from app.auth.service import auth_user_response
 from app.billing.service import billing_status
-from app.billing.usage import assert_saved_search_allowed
+from app.billing.usage import assert_origin_airports_allowed, assert_saved_search_allowed
 from app.database import get_db
-from app.db.models import UserDB
+from app.db.models import UserDB, UserTravelProfileDB
+from app.models.travel_profile import (
+    TravelProfileResponse,
+    TravelProfileUpdateRequest,
+    default_profile_response,
+)
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
 from app.tools.registry import ToolValidationError
@@ -55,6 +60,72 @@ def get_dashboard(
             "active": len([search for search in searches if search.isActive]),
         },
     }
+
+
+@router.get("/travel-profile", response_model=TravelProfileResponse)
+def get_travel_profile(
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> TravelProfileResponse:
+    row = db.get(UserTravelProfileDB, user.id)
+    if not row:
+        return default_profile_response(user.id)
+    return _profile_to_response(row)
+
+
+@router.put("/travel-profile", response_model=TravelProfileResponse)
+def upsert_travel_profile(
+    request: TravelProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> TravelProfileResponse:
+    assert_origin_airports_allowed(user, len(request.originAirports))
+    row = db.get(UserTravelProfileDB, user.id)
+    if not row:
+        row = UserTravelProfileDB(user_id=user.id)
+        db.add(row)
+    row.home_location = request.homeLocation
+    row.origin_airports = request.originAirports
+    row.max_airport_travel_time_minutes = request.maxAirportTravelTimeMinutes
+    row.preferred_trip_types = list(request.preferredTripTypes)
+    row.preferred_trip_length_min = request.preferredTripLengthMin
+    row.preferred_trip_length_max = request.preferredTripLengthMax
+    row.budget_comfort_zone = request.budgetComfortZone
+    row.spontaneity = request.spontaneity
+    row.comfort_rules = list(request.comfortRules)
+    row.open_jaw_willingness = request.openJawWillingness
+    row.notification_frequency = request.notificationFrequency
+    row.excluded_airlines = request.excludedAirlines
+    row.preferred_months = request.preferredMonths
+    try:
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database is not ready.") from exc
+    db.refresh(row)
+    return _profile_to_response(row)
+
+
+def _profile_to_response(row: UserTravelProfileDB) -> TravelProfileResponse:
+    return TravelProfileResponse(
+        userId=row.user_id,
+        isComplete=True,
+        homeLocation=row.home_location,
+        originAirports=row.origin_airports,
+        maxAirportTravelTimeMinutes=row.max_airport_travel_time_minutes,
+        preferredTripTypes=row.preferred_trip_types,
+        preferredTripLengthMin=row.preferred_trip_length_min,
+        preferredTripLengthMax=row.preferred_trip_length_max,
+        budgetComfortZone=row.budget_comfort_zone,
+        spontaneity=row.spontaneity,
+        comfortRules=row.comfort_rules,
+        openJawWillingness=row.open_jaw_willingness,
+        notificationFrequency=row.notification_frequency,
+        excludedAirlines=row.excluded_airlines,
+        preferredMonths=row.preferred_months,
+        createdAt=row.created_at,
+        updatedAt=row.updated_at,
+    )
 
 
 @router.post("/saved-searches", response_model=SavedSearchResponse)

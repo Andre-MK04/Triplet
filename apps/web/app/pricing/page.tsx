@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-type AuthUser = {
-  email: string;
-};
-
-type AuthResponse = {
-  user: AuthUser;
-};
+import { AppShell } from "../../components/AppShell";
+import { useAuth } from "../../components/AuthContext";
+import { Badge } from "../../components/ui/Badge";
+import { Button, ButtonLink } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { Notice } from "../../components/ui/Misc";
+import { apiGet, apiPost } from "../../lib/api";
 
 type BillingPlan = {
   plan: string;
@@ -23,137 +23,160 @@ type BillingPlan = {
   };
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
+const FAQ = [
+  {
+    q: "Does Triplet book flights?",
+    a: "No. Triplet finds and monitors trip ideas; booking always happens with the airline or provider.",
+  },
+  {
+    q: "Are prices guaranteed?",
+    a: "No. Fares are observed at check time and can change quickly — especially in demo or cached data modes.",
+  },
+  {
+    q: "Can I cancel Pro?",
+    a: "Yes. Paid web subscriptions are managed through the Stripe billing portal — cancel anytime.",
+  },
+];
 
 export default function PricingPage() {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const { user } = useAuth();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
-  const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
+  const [interval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: AuthResponse | null) => setUser(data?.user ?? null))
-      .catch(() => undefined);
-    fetch(`${apiBaseUrl}/billing/plans`)
-      .then((response) => response.json())
+    apiGet<BillingPlan[]>("/billing/plans")
       .then(setPlans)
-      .catch(() => setStatus("Could not load plans."));
+      .catch(() => setStatus("Could not load plans. Is the API running?"));
   }, []);
 
   async function upgrade() {
     if (!user) {
-      setStatus("Log in or create an account before upgrading.");
+      window.location.href = "/signup";
       return;
     }
     setStatus("");
-    const response = await fetch(`${apiBaseUrl}/billing/create-checkout-session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ interval }),
-    });
-    if (!response.ok) {
-      const message = await response.text();
-      setStatus(message.includes("Billing is not enabled") ? "Billing is not enabled in this environment." : "Could not start checkout.");
-      return;
+    try {
+      const data = await apiPost<{ checkoutUrl: string }>("/billing/create-checkout-session", { interval });
+      window.location.href = data.checkoutUrl;
+    } catch {
+      setStatus("Billing is not enabled in this environment yet.");
     }
-    const data = await response.json();
-    window.location.href = data.checkoutUrl;
   }
 
   const free = plans.find((plan) => plan.plan === "free");
   const pro = plans.find((plan) => plan.plan === "pro");
 
   return (
-    <main className="min-h-screen px-5 py-8 sm:px-8 lg:px-12">
-      <section className="mx-auto flex max-w-5xl flex-col gap-8">
-        <div className="flex items-center justify-between gap-4">
-          <a className="text-sm font-semibold uppercase tracking-[0.22em] text-mint" href="/">
-            TRIPLET
-          </a>
-          <a className="rounded-md border border-line px-3 py-2 text-sm text-white hover:border-mint" href="/dashboard">
-            Dashboard
-          </a>
-        </div>
-        <div>
-          <h1 className="text-3xl font-semibold text-white">Plans</h1>
-          <p className="mt-2 text-slate-300">Start free and upgrade when you need more alerts and AI searches.</p>
-          <p className="mt-2 text-sm text-slate-500">Triplet helps discover fare opportunities. Prices can change and fares are not guaranteed.</p>
-        </div>
-        <div className="flex w-fit rounded-md border border-line bg-panel p-1">
+    <AppShell>
+      <div className="mx-auto max-w-4xl space-y-8 pb-10">
+        <header className="text-center">
+          <h1 className="font-display text-4xl font-bold text-cloud">Free to watch, Pro to hunt harder</h1>
+          <p className="mx-auto mt-3 max-w-xl text-mist">
+            Start free and upgrade when you need more watches and AI searches. Triplet finds fare
+            opportunities — prices can change and are never guaranteed.
+          </p>
+        </header>
+
+        <div className="mx-auto flex w-fit rounded-full bg-ink-soft/80 p-1" role="tablist" aria-label="Billing interval">
           {(["monthly", "yearly"] as const).map((option) => (
             <button
               key={option}
               type="button"
-              onClick={() => setInterval(option)}
-              className={`rounded px-4 py-2 text-sm font-semibold ${interval === option ? "bg-mint text-ink" : "text-slate-300"}`}
+              role="tab"
+              aria-selected={interval === option}
+              onClick={() => setBillingInterval(option)}
+              className={
+                "rounded-full px-5 py-2 text-sm font-semibold transition " +
+                (interval === option ? "bg-mint text-ink" : "text-mist hover:text-cloud")
+              }
             >
-              {option}
+              {option === "monthly" ? "Monthly" : "Yearly"}
             </button>
           ))}
         </div>
-        {status ? <div className="rounded-lg border border-line bg-panel/80 p-4 text-sm text-slate-200">{status}</div> : null}
+
+        {status ? <Notice tone="info">{status}</Notice> : null}
+
         <div className="grid gap-5 md:grid-cols-2">
           {free ? (
-            <PlanCard plan={free} actionLabel="Start free" actionHref="/" />
+            <Card hover className="flex flex-col">
+              <h2 className="font-display text-xl font-bold text-cloud">{free.name}</h2>
+              <p className="mt-2 font-display text-3xl font-bold text-mint">{free.priceLabel}</p>
+              <ul className="mt-5 flex-1 space-y-2 text-sm text-mist">
+                {free.features.map((feature) => (
+                  <li key={feature} className="flex gap-2"><span className="text-mint" aria-hidden>✓</span>{feature}</li>
+                ))}
+              </ul>
+              <ButtonLink href={user ? "/discover" : "/signup"} variant="secondary" className="mt-6 w-full">
+                {user ? "Keep exploring" : "Start free"}
+              </ButtonLink>
+            </Card>
           ) : null}
           {pro ? (
-            <PlanCard plan={pro} actionLabel="Upgrade to Pro" onAction={upgrade} highlight />
+            <Card hover className="relative flex flex-col border-mint/40">
+              <Badge tone="mint" className="absolute -top-3 left-5">Most deal-hungry</Badge>
+              <h2 className="font-display text-xl font-bold text-cloud">{pro.name}</h2>
+              <p className="mt-2 font-display text-3xl font-bold text-mint">{pro.priceLabel}</p>
+              <ul className="mt-5 flex-1 space-y-2 text-sm text-mist">
+                {pro.features.map((feature) => (
+                  <li key={feature} className="flex gap-2"><span className="text-mint" aria-hidden>✓</span>{feature}</li>
+                ))}
+              </ul>
+              <Button className="mt-6 w-full" onClick={() => void upgrade()}>Upgrade to Pro</Button>
+            </Card>
           ) : null}
         </div>
-        <section className="rounded-lg border border-line bg-panel/80 p-5">
-          <h2 className="text-xl font-semibold text-white">Feature comparison</h2>
-          <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
-            <div>Free: basic trip search, 3 saved alerts, 5 AI searches/day, daily alerts.</div>
-            <div>Pro: 30 saved alerts, 100 AI searches/day, more origin airports, daily or weekly alerts.</div>
-          </div>
-        </section>
-        <section className="rounded-lg border border-line bg-panel/80 p-5">
-          <h2 className="text-xl font-semibold text-white">FAQ</h2>
-          <div className="mt-4 space-y-4 text-sm text-slate-300">
-            <p><span className="font-semibold text-white">Does Triplet book flights?</span> No. Triplet helps find and monitor trip ideas; booking stays outside the app.</p>
-            <p><span className="font-semibold text-white">Are prices guaranteed?</span> No. Fares can change quickly, especially in demo or cached data modes.</p>
-            <p><span className="font-semibold text-white">Can I cancel Pro?</span> Yes, paid web subscriptions are managed through Stripe billing portal.</p>
-          </div>
-        </section>
-      </section>
-    </main>
-  );
-}
 
-function PlanCard({
-  plan,
-  actionLabel,
-  actionHref,
-  onAction,
-  highlight = false,
-}: {
-  plan: BillingPlan;
-  actionLabel: string;
-  actionHref?: string;
-  onAction?: () => void;
-  highlight?: boolean;
-}) {
-  return (
-    <article className={`rounded-lg border p-5 ${highlight ? "border-mint bg-mint/10" : "border-line bg-panel/90"}`}>
-      <h2 className="text-xl font-semibold text-white">{plan.name}</h2>
-      <p className="mt-2 text-2xl font-semibold text-mint">{plan.priceLabel}</p>
-      <ul className="mt-5 space-y-2 text-sm text-slate-300">
-        {plan.features.map((feature) => (
-          <li key={feature}>{feature}</li>
-        ))}
-      </ul>
-      {actionHref ? (
-        <a className="mt-5 block rounded-md bg-mint px-4 py-3 text-center font-semibold text-ink" href={actionHref}>
-          {actionLabel}
-        </a>
-      ) : (
-        <button type="button" onClick={onAction} className="mt-5 w-full rounded-md bg-mint px-4 py-3 font-semibold text-ink">
-          {actionLabel}
-        </button>
-      )}
-    </article>
+        <Card>
+          <h2 className="font-display text-lg font-bold text-cloud">Compare limits</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-mist">
+                  <th className="pb-2 pr-4 font-semibold">Limit</th>
+                  <th className="pb-2 pr-4 font-semibold">Free</th>
+                  <th className="pb-2 font-semibold">Pro</th>
+                </tr>
+              </thead>
+              <tbody className="text-mist">
+                <tr className="border-t border-line">
+                  <td className="py-2.5 pr-4">Saved watches</td>
+                  <td className="py-2.5 pr-4">{free?.limits.savedSearchLimit ?? 3}</td>
+                  <td className="py-2.5 text-mint">{pro?.limits.savedSearchLimit ?? 30}</td>
+                </tr>
+                <tr className="border-t border-line">
+                  <td className="py-2.5 pr-4">AI searches per day</td>
+                  <td className="py-2.5 pr-4">{free?.limits.aiSearchesPerDay ?? 5}</td>
+                  <td className="py-2.5 text-mint">{pro?.limits.aiSearchesPerDay ?? 100}</td>
+                </tr>
+                <tr className="border-t border-line">
+                  <td className="py-2.5 pr-4">Origin airports</td>
+                  <td className="py-2.5 pr-4">{free?.limits.maxOriginAirports ?? 6}</td>
+                  <td className="py-2.5 text-mint">{pro?.limits.maxOriginAirports ?? 12}</td>
+                </tr>
+                <tr className="border-t border-line">
+                  <td className="py-2.5 pr-4">Alert frequencies</td>
+                  <td className="py-2.5 pr-4">{free?.limits.allowedAlertFrequencies.join(", ") ?? "daily"}</td>
+                  <td className="py-2.5 text-mint">{pro?.limits.allowedAlertFrequencies.join(", ") ?? "daily, weekly"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="font-display text-lg font-bold text-cloud">FAQ</h2>
+          <div className="mt-4 space-y-4 text-sm">
+            {FAQ.map((item) => (
+              <div key={item.q}>
+                <p className="font-semibold text-cloud">{item.q}</p>
+                <p className="mt-1 text-mist">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </AppShell>
   );
 }

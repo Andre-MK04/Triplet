@@ -1,9 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+import { AuthProvider } from "../components/AuthContext";
+
 export const metadata: Metadata = {
-  title: "Triplet",
-  description: "Triplet helps you find cheap European trips with smart open-jaw routes.",
+  title: {
+    default: "Triplet — Find cheap trips, not just cheap flights",
+    template: "%s · Triplet",
+  },
+  description:
+    "Choose your airports, set your travel style, and Triplet watches for unusually cheap fares that can become real trips.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b1117",
 };
 
 export default function RootLayout({
@@ -13,7 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="font-sans">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

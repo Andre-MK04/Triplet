@@ -415,12 +415,17 @@ Triplet now has a more complete early-product flow across search, onboarding, sa
 
 Pages:
 
-- `/` search homepage with AI/advanced search tabs, example prompts, onboarding, trip results, and save-alert flow.
-- `/dashboard` account dashboard with plan summary, usage, saved alerts, preview, edit, pause, resume, and delete actions.
-- `/pricing` Free/Pro pricing with monthly/yearly toggle, comparison, and FAQ.
-- `/billing/success` Stripe checkout success page.
-- `/billing/cancel` checkout canceled page.
+- `/` marketing landing page: animated 3D route globe (SVG fallback on mobile/reduced motion), how-it-works, clearly-labeled demo trip cards, travel-profile preview, deal intelligence, security, pricing teaser.
+- `/discover` search page with AI/advanced tabs, airport chips, trip results, and the save-alert flow.
+- `/login` and `/signup` dedicated auth pages (email/password + Google OAuth start).
+- `/onboarding` animated multi-step travel-profile quiz backed by `/me/travel-profile`.
+- `/dashboard` account dashboard with plan summary, usage meters, saved watches (preview, edit, pause, resume, delete), billing, and travel-profile shortcuts.
+- `/pricing` Free/Pro pricing with monthly/yearly toggle, limit comparison, and FAQ.
+- `/security` plain-language security & privacy overview.
+- `/dev/providers` development-only provider status + smoke-test page (hidden when dev tool endpoints are disabled).
+- `/billing/success`, `/billing/cancel` Stripe checkout result pages.
 - `/account` profile, password, billing, and logout settings.
+- `/reset-password` request + complete password reset.
 
 Dashboard features:
 

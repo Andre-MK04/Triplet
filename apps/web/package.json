@@ -9,9 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-three/fiber": "^9.6.1",
+    "@types/three": "^0.185.0",
+    "framer-motion": "^12.42.2",
     "next": "^16.2.9",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "22.10.5",

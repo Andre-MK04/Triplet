@@ -1,1232 +1,360 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 
-type Flight = {
-  id: string;
-  origin: string;
-  destination: string;
-  departureDateTime: string;
-  arrivalDateTime: string;
-  airline: string;
-  price: number;
-  currency: string;
-  bookingUrl?: string | null;
-  deepLink?: string | null;
-  provider?: string;
-  agentName?: string | null;
-  stops?: number | null;
-  durationMinutes?: number | null;
-  isLive?: boolean;
+import { AppShell } from "../components/AppShell";
+import { Hero3D } from "../components/Hero3D";
+import { TripCard } from "../components/TripCard";
+import { Badge } from "../components/ui/Badge";
+import { ButtonLink } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { Chip } from "../components/ui/Chip";
+import { SectionHeading } from "../components/ui/Misc";
+import type { TripOption } from "../lib/types";
+
+const demoSimpleReturn: TripOption = {
+  id: "demo-simple",
+  tripType: "same_city",
+  outboundFlight: {
+    id: "demo-out",
+    origin: "VIE",
+    destination: "ALC",
+    departureDateTime: "2026-08-14T07:10:00",
+    arrivalDateTime: "2026-08-14T10:05:00",
+    airline: "Demo Air",
+    price: 39,
+    currency: "EUR",
+    stops: 0,
+    durationMinutes: 175,
+    confidenceLevel: "mock",
+  },
+  returnFlight: {
+    id: "demo-ret",
+    origin: "ALC",
+    destination: "VIE",
+    departureDateTime: "2026-08-19T11:30:00",
+    arrivalDateTime: "2026-08-19T14:20:00",
+    airline: "Demo Air",
+    price: 40,
+    currency: "EUR",
+    stops: 0,
+    durationMinutes: 170,
+    confidenceLevel: "mock",
+  },
+  groundTransfer: null,
+  totalPrice: 79,
+  tripLengthDays: 6,
+  nights: 5,
+  score: 86,
+  explanation:
+    "This fare is roughly 45% below the typical price we observe for Vienna–Alicante in August. Direct both ways, sensible departure times, and five full nights of beach weather.",
+  warnings: [],
+  tags: ["Beach", "Direct", "Cheapest"],
+  bookingUrl: null,
+  bookingLabel: null,
+  provider: "mock",
+  linkType: "none",
 };
 
-type GroundTransfer = {
-  fromAirport: string;
-  toAirport: string;
-  fromCity: string;
-  toCity: string;
-  durationHours: number;
-  estimatedCost: number;
-  mode: "train/bus" | "train" | "bus" | "car";
+const demoOpenJaw: TripOption = {
+  id: "demo-openjaw",
+  tripType: "open_jaw",
+  outboundFlight: {
+    id: "demo-oj-out",
+    origin: "VIE",
+    destination: "ALC",
+    departureDateTime: "2026-09-04T06:40:00",
+    arrivalDateTime: "2026-09-04T09:35:00",
+    airline: "Demo Air",
+    price: 29,
+    currency: "EUR",
+    stops: 0,
+    durationMinutes: 175,
+    confidenceLevel: "mock",
+  },
+  returnFlight: {
+    id: "demo-oj-ret",
+    origin: "VLC",
+    destination: "TRS",
+    departureDateTime: "2026-09-10T18:15:00",
+    arrivalDateTime: "2026-09-10T20:35:00",
+    airline: "Demo Wings",
+    price: 35,
+    currency: "EUR",
+    stops: 0,
+    durationMinutes: 140,
+    confidenceLevel: "mock",
+  },
+  groundTransfer: {
+    fromAirport: "ALC",
+    toAirport: "VLC",
+    fromCity: "Alicante",
+    toCity: "Valencia",
+    durationHours: 2,
+    estimatedCost: 18,
+    mode: "train/bus",
+  },
+  totalPrice: 82,
+  tripLengthDays: 7,
+  nights: 6,
+  score: 78,
+  explanation:
+    "Two Spanish cities for the price of one return. Fly into Alicante, take the coastal train to Valencia, and fly home to Trieste from there.",
+  warnings: ["Separate tickets / self-transfer logic. Check final details before booking."],
+  tags: ["Two cities", "Food", "Adventure"],
+  bookingUrl: null,
+  bookingLabel: null,
+  provider: "mock",
+  linkType: "none",
 };
 
-type TripOption = {
-  id: string;
-  tripType: "same_city" | "open_jaw";
-  outboundFlight: Flight;
-  returnFlight: Flight;
-  groundTransfer: GroundTransfer | null;
-  totalPrice: number;
-  tripLengthDays: number;
-  nights: number;
-  score: number;
-  explanation: string;
-  warnings: string[];
-  tags: string[];
-  bookingUrl?: string | null;
-  bookingLabel?: string | null;
-  affiliateUrl?: string | null;
-  providerDeepLink?: string | null;
-  outboundBookingUrl?: string | null;
-  returnBookingUrl?: string | null;
-  provider?: string | null;
-  linkType?: "provider_deeplink" | "affiliate_referral" | "none";
-};
-
-type TripSearchPayload = {
-  originAirports: string[];
-  startDate: string;
-  endDate: string;
-  minTripLengthDays: number;
-  maxTripLengthDays: number;
-  maxBudget: number;
-  maxGroundTransferHours: number;
-  tripStyle: "one city" | "two nearby cities" | "surprise me";
-};
-
-type TripSearchResponse = {
-  trips: TripOption[];
-  providerUsed?: string | null;
-  providerWarnings?: string[];
-  cachedResultsUsed?: boolean;
-  providerMetadata?: {
-    providerUsed?: string | null;
-    liveProviderAttempted?: boolean;
-    liveProviderSucceeded?: boolean;
-    cachedResultsUsed?: boolean;
-    cachedResultsStale?: boolean;
-    providerName?: string | null;
-    requestsAttempted?: number | null;
-    requestsLimit?: number | null;
-    rawOffersCount?: number | null;
-    mappedFlightsCount?: number | null;
-    skippedOffersCount?: number | null;
-    affiliateLinksGenerated?: number | null;
-    deepLinksReturned?: number | null;
-    providerWarnings?: string[];
-  } | null;
-};
-
-type AISearchResponse = {
-  message: string;
-  parsedRequest: TripSearchPayload | null;
-  trips: TripOption[];
-  missingFields: string[];
-  confidence?: number | null;
-  providerMetadata?: TripSearchResponse["providerMetadata"];
-  aiMetadata: {
-    aiProvider: string;
-    model: string;
-    toolCallsUsed: number;
-    fallbackUsed: boolean;
-    warnings: string[];
-  };
-};
-
-type AuthUser = {
-  id: string;
-  email: string;
-  displayName?: string | null;
-  isVerified: boolean;
-  createdAt: string;
-};
-
-type AuthResponse = {
-  user: AuthUser;
-  message: string;
-};
-
-type SavedSearchResponse = {
-  id: string;
-  email: string;
-  name?: string | null;
-  originAirports?: string[];
-  startDate?: string;
-  endDate?: string;
-  maxBudget?: number;
-  frequency?: string;
-  isActive?: boolean;
-  manageUrl?: string | null;
-  unsubscribeUrl?: string | null;
-};
-
-const defaultForm = {
-  originAirports: "VIE, ZAG, TRS, VCE, BUD, LJU",
-  startDate: "2026-07-01",
-  endDate: "2026-08-31",
-  minTripLengthDays: 4,
-  maxTripLengthDays: 8,
-  maxBudget: 180,
-  maxGroundTransferHours: 4,
-  tripStyle: "surprise me" as TripSearchPayload["tripStyle"],
-};
-
-const airportNames: Record<string, string> = {
-  LJU: "Ljubljana",
-  ZAG: "Zagreb",
-  VIE: "Vienna",
-  GRZ: "Graz",
-  BUD: "Budapest",
-  TRS: "Trieste",
-  VCE: "Venice",
-  TSF: "Venice Treviso",
-  ALC: "Alicante",
-  VLC: "Valencia",
-  BCN: "Barcelona",
-  MAD: "Madrid",
-  AGP: "Malaga",
-  SVQ: "Seville",
-  LIS: "Lisbon",
-  OPO: "Porto",
-  ATH: "Athens",
-  CTA: "Catania",
-  PMI: "Palma de Mallorca",
-};
-
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
-const examplePrompts = [
-  "Find me a 5-7 day trip in August from Vienna or Zagreb under €180.",
-  "Show me warm two-city trips from airports near Slovenia.",
-  "Find cheap weekend trips from Venice, Trieste, or Ljubljana.",
+const howItWorks = [
+  {
+    icon: "📍",
+    title: "Pick your airports",
+    text: "Choose every airport you're realistically willing to leave from — not just the closest one. More airports, more deals.",
+  },
+  {
+    icon: "🧭",
+    title: "Tell Triplet your travel style",
+    text: "Beach or city breaks, budget comfort zone, how spontaneous you are, and your comfort rules like “direct only”.",
+  },
+  {
+    icon: "🔔",
+    title: "Get alerted when a real deal appears",
+    text: "Triplet watches observed fares over time and emails you when something is unusually cheap — as a complete trip idea.",
+  },
 ];
 
-export default function Home() {
-  const [form, setForm] = useState(defaultForm);
-  const [searchMode, setSearchMode] = useState<"ai" | "advanced">("ai");
-  const [aiMessage, setAiMessage] = useState(
-    "Find me a cheap 5 to 7 day trip in August from Vienna or Zagreb under €180. I like two-city trips.",
-  );
-  const [aiResponseMessage, setAiResponseMessage] = useState("");
-  const [aiParsedRequest, setAiParsedRequest] = useState<TripSearchPayload | null>(null);
-  const [aiMissingFields, setAiMissingFields] = useState<string[]>([]);
-  const [aiFallbackNotice, setAiFallbackNotice] = useState("");
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [trips, setTrips] = useState<TripOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
-  const [providerNotice, setProviderNotice] = useState("");
-  const [lastSearchPayload, setLastSearchPayload] = useState<TripSearchPayload | null>(null);
-  const [alertEmail, setAlertEmail] = useState("");
-  const [alertName, setAlertName] = useState("");
-  const [alertFrequency, setAlertFrequency] = useState<"daily" | "weekly">("daily");
-  const [isSavingAlert, setIsSavingAlert] = useState(false);
-  const [alertStatus, setAlertStatus] = useState("");
-  const [savedAlert, setSavedAlert] = useState<SavedSearchResponse | null>(null);
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
-  const [authForm, setAuthForm] = useState({ email: "", password: "", displayName: "" });
-  const [authStatus, setAuthStatus] = useState("");
-  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+const dealSignals = [
+  {
+    title: "Deal score",
+    text: "A transparent 0–100 score comparing the fare against the route's observed price history — not marketing hype.",
+  },
+  {
+    title: "Fit score",
+    text: "How well a trip matches your profile: airports, trip length, style, and comfort rules.",
+  },
+  {
+    title: "Price history",
+    text: "Every observed fare is recorded, so “cheap” means cheap versus reality, not versus an inflated anchor price.",
+  },
+  {
+    title: "Honest freshness",
+    text: "Every price is labeled live, cached, indicative, or demo — with a “last checked” timestamp. Never guaranteed.",
+  },
+];
 
-  useEffect(() => {
-    fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: AuthResponse | null) => {
-        if (data?.user) {
-          setAuthUser(data.user);
-          setAlertEmail(data.user.email);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
-  const payload = useMemo<TripSearchPayload>(() => {
-    return {
-      ...form,
-      originAirports: form.originAirports
-        .split(",")
-        .map((code) => code.trim().toUpperCase())
-        .filter(Boolean),
-    };
-  }, [form]);
-
-  async function searchTrips(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsLoading(true);
-    setError("");
-    setProviderNotice("");
-    setHasSearched(true);
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/trips/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Trip search failed.");
-      }
-
-      const data: TripSearchResponse = await response.json();
-      setTrips(data.trips);
-      setLastSearchPayload(payload);
-      setProviderNotice(buildProviderNotice(data));
-    } catch (searchError) {
-      setTrips([]);
-      setProviderNotice("");
-      setError(searchError instanceof Error ? searchError.message : "Trip search failed.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function searchWithAi(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsAiLoading(true);
-    setError("");
-    setProviderNotice("");
-    setAiResponseMessage("");
-    setAiParsedRequest(null);
-    setAiMissingFields([]);
-    setAiFallbackNotice("");
-    setHasSearched(true);
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/ai/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ message: aiMessage }),
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(limitAwareError(message || "AI search failed."));
-      }
-
-      const data: AISearchResponse = await response.json();
-      setTrips(data.trips);
-      setAiResponseMessage(sanitizeAiText(data.message));
-      setAiParsedRequest(data.parsedRequest);
-      setLastSearchPayload(data.parsedRequest);
-      setAiMissingFields(data.missingFields ?? []);
-      setProviderNotice(buildProviderNotice({ trips: data.trips, providerMetadata: data.providerMetadata }));
-      setAiFallbackNotice(data.aiMetadata.fallbackUsed ? "AI unavailable - used rule-based parsing." : "");
-    } catch (searchError) {
-      setTrips([]);
-      setProviderNotice("");
-      setError(searchError instanceof Error ? searchError.message : "AI search failed.");
-    } finally {
-      setIsAiLoading(false);
-    }
-  }
-
-  async function saveAlert(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!lastSearchPayload) {
-      setAlertStatus("Run a trip search before saving an alert.");
-      return;
-    }
-
-    setIsSavingAlert(true);
-    setAlertStatus("");
-    setSavedAlert(null);
-
-    try {
-      const isAccountSave = Boolean(authUser);
-      const response = await fetch(`${apiBaseUrl}${isAccountSave ? "/me/saved-searches" : "/alerts"}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          ...lastSearchPayload,
-          email: authUser?.email ?? alertEmail,
-          name: alertName || suggestedAlertName(lastSearchPayload),
-          frequency: alertFrequency,
-        }),
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(limitAwareError(message || "Alert save failed."));
-      }
-
-      const data: SavedSearchResponse = await response.json();
-      setSavedAlert(data);
-      setAlertStatus(
-        authUser
-          ? "Saved to your Triplet account."
-          : "Alert saved. Local emails are printed in backend logs unless SMTP is configured.",
-      );
-    } catch (saveError) {
-      setAlertStatus(saveError instanceof Error ? saveError.message : "Alert save failed.");
-    } finally {
-      setIsSavingAlert(false);
-    }
-  }
-
-  async function submitAuth(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!authMode) {
-      return;
-    }
-    setIsAuthSubmitting(true);
-    setAuthStatus("");
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/auth/${authMode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          email: authForm.email,
-          password: authForm.password,
-          displayName: authMode === "signup" ? authForm.displayName || null : undefined,
-        }),
-      });
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Authentication failed.");
-      }
-      const data: AuthResponse = await response.json();
-      setAuthUser(data.user);
-      setAlertEmail(data.user.email);
-      setAuthMode(null);
-      setAuthForm({ email: "", password: "", displayName: "" });
-    } catch (authError) {
-      setAuthStatus(authError instanceof Error ? authError.message : "Authentication failed.");
-    } finally {
-      setIsAuthSubmitting(false);
-    }
-  }
-
-  async function logout() {
-    await fetch(`${apiBaseUrl}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => undefined);
-    setAuthUser(null);
-  }
-
-  function editParsedSearch(parsed: TripSearchPayload) {
-    setForm({
-      originAirports: parsed.originAirports.join(", "),
-      startDate: parsed.startDate,
-      endDate: parsed.endDate,
-      minTripLengthDays: parsed.minTripLengthDays,
-      maxTripLengthDays: parsed.maxTripLengthDays,
-      maxBudget: parsed.maxBudget,
-      maxGroundTransferHours: parsed.maxGroundTransferHours,
-      tripStyle: parsed.tripStyle,
-    });
-    setSearchMode("advanced");
-  }
-
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const reducedMotion = useReducedMotion();
+  if (reducedMotion) return <>{children}</>;
   return (
-    <main className="min-h-screen px-5 py-8 sm:px-8 lg:px-12">
-      <section className="mx-auto flex max-w-7xl flex-col gap-8">
-        <AccountBar user={authUser} onLogin={() => setAuthMode("login")} onSignup={() => setAuthMode("signup")} onLogout={logout} />
-
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-          <div className="py-4">
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.22em] text-mint">
-              TRIPLET
-            </p>
-            <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-white sm:text-5xl">
-              Find cheap trips, not just cheap flights.
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-              Triplet searches nearby airports, flexible dates, and smart open-jaw routes to help you discover cheaper European trips.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button type="button" onClick={() => setSearchMode("ai")} className="rounded-md bg-mint px-4 py-2.5 font-semibold text-ink">
-                Try AI search
-              </button>
-              <button type="button" onClick={() => setSearchMode("advanced")} className="rounded-md border border-line px-4 py-2.5 font-semibold text-white hover:border-mint">
-                Search trips
-              </button>
-            </div>
-
-            {!authUser ? <OnboardingCard /> : null}
-          </div>
-
-          <div className="rounded-lg border border-line bg-panel/92 p-5 shadow-deal backdrop-blur">
-            <div className="mb-4 grid grid-cols-2 rounded-md border border-line bg-ink/60 p-1">
-              <button
-                type="button"
-                onClick={() => setSearchMode("ai")}
-                className={`rounded px-3 py-2 text-sm font-semibold ${searchMode === "ai" ? "bg-mint text-ink" : "text-slate-300"}`}
-              >
-                AI search
-              </button>
-              <button
-                type="button"
-                onClick={() => setSearchMode("advanced")}
-                className={`rounded px-3 py-2 text-sm font-semibold ${searchMode === "advanced" ? "bg-mint text-ink" : "text-slate-300"}`}
-              >
-                Advanced search
-              </button>
-            </div>
-
-            {searchMode === "ai" ? (
-              <form
-              onSubmit={searchWithAi}
-            >
-              <Field label="Natural-language search">
-                <textarea
-                  value={aiMessage}
-                  onChange={(event) => setAiMessage(event.target.value)}
-                  rows={4}
-                  className="w-full resize-none rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                  placeholder="Try: Find me a cheap 5 to 7 day trip in August from Vienna or Zagreb under €180. I like two-city trips."
-                />
-              </Field>
-              <button
-                type="submit"
-                disabled={isAiLoading || !aiMessage.trim()}
-                className="mt-4 w-full rounded-md bg-mint px-4 py-3 font-semibold text-ink transition hover:bg-[#93efd6] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isAiLoading ? "Understanding your request..." : "Search with AI"}
-              </button>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {examplePrompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => setAiMessage(prompt)}
-                    className="rounded-md border border-line bg-ink/60 px-3 py-2 text-left text-xs text-slate-300 hover:border-mint"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </form>
-            ) : (
-              <form
-            onSubmit={searchTrips}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Origin airports" className="sm:col-span-2">
-                <input
-                  value={form.originAirports}
-                  onChange={(event) => setForm({ ...form, originAirports: event.target.value })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Start date">
-                <input
-                  type="date"
-                  value={form.startDate}
-                  onChange={(event) => setForm({ ...form, startDate: event.target.value })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="End date">
-                <input
-                  type="date"
-                  value={form.endDate}
-                  onChange={(event) => setForm({ ...form, endDate: event.target.value })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Min nights">
-                <input
-                  type="number"
-                  min="1"
-                  value={form.minTripLengthDays}
-                  onChange={(event) => setForm({ ...form, minTripLengthDays: Number(event.target.value) })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Max nights">
-                <input
-                  type="number"
-                  min="1"
-                  value={form.maxTripLengthDays}
-                  onChange={(event) => setForm({ ...form, maxTripLengthDays: Number(event.target.value) })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Max budget">
-                <input
-                  type="number"
-                  min="1"
-                  value={form.maxBudget}
-                  onChange={(event) => setForm({ ...form, maxBudget: Number(event.target.value) })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Max transfer hours">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={form.maxGroundTransferHours}
-                  onChange={(event) => setForm({ ...form, maxGroundTransferHours: Number(event.target.value) })}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Trip style" className="sm:col-span-2">
-                <select
-                  value={form.tripStyle}
-                  onChange={(event) =>
-                    setForm({ ...form, tripStyle: event.target.value as TripSearchPayload["tripStyle"] })
-                  }
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                >
-                  <option>surprise me</option>
-                  <option>one city</option>
-                  <option>two nearby cities</option>
-                </select>
-              </Field>
-            </div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="mt-5 w-full rounded-md bg-mint px-4 py-3 font-semibold text-ink transition hover:bg-[#93efd6] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isLoading ? "Searching routes..." : "Find trips"}
-            </button>
-          </form>
-            )}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="rounded-lg border border-coral/50 bg-coral/10 p-4 text-coral">
-            {error}
-          </div>
-        ) : null}
-
-        {providerNotice ? (
-          <div className="rounded-lg border border-mint/35 bg-mint/10 p-4 text-sm text-mint">
-            {providerNotice}
-          </div>
-        ) : null}
-
-        {aiFallbackNotice ? (
-          <div className="rounded-lg border border-amber-300/45 bg-amber-300/10 p-4 text-sm text-amber-100">
-            {aiFallbackNotice}
-          </div>
-        ) : null}
-
-        {isAiLoading || aiResponseMessage || aiParsedRequest || aiMissingFields.length ? (
-          <div className="max-w-4xl rounded-lg border border-line bg-panel/80 p-5">
-            {isAiLoading || aiResponseMessage ? (
-              <AiSummary message={aiResponseMessage} isLoading={isAiLoading} />
-            ) : null}
-            {aiParsedRequest ? (
-              <>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-md border border-line px-2 py-1 text-slate-300">AI parsed</span>
-                  <span className="rounded-md border border-line px-2 py-1 text-slate-300">{trips.length} trips found</span>
-                </div>
-                <ParsedSummary parsed={aiParsedRequest} />
-                <button
-                  type="button"
-                  onClick={() => editParsedSearch(aiParsedRequest)}
-                  className="mt-3 rounded-md border border-line px-3 py-2 text-sm font-semibold text-white hover:border-mint"
-                >
-                  Edit search
-                </button>
-              </>
-            ) : null}
-            {aiMissingFields.length ? (
-              <p className="mt-3 text-sm text-coral">
-                Missing: {aiMissingFields.join(", ")}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {lastSearchPayload && trips.length ? (
-          <form id="save-alert" onSubmit={saveAlert} className="max-w-4xl rounded-lg border border-line bg-panel/80 p-5">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-white">Want to be notified when trips like this appear?</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                {authUser ? "Save this search to your Triplet dashboard." : "Save an email alert or create an account to manage alerts."}
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
-              <Field label="Email">
-                <input
-                  type="email"
-                  required={!authUser}
-                  disabled={Boolean(authUser)}
-                  value={authUser?.email ?? alertEmail}
-                  onChange={(event) => setAlertEmail(event.target.value)}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2 disabled:opacity-70"
-                />
-              </Field>
-              <Field label="Alert name">
-                <input
-                  value={alertName}
-                  onChange={(event) => setAlertName(event.target.value)}
-                  placeholder={suggestedAlertName(lastSearchPayload)}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                />
-              </Field>
-              <Field label="Frequency">
-                <select
-                  value={alertFrequency}
-                  onChange={(event) => setAlertFrequency(event.target.value as "daily" | "weekly")}
-                  className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-                >
-                  <option value="daily">daily</option>
-                  <option value="weekly">weekly</option>
-                </select>
-              </Field>
-            </div>
-            <button
-              type="submit"
-              disabled={isSavingAlert}
-              className="mt-4 rounded-md bg-mint px-4 py-2.5 font-semibold text-ink transition hover:bg-[#93efd6] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSavingAlert ? "Saving alert..." : authUser ? "Save alert" : "Save email alert"}
-            </button>
-            {!authUser ? (
-              <button
-                type="button"
-                onClick={() => setAuthMode("signup")}
-                className="ml-3 mt-4 rounded-md border border-line px-4 py-2.5 font-semibold text-white hover:border-mint"
-              >
-                Create account to manage alerts
-              </button>
-            ) : null}
-            {alertStatus ? <p className="mt-3 text-sm text-slate-300">{alertStatus}</p> : null}
-            {savedAlert ? (
-              <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                {authUser ? (
-                  <a className="text-mint underline-offset-4 hover:underline" href="/dashboard">
-                    Open dashboard
-                  </a>
-                ) : null}
-                {savedAlert.manageUrl ? (
-                  <a className="text-mint underline-offset-4 hover:underline" href={savedAlert.manageUrl}>
-                    Manage alert
-                  </a>
-                ) : null}
-                {savedAlert.unsubscribeUrl ? (
-                  <a className="text-mint underline-offset-4 hover:underline" href={savedAlert.unsubscribeUrl}>
-                    Unsubscribe
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
-          </form>
-        ) : null}
-
-        <section>
-          <div className="mb-4 flex items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">Trip deals</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                {trips.length ? `${trips.length} routes found` : "Search uses demo/cached fares in this environment."}
-              </p>
-            </div>
-          </div>
-
-          {hasSearched && !isLoading && !error && trips.length === 0 ? (
-            <div className="rounded-lg border border-line bg-panel/80 p-8 text-center text-slate-300">
-              No matching trips found. Try increasing your budget, widening your dates, or allowing longer ground transfers.
-            </div>
-          ) : null}
-
-          {(isLoading || isAiLoading) && !trips.length ? <LoadingState /> : null}
-
-          <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-            {trips.map((trip) => (
-              <TripCard key={trip.id} trip={trip} />
-            ))}
-          </div>
-        </section>
-      </section>
-      {authMode ? (
-        <AuthDialog
-          mode={authMode}
-          form={authForm}
-          status={authStatus}
-          isSubmitting={isAuthSubmitting}
-          onModeChange={setAuthMode}
-          onChange={setAuthForm}
-          onClose={() => setAuthMode(null)}
-          onSubmit={submitAuth}
-        />
-      ) : null}
-    </main>
-  );
-}
-
-function AccountBar({
-  user,
-  onLogin,
-  onSignup,
-  onLogout,
-}: {
-  user: AuthUser | null;
-  onLogin: () => void;
-  onSignup: () => void;
-  onLogout: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <a className="text-sm font-semibold uppercase tracking-[0.22em] text-mint" href="/">
-        TRIPLET
-      </a>
-      <nav className="hidden items-center gap-4 text-sm text-slate-300 sm:flex">
-        <a className="hover:text-white" href="/">
-          Search
-        </a>
-        <a className="hover:text-white" href="/pricing">
-          Pricing
-        </a>
-        {user ? (
-          <a className="hover:text-white" href="/dashboard">
-            Dashboard
-          </a>
-        ) : null}
-      </nav>
-      {user ? (
-        <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
-          <span className="rounded-md border border-line px-2 py-1 text-xs text-mint">Free</span>
-          <a className="text-slate-300 hover:text-white" href="/account">{user.displayName || user.email}</a>
-          <a className="rounded-md border border-line px-3 py-2 text-white hover:border-mint" href="/dashboard">
-            Dashboard
-          </a>
-          <button type="button" onClick={onLogout} className="rounded-md bg-mint px-3 py-2 font-semibold text-ink">
-            Log out
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3 text-sm">
-          <button type="button" onClick={onLogin} className="rounded-md border border-line px-3 py-2 text-white hover:border-mint">
-            Log in
-          </button>
-          <button type="button" onClick={onSignup} className="rounded-md bg-mint px-3 py-2 font-semibold text-ink">
-            Sign up
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OnboardingCard() {
-  return (
-    <div className="mt-6 rounded-lg border border-line bg-panel/70 p-5">
-      <h2 className="text-lg font-semibold text-white">Plan a flexible trip in three steps</h2>
-      <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-        <div>
-          <p className="font-semibold text-mint">1. Search flexibly</p>
-          <p className="mt-1">Choose nearby airports and flexible dates.</p>
-        </div>
-        <div>
-          <p className="font-semibold text-mint">2. Compare smart trips</p>
-          <p className="mt-1">Triplet combines cheap flights, open-jaw routes, and manageable transfers.</p>
-        </div>
-        <div>
-          <p className="font-semibold text-mint">3. Save alerts</p>
-          <p className="mt-1">Get notified when similar cheap trips appear.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="rounded-lg border border-line bg-panel/80 p-6 text-sm text-slate-300">
-      <div className="flex flex-wrap gap-3">
-        <span>Understanding your request...</span>
-        <span>Searching trip combinations...</span>
-        <span>Ranking results...</span>
-      </div>
-    </div>
-  );
-}
-
-function AuthDialog({
-  mode,
-  form,
-  status,
-  isSubmitting,
-  onModeChange,
-  onChange,
-  onClose,
-  onSubmit,
-}: {
-  mode: "login" | "signup";
-  form: { email: string; password: string; displayName: string };
-  status: string;
-  isSubmitting: boolean;
-  onModeChange: (mode: "login" | "signup") => void;
-  onChange: (form: { email: string; password: string; displayName: string }) => void;
-  onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/75 px-4">
-      <form onSubmit={onSubmit} className="w-full max-w-md rounded-lg border border-line bg-panel p-5 shadow-deal">
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold text-white">{mode === "login" ? "Log in" : "Create account"}</h2>
-          <button type="button" onClick={onClose} className="rounded-md border border-line px-3 py-1.5 text-sm text-white">
-            Close
-          </button>
-        </div>
-        <div className="grid gap-4">
-          {mode === "signup" ? (
-            <Field label="Display name">
-              <input
-                value={form.displayName}
-                onChange={(event) => onChange({ ...form, displayName: event.target.value })}
-                className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-              />
-            </Field>
-          ) : null}
-          <Field label="Email">
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(event) => onChange({ ...form, email: event.target.value })}
-              className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-            />
-          </Field>
-          <Field label="Password">
-            <input
-              type="password"
-              required
-              minLength={12}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              value={form.password}
-              onChange={(event) => onChange({ ...form, password: event.target.value })}
-              className="w-full rounded-md border border-line bg-ink px-3 py-2.5 text-white outline-none ring-mint/40 focus:ring-2"
-            />
-          </Field>
-        </div>
-        {status ? <p className="mt-3 text-sm text-coral">{status}</p> : null}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-5 w-full rounded-md bg-mint px-4 py-3 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isSubmitting ? "Working..." : mode === "login" ? "Log in" : "Create account"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onModeChange(mode === "login" ? "signup" : "login")}
-          className="mt-3 w-full text-sm text-mint underline-offset-4 hover:underline"
-        >
-          {mode === "login" ? "Need an account?" : "Already have an account?"}
-        </button>
-        <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-slate-500">
-          <span className="h-px flex-1 bg-line" />
-          or
-          <span className="h-px flex-1 bg-line" />
-        </div>
-        <div className="grid gap-3">
-          <a
-            className="block rounded-md border border-line px-4 py-3 text-center font-semibold text-white hover:border-mint"
-            href={`${apiBaseUrl}/auth/oauth/google/start`}
-          >
-            Continue with Google
-          </a>
-          <a
-            className="block rounded-md border border-line px-4 py-3 text-center font-semibold text-white hover:border-mint"
-            href={`${apiBaseUrl}/auth/oauth/apple/start`}
-          >
-            Continue with Apple
-          </a>
-        </div>
-        <a className="mt-3 block text-center text-sm text-slate-400 underline-offset-4 hover:underline" href="/reset-password">
-          Reset password
-        </a>
-      </form>
-    </div>
-  );
-}
-
-function AiSummary({ message, isLoading }: { message: string; isLoading: boolean }) {
-  const [visibleText, setVisibleText] = useState("");
-  const cleanMessage = useMemo(() => sanitizeAiText(message), [message]);
-
-  useEffect(() => {
-    if (isLoading) {
-      setVisibleText("Thinking");
-      return;
-    }
-
-    if (!cleanMessage) {
-      setVisibleText("");
-      return;
-    }
-
-    setVisibleText("");
-    let index = 0;
-    let timeoutId: number;
-
-    function tick() {
-      const nextIndex = Math.min(index + typewriterStep(index, cleanMessage), cleanMessage.length);
-      index = nextIndex;
-      setVisibleText(cleanMessage.slice(0, index));
-
-      if (index < cleanMessage.length) {
-        timeoutId = window.setTimeout(tick, typewriterDelay(index, cleanMessage));
-      }
-    }
-
-    timeoutId = window.setTimeout(tick, 8);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [cleanMessage, isLoading]);
-
-  return (
-    <div className="flex max-w-3xl items-start gap-3 text-sm leading-6 text-slate-200">
-      <span
-        className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-mint shadow-[0_0_16px_rgba(125,223,195,0.75)] ${
-          isLoading || visibleText.length < cleanMessage.length ? "animate-ai-bounce" : ""
-        }`}
-        aria-hidden="true"
-      />
-      <p className="min-h-6 whitespace-pre-wrap">
-        {visibleText}
-        {isLoading ? <span className="inline-flex w-5 animate-pulse">...</span> : null}
-      </p>
-    </div>
-  );
-}
-
-function sanitizeAiText(value: string) {
-  return value
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/^\s{0,3}#{1,6}\s*/gm, "")
-    .replace(/#{1,6}\s*/g, "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/__(.*?)__/g, "$1")
-    .replace(/\[(.*?)\]\([^)]*\)/g, "$1")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/(?:^|\s)\d+[.)]\s+/g, " ")
-    .replace(/[|*_`#]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 400);
-}
-
-function limitAwareError(message: string) {
-  if (message.includes("reached") || message.includes("Upgrade") || message.includes("plan allows")) {
-    return `${message} Visit /pricing to upgrade.`;
-  }
-  return message;
-}
-
-function typewriterStep(index: number, text: string) {
-  const progress = text.length ? index / text.length : 1;
-  const wave = Math.sin(progress * Math.PI * 4);
-  if (wave > 0.45) {
-    return 3;
-  }
-  if (wave < -0.45) {
-    return 1;
-  }
-  return 2;
-}
-
-function typewriterDelay(index: number, text: string) {
-  const char = text[index] ?? "";
-  const progress = text.length ? index / text.length : 1;
-  const waveDelay = 34 + Math.sin(progress * Math.PI * 5) * 22;
-  if (/[.!?]/.test(char)) {
-    return waveDelay + 120;
-  }
-  if (/[,;:]/.test(char)) {
-    return waveDelay + 55;
-  }
-  return Math.max(10, waveDelay);
-}
-
-function ParsedSummary({ parsed }: { parsed: TripSearchPayload }) {
-  return (
-    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-      <SummaryItem label="Origins" value={parsed.originAirports.join(", ")} />
-      <SummaryItem label="Dates" value={`${parsed.startDate} to ${parsed.endDate}`} />
-      <SummaryItem label="Trip length" value={`${parsed.minTripLengthDays}-${parsed.maxTripLengthDays} days`} />
-      <SummaryItem label="Budget" value={`€${Math.round(parsed.maxBudget)}`} />
-      <SummaryItem label="Trip style" value={parsed.tripStyle} />
-      <SummaryItem label="Transfer" value={`${parsed.maxGroundTransferHours}h max`} />
-    </dl>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-line bg-ink/55 p-3">
-      <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</dt>
-      <dd className="mt-1 font-medium text-white">{value}</dd>
-    </div>
-  );
-}
-
-function suggestedAlertName(payload: TripSearchPayload) {
-  return `${payload.startDate.slice(5)}-${payload.endDate.slice(5)} trips under €${Math.round(payload.maxBudget)}`;
-}
-
-function Field({
-  label,
-  className = "",
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-sm font-medium text-slate-300">{label}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 22 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.55, delay, ease: "easeOut" }}
+    >
       {children}
-    </label>
+    </motion.div>
   );
 }
 
-function TripCard({ trip }: { trip: TripOption }) {
-  const tags = trip.tags ?? [];
-  const warnings = trip.warnings ?? [];
-  const nights = trip.nights ?? trip.tripLengthDays;
-  const isOpenJaw = trip.tripType === "open_jaw";
-
+export default function LandingPage() {
   return (
-    <article className="rounded-lg border border-line bg-panel/90 p-5 shadow-deal">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded-md border border-mint/35 bg-mint/10 px-2 py-1 text-xs font-semibold text-mint">
-              {isOpenJaw ? (trip.groundTransfer ? "Two-city trip" : "Open-jaw") : "Simple return"}
-            </span>
-            <span className="rounded-md border border-line px-2 py-1 text-xs font-semibold text-white">
-              Score {trip.score}/100
-            </span>
+    <AppShell>
+      {/* Hero */}
+      <section className="grid items-center gap-10 pb-20 pt-8 lg:grid-cols-2 lg:pt-16">
+        <div className="max-w-xl">
+          <Badge tone="mint" className="mb-5">✈ Trip-first flight watching</Badge>
+          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-cloud sm:text-5xl lg:text-6xl">
+            Find cheap <span className="text-gradient">trips</span>, not just cheap flights.
+          </h1>
+          <p className="mt-5 text-lg text-mist">
+            Choose your airports, set your travel style, and Triplet watches for unusually cheap fares
+            that can become real trips.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <ButtonLink href="/signup" size="lg">Create my travel profile</ButtonLink>
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-base font-semibold text-mist transition hover:text-cloud"
+            >
+              See how it works ↓
+            </a>
           </div>
-          <h3 className="mt-2 text-xl font-semibold text-white">
-            {trip.outboundFlight.origin} &rarr; {trip.outboundFlight.destination}
-            {isOpenJaw ? ` / ${trip.returnFlight.origin} → ${trip.returnFlight.destination}` : ""}
-          </h3>
-          <p className="mt-1 text-sm text-slate-400">
-            {formatDateTime(trip.outboundFlight.departureDateTime)} · {nights} nights
+          <p className="mt-6 text-xs text-mist/70">
+            Prices shown are observed at check time and can change. Triplet never books flights for you.
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-3xl font-semibold text-white">€{Math.round(trip.totalPrice)}</p>
-          <p className="text-sm text-slate-400">total estimate</p>
-        </div>
-      </div>
+        <Reveal delay={0.15}>
+          <Hero3D />
+        </Reveal>
+      </section>
 
-      {tags.length ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-md border border-mint/35 bg-mint/10 px-2.5 py-1 text-xs font-medium text-mint"
-            >
-              {tag}
-            </span>
+      {/* How it works */}
+      <section id="how-it-works" className="scroll-mt-24 py-16">
+        <SectionHeading eyebrow="How it works" title="Three steps to smarter trips">
+          Triplet turns flight-price noise into complete, explainable trip suggestions.
+        </SectionHeading>
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {howItWorks.map((step, index) => (
+            <Reveal key={step.title} delay={index * 0.12}>
+              <Card hover className="h-full">
+                <span className="text-3xl" aria-hidden>{step.icon}</span>
+                <p className="mt-3 flex items-center gap-2 font-display text-lg font-bold text-cloud">
+                  <span className="text-mint">{index + 1}.</span> {step.title}
+                </p>
+                <p className="mt-2 text-sm text-mist">{step.text}</p>
+              </Card>
+            </Reveal>
           ))}
         </div>
-      ) : null}
+      </section>
 
-      <div className="mt-5 space-y-3">
-        <RouteLine label="Outbound" flight={trip.outboundFlight} />
-        {trip.groundTransfer ? <TransferLine transfer={trip.groundTransfer} /> : null}
-        <RouteLine label="Return" flight={trip.returnFlight} />
-      </div>
-
-      <p className="mt-4 text-sm leading-6 text-slate-300">{trip.explanation}</p>
-
-      {trip.bookingUrl ? (
-        <div className="mt-4">
-          <a
-            href={trip.bookingUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex rounded-md bg-mint px-3 py-2 text-sm font-semibold text-ink hover:bg-[#93efd6]"
-          >
-            {trip.bookingLabel ?? (trip.linkType === "affiliate_referral" ? "Check price" : "View on Skyscanner")}
-          </a>
-          <p className="mt-2 text-xs leading-5 text-slate-400">
-            Prices are not guaranteed and may change on Skyscanner or partner sites.
-          </p>
+      {/* Example trips */}
+      <section className="py-16">
+        <SectionHeading eyebrow="Example trips" title="What a Triplet alert looks like">
+          These are demo fares from our development dataset — clearly labeled, never presented as live prices.
+        </SectionHeading>
+        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+          <Reveal><TripCard trip={demoSimpleReturn} isDemo /></Reveal>
+          <Reveal delay={0.12}><TripCard trip={demoOpenJaw} isDemo /></Reveal>
         </div>
-      ) : null}
+      </section>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {warnings.map((warning) => (
-          <span
-            key={warning}
-            className="rounded-md border border-coral/35 bg-coral/10 px-2.5 py-1 text-xs text-[#ffc4b2]"
-          >
-            {warning}
-          </span>
-        ))}
-      </div>
-      <a href="#save-alert" className="mt-4 inline-block rounded-md border border-line px-3 py-2 text-sm font-semibold text-white hover:border-mint">
-        Save alert like this
-      </a>
-    </article>
-  );
-}
+      {/* Travel profile preview */}
+      <section className="py-16">
+        <div className="grid items-center gap-10 lg:grid-cols-2">
+          <div>
+            <SectionHeading eyebrow="Your travel profile" title="Deals that actually fit you" />
+            <p className="mx-auto mt-3 max-w-xl text-center text-mist lg:text-left">
+              A two-minute quiz teaches Triplet which airports work for you, how long you like to travel,
+              and what a “good deal” means in your budget.
+            </p>
+          </div>
+          <Reveal>
+            <Card className="space-y-5">
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-mist">Your airports</p>
+                <div className="flex flex-wrap gap-2">
+                  {["Vienna VIE", "Zagreb ZAG", "Trieste TRS", "Venice VCE", "Budapest BUD"].map(
+                    (airport, index) => (
+                      <Chip key={airport} selected={index < 3}>{airport}</Chip>
+                    ),
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-mist">
+                  <span>Budget comfort zone</span>
+                  <span className="text-mint">under €200</span>
+                </div>
+                <input type="range" readOnly value={40} min={0} max={100} className="w-full" aria-label="Budget preference preview" />
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-mist">
+                  <span>Trip length</span>
+                  <span className="text-mint">4–8 days</span>
+                </div>
+                <input type="range" readOnly value={55} min={0} max={100} className="w-full" aria-label="Trip length preference preview" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {["🏖 Beach", "🍜 Food", "🎭 Culture", "⛰ Nature"].map((style, index) => (
+                  <Chip key={style} selected={index < 2}>{style}</Chip>
+                ))}
+              </div>
+            </Card>
+          </Reveal>
+        </div>
+      </section>
 
-function RouteLine({ label, flight }: { label: string; flight: Flight }) {
-  return (
-    <div className="rounded-md border border-line bg-ink/55 p-3">
-      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-white">{label}</span>
-        <span className="text-slate-400">{flight.airline}</span>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-semibold text-white">
-          {flight.origin} &rarr; {flight.destination}
+      {/* Deal intelligence */}
+      <section className="py-16">
+        <SectionHeading eyebrow="Deal intelligence" title="“Cheap” is measured, not claimed">
+          Every suggestion explains itself: what it costs, why it's unusual, and what to watch out for.
+        </SectionHeading>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          {dealSignals.map((signal, index) => (
+            <Reveal key={signal.title} delay={index * 0.08}>
+              <Card hover className="h-full">
+                <h3 className="font-display text-base font-bold text-mint">{signal.title}</h3>
+                <p className="mt-2 text-sm text-mist">{signal.text}</p>
+              </Card>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* Security */}
+      <section className="py-16">
+        <Reveal>
+          <Card className="mx-auto max-w-3xl text-center">
+            <span className="text-3xl" aria-hidden>🔒</span>
+            <h2 className="mt-3 font-display text-2xl font-bold text-cloud">Your data, guarded like a passport</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-mist">
+              Passwords are hashed, sessions live in httpOnly cookies, and your profile is only used to rank
+              trips for you. We don't sell your data, and unsubscribing works with one click on every email.
+            </p>
+            <Link href="/security" className="mt-4 inline-block text-sm font-semibold text-sky hover:text-cloud">
+              Read the security &amp; privacy overview →
+            </Link>
+          </Card>
+        </Reveal>
+      </section>
+
+      {/* Pricing teaser */}
+      <section className="py-16">
+        <SectionHeading eyebrow="Pricing" title="Free to watch, Pro to hunt harder" />
+        <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-2">
+          <Reveal>
+            <Card hover className="h-full">
+              <h3 className="font-display text-lg font-bold text-cloud">Free</h3>
+              <p className="mt-1 text-3xl font-bold text-mint">€0</p>
+              <ul className="mt-4 space-y-2 text-sm text-mist">
+                <li>3 saved watches</li>
+                <li>Daily checks</li>
+                <li>Up to 6 origin airports</li>
+              </ul>
+            </Card>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <Card hover className="h-full border-mint/30">
+              <h3 className="font-display text-lg font-bold text-cloud">Pro</h3>
+              <p className="mt-1 text-3xl font-bold text-mint">soon</p>
+              <ul className="mt-4 space-y-2 text-sm text-mist">
+                <li>30 watches &amp; more airports</li>
+                <li>Priority + urgent deal alerts</li>
+                <li>Advanced open-jaw trips</li>
+              </ul>
+            </Card>
+          </Reveal>
+        </div>
+        <p className="mt-6 text-center">
+          <Link href="/pricing" className="text-sm font-semibold text-sky hover:text-cloud">
+            Compare plans →
+          </Link>
         </p>
-        <p className="font-semibold text-mint">€{Math.round(flight.price)}</p>
-      </div>
-      <p className="mt-1 text-sm text-slate-400">
-        {formatDateTime(flight.departureDateTime)} &rarr; {formatTime(flight.arrivalDateTime)}
-      </p>
-    </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20">
+        <Reveal>
+          <div className="glass rounded-card relative overflow-hidden px-6 py-14 text-center">
+            <div aria-hidden className="absolute inset-x-0 -top-32 mx-auto h-64 w-64 rounded-full bg-mint/10 blur-3xl" />
+            <h2 className="font-display text-3xl font-bold text-cloud sm:text-4xl">
+              Your next trip is already out there.
+            </h2>
+            <p className="mx-auto mt-3 max-w-md text-mist">
+              Set up your travel profile once — Triplet keeps watching so you don't have to.
+            </p>
+            <div className="mt-7">
+              <ButtonLink href="/signup" size="lg">Create my travel profile</ButtonLink>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+    </AppShell>
   );
-}
-
-function TransferLine({ transfer }: { transfer: GroundTransfer }) {
-  return (
-    <div className="rounded-md border border-dashed border-mint/45 bg-mint/10 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-semibold text-white">
-          {transfer.fromCity} &rarr; {transfer.toCity}
-        </p>
-        <p className="font-semibold text-mint">€{Math.round(transfer.estimatedCost)}</p>
-      </div>
-      <p className="mt-1 text-sm text-slate-300">
-        {transfer.durationHours}h by {transfer.mode}
-      </p>
-    </div>
-  );
-}
-
-function cityLabel(code: string) {
-  return airportNames[code] ?? code;
-}
-
-function buildProviderNotice(data: TripSearchResponse) {
-  const metadata = data.providerMetadata;
-  const warnings = metadata?.providerWarnings ?? data.providerWarnings;
-  if (warnings?.length) {
-    return warnings.join(" ");
-  }
-  const providerUsed = metadata?.providerUsed ?? data.providerUsed;
-  if (providerUsed === "skyscanner" || metadata?.providerName === "skyscanner") {
-    const attempted = metadata?.requestsAttempted;
-    const limit = metadata?.requestsLimit;
-    const links = metadata?.deepLinksReturned ?? 0;
-    return attempted && limit
-      ? `Using Skyscanner live fares. Live provider searched ${attempted}/${limit} allowed requests. ${links ? "Skyscanner links are available for some results." : "Live prices can change. Check final price on Skyscanner."}`
-      : "Using Skyscanner live fares. Live prices can change. Check final price on Skyscanner.";
-  }
-  if (metadata?.cachedResultsUsed ?? data.cachedResultsUsed) {
-    return "Using cached fares because Skyscanner was unavailable.";
-  }
-  if (providerUsed === "database") {
-    return "Using demo/cached fares.";
-  }
-  if (providerUsed === "hybrid") {
-    return "Using cached fares with Skyscanner live fare checks.";
-  }
-  return "";
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
