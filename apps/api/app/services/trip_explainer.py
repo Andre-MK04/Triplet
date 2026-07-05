@@ -1,3 +1,4 @@
+from app.data.destination_styles import destination_styles, style_labels
 from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
 
 
@@ -76,6 +77,9 @@ def build_tags(trip: TripOption) -> list[str]:
         tags.append("Two-city trip")
     else:
         tags.append("No ground transfer")
+
+    styles = destination_styles(trip.outboundFlight.destination, trip.returnFlight.origin)
+    tags.extend(style_labels(styles))
 
     if trip.groundTransfer and trip.groundTransfer.durationHours <= 2.5:
         tags.append("Easy transfer")

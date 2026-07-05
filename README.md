@@ -369,6 +369,12 @@ ENABLE_DEV_TOOL_ENDPOINTS=false
 
 The API refuses to start in production if the development secret, insecure auth cookies, or non-HTTPS public URLs are configured.
 
+Sensitive actions are recorded in the `audit_events` table: signup, login (including failed
+attempts), logout, OAuth login, password change/reset, travel-profile updates, and saved-watch
+create/update/delete. Entries contain the action, acting user id, request id, a salted hash of
+the client IP, and small metadata — never passwords, tokens, or secrets (secret-shaped metadata
+keys are dropped defensively).
+
 Manual QA before deploy:
 
 - `GET /health` returns `ok`.
@@ -820,6 +826,12 @@ SMTP_USE_TLS=true
 
 By default, emails are printed/logged by the backend. Real SMTP sending only happens when `EMAIL_PROVIDER=smtp` and SMTP config is set.
 
+Alert emails are branded HTML (with a plain-text alternative): dark trip cards with route,
+dates, price, deal/fit scores, the why-it-works explanation, warnings, and a "Check price"
+button only when a real provider link exists. Subjects are deal-aware, for example
+"Venice for €66? This looks unusually cheap." Every email states that prices are observed,
+not guaranteed, and includes manage/unsubscribe guidance.
+
 Create an alert:
 
 ```bash
@@ -913,7 +925,7 @@ Two trip types are supported:
 Each trip totals flight prices plus any ground-transfer cost, filters by budget, and generates warnings and tags. Trips receive two explainable rule-based scores from 0 to 100, each with a per-factor breakdown in the API response:
 
 - **DealScore** — price/quality independent of taste: budget headroom, flight times, transfer effort, stops, baggage, fare confidence, and (once `price_observations` has at least 3 samples for a route) the price versus the route's observed baseline.
-- **FitScore** — match against the searcher's saved travel profile: origin airports, preferred trip length and months, comfort rules, open-jaw willingness, and budget comfort zone. Without a profile, a request-only fit is used.
+- **FitScore** — match against the searcher's saved travel profile: origin airports, preferred trip length and months, comfort rules, open-jaw willingness, budget comfort zone, and destination travel-style tags (curated editorial metadata in `app/data/destination_styles.py`, matched against the profile's preferred trip types). Without a profile, a request-only fit is used.
 
 Results are sorted by deal score, fit score, price, and shorter ground transfer. The top results of every search are persisted as trip suggestions (7-day TTL) and served by `GET /trips/suggestions/{id}`; suggestions created by a logged-in user are private to that user. The saved-watch runner passes the watch owner through the same path, so alert results are profile-aware too.
 

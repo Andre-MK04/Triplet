@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.audit import record_audit_event
 from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse, UpdateSavedSearchRequest
 from app.alerts.service import (
     AlertValidationError,
@@ -103,6 +104,7 @@ def upsert_travel_profile(
         db.rollback()
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc
     db.refresh(row)
+    record_audit_event(db, "profile.travel_profile_updated", user_id=user.id, commit=True)
     return _profile_to_response(row)
 
 
@@ -136,7 +138,9 @@ def create_saved_search(
 ) -> SavedSearchResponse:
     try:
         assert_saved_search_allowed(db, user, request.frequency)
-        return SavedSearchService(db).create_user_saved_search(user, request)
+        created = SavedSearchService(db).create_user_saved_search(user, request)
+        record_audit_event(db, "watch.created", user_id=user.id, commit=True, watch_id=created.id)
+        return created
     except AlertValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
@@ -152,6 +156,7 @@ def delete_saved_search(
 ) -> dict[str, bool]:
     def run() -> dict[str, bool]:
         SavedSearchService(db).deactivate_user_saved_search(user, saved_search_id)
+        record_audit_event(db, "watch.deleted", user_id=user.id, commit=True, watch_id=saved_search_id)
         return {"ok": True}
 
     return _handle_saved_search_errors(run)
@@ -167,7 +172,9 @@ def update_saved_search(
     def run() -> SavedSearchResponse:
         if request.frequency:
             assert_saved_search_allowed(db, user, request.frequency)
-        return SavedSearchService(db).update_user_saved_search(user, saved_search_id, request)
+        updated = SavedSearchService(db).update_user_saved_search(user, saved_search_id, request)
+        record_audit_event(db, "watch.updated", user_id=user.id, commit=True, watch_id=saved_search_id)
+        return updated
 
     return _handle_saved_search_errors(run)
 

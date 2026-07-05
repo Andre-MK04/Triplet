@@ -58,6 +58,18 @@ class FlightDB(Base):
     raw_provider_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
 
+class AuditEventDB(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
 class TripSuggestionDB(Base):
     __tablename__ = "trip_suggestions"
 

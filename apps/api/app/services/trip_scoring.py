@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from app.data.destination_styles import STYLE_LABELS, destination_styles
 from app.db.models import UserTravelProfileDB
 from app.models import ScoreComponent, TripOption, TripSearchRequest
 
@@ -210,6 +211,14 @@ def calculate_fit_score(
             add("Inside your budget comfort zone", 6)
         else:
             add("Above your budget comfort zone", -5)
+
+    preferred_styles = set(profile.preferred_trip_types or [])
+    if preferred_styles:
+        trip_styles = destination_styles(trip.outboundFlight.destination, trip.returnFlight.origin)
+        matched = sorted(preferred_styles & trip_styles)
+        if matched:
+            labels = ", ".join(STYLE_LABELS.get(style, style) for style in matched[:3])
+            add(f"Matches your travel style: {labels}", min(4 + 2 * len(matched), 8))
 
     return clamp(score), components
 

@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.audit import record_audit_event
 from app.auth.dependencies import get_current_user_required
 from app.auth.oauth import (
     OAUTH_STATE_COOKIE_NAME,
@@ -56,6 +57,7 @@ def signup(
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc
+    record_audit_event(db, "auth.signup", user_id=user.id, request=request, commit=True)
     set_auth_cookies(response, access_token, refresh_token)
     return AuthResponse(user=auth_user_response(user), message="Signed up.")
 
@@ -76,7 +78,9 @@ def login(
             ip_address=request.client.host if request.client else None,
         )
     except AuthError as exc:
+        record_audit_event(db, "auth.login_failed", request=request, commit=True)
         raise HTTPException(status_code=401, detail="Invalid email or password") from exc
+    record_audit_event(db, "auth.login", user_id=user.id, request=request, commit=True)
     set_auth_cookies(response, access_token, refresh_token)
     return AuthResponse(user=auth_user_response(user), message="Logged in.")
 
@@ -127,6 +131,7 @@ async def oauth_callback(
         response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/", domain=cookie_settings().get("domain"))
         return response
 
+    record_audit_event(db, "auth.oauth_login", user_id=user.id, request=request, commit=True, provider=normalized_provider)
     response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}?auth=oauth_success", status_code=302)
     set_auth_cookies(response, access_token, refresh_token)
     response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/", domain=cookie_settings().get("domain"))
@@ -136,6 +141,7 @@ async def oauth_callback(
 @router.post("/logout")
 def logout(request: Request, response: Response, db: Session = Depends(get_db)) -> dict[str, bool]:
     AuthService(db).logout(request.cookies.get(REFRESH_COOKIE_NAME))
+    record_audit_event(db, "auth.logout", request=request, commit=True)
     clear_auth_cookies(response)
     return {"ok": True}
 
@@ -183,6 +189,7 @@ def change_password(
         AuthService(db).change_password(user, request_data.currentPassword, request_data.newPassword)
     except AuthError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    record_audit_event(db, "auth.password_changed", user_id=user.id, commit=True)
     return {"ok": True}
 
 
@@ -193,6 +200,7 @@ def forgot_password(
     _: None = Depends(auth_rate_limit("forgot_password")),
 ) -> dict[str, str]:
     AuthService(db).forgot_password(request_data.email)
+    record_audit_event(db, "auth.password_reset_requested", commit=True)
     return {"message": "If that email exists, a reset link has been sent."}
 
 
@@ -206,6 +214,7 @@ def reset_password(
         AuthService(db).reset_password(request_data.token, request_data.newPassword)
     except AuthError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    record_audit_event(db, "auth.password_reset_completed", commit=True)
     return {"ok": True}
 
 

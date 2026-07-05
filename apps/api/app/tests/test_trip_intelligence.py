@@ -235,3 +235,25 @@ def test_user_owned_suggestions_are_private(db_session):
     assert client.get(f"/trips/suggestions/{suggestion_id}").status_code == 404
 
     app.dependency_overrides.clear()
+
+
+def test_fit_score_rewards_destination_style_match():
+    # Keep the base fit below the 100 clamp so the style bonus is visible.
+    base = dict(origin_airports=["ZAG"], preferred_months=[])
+    beach_lover = profile(preferred_trip_types=["beach", "food"], **base)
+    culture_only = profile(preferred_trip_types=["culture"], **base)
+
+    # ALC is tagged beach/food in the destination style map.
+    beach_score, beach_components = calculate_fit_score(trip(), request(), beach_lover)
+    culture_score, _ = calculate_fit_score(trip(), request(), culture_only)
+
+    assert beach_score > culture_score
+    assert any("travel style" in component.label for component in beach_components)
+
+
+def test_trip_tags_include_destination_styles():
+    from app.services.trip_explainer import build_tags
+
+    tags = build_tags(trip())
+
+    assert "Beach" in tags

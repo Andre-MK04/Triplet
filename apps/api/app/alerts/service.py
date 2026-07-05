@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.alerts.email import EmailProviderError, build_email_provider
+from app.alerts.templates import build_alert_html, build_alert_subject, build_alert_text
 from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse, UpdateSavedSearchRequest
 from app.alerts.token_utils import generate_token, hash_token, verify_token
 from app.config import settings
@@ -224,10 +225,15 @@ class SavedSearchService:
         )
 
     def _send_delivery(self, row: SavedSearchDB, run: AlertRunDB, output: SearchTripsOutput) -> None:
-        subject = f"{settings.app_name} alert: {len(output.trips)} matching trip(s)"
-        manage_token_note = "Use your manage/unsubscribe links from the alert creation response."
-        text_body = build_alert_text(row, output, manage_token_note)
-        html_body = "<pre>" + text_body.replace("&", "&amp;").replace("<", "&lt;") + "</pre>"
+        city_names = {airport.code: airport.city for airport in AirportsRepository(self.db).list_airports()}
+        manage_note = (
+            "Manage this watch on your Triplet dashboard."
+            if row.user_id
+            else "Use your manage/unsubscribe links from the alert creation response."
+        )
+        subject = build_alert_subject(row, output, city_names)
+        text_body = build_alert_text(row, output, city_names, manage_note)
+        html_body = build_alert_html(row, output, city_names, manage_note)
         delivery = AlertDeliveryDB(
             id=str(uuid4()),
             saved_search_id=row.id,
@@ -373,28 +379,3 @@ def saved_search_to_response(
     )
 
 
-def build_alert_text(row: SavedSearchDB, output: SearchTripsOutput, token_note: str) -> str:
-    lines = [
-        f"{settings.app_name} alert: {row.name or 'Saved search'}",
-        "Prices are not guaranteed and may change.",
-        "",
-    ]
-    for trip in output.trips[: settings.alerts_max_results_per_email]:
-        lines.append(
-            f"- {trip.outboundFlight.origin}->{trip.outboundFlight.destination} / "
-            f"{trip.returnFlight.origin}->{trip.returnFlight.destination}: "
-            f"EUR {round(trip.totalPrice)} · {trip.nights} nights · score {trip.score}"
-        )
-        if trip.bookingUrl:
-            lines.append(f"  View on Skyscanner: {trip.bookingUrl}")
-        if trip.warnings:
-            lines.append(f"  Warnings: {'; '.join(trip.warnings)}")
-    lines.extend(
-        [
-            "",
-            "Triplet does not sell flights directly. Prices and availability may change after you open Skyscanner or the travel partner site.",
-            token_note,
-            f"You are receiving this because you saved a {settings.app_name} alert.",
-        ]
-    )
-    return "\n".join(lines)
