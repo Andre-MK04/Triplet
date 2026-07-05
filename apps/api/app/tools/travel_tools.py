@@ -2,12 +2,16 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.intent_parser import parse_trip_intent
+from app.db.models import UserTravelProfileDB
 from app.db.repositories.airports_repository import AirportsRepository
+from app.db.repositories.price_observations_repository import PriceObservationsRepository
 from app.db.repositories.search_logs_repository import SearchLogsRepository
 from app.db.repositories.transfers_repository import TransfersRepository
-from app.models import TripSearchRequest
+from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
+from app.models import Flight, TripSearchRequest
 from app.services.flight_search_service import FlightSearchService
 from app.services.trip_builder import build_trips
+from app.services.trip_scoring import ScoringContext, route_key
 from app.tools.base import Tool, ToolContext
 from app.tools.schemas import (
     EstimateGroundTransferInput,
@@ -23,6 +27,25 @@ from app.tools.schemas import (
 )
 
 
+MAX_PERSISTED_SUGGESTIONS = 12
+MAX_ROUTE_STATS_LOOKUPS = 60
+
+
+def build_scoring_context(context: ToolContext, flights: list[Flight]) -> ScoringContext:
+    profile = context.db.get(UserTravelProfileDB, context.user_id) if context.user_id else None
+
+    route_stats: dict[str, dict] = {}
+    pairs = {(flight.origin, flight.destination) for flight in flights}
+    if pairs:
+        observations = PriceObservationsRepository(context.db)
+        for origin, destination in sorted(pairs)[:MAX_ROUTE_STATS_LOOKUPS]:
+            stats = observations.route_stats(origin, destination)
+            if stats["count"]:
+                route_stats[route_key(origin, destination)] = stats
+
+    return ScoringContext(route_stats=route_stats, profile=profile)
+
+
 class SearchTripsTool(Tool):
     name = "search_trips"
     description = "Search deterministic same-city and open-jaw trip options."
@@ -35,13 +58,27 @@ class SearchTripsTool(Tool):
         flight_search = context.flight_search_service or FlightSearchService(db=context.db)
         flight_result = flight_search.search_candidate_flights_with_metadata(request)
         transfers = TransfersRepository(context.db).list_transfers()
-        trips = build_trips(request, airports=airports, flights=flight_result.flights, transfers=transfers)
+        scoring = build_scoring_context(context, flight_result.flights)
+        trips = build_trips(
+            request,
+            airports=airports,
+            flights=flight_result.flights,
+            transfers=transfers,
+            scoring=scoring,
+        )
 
         try:
+            TripSuggestionsRepository(context.db).save_trips(
+                trips[:MAX_PERSISTED_SUGGESTIONS],
+                user_id=context.user_id,
+                commit=False,
+            )
             SearchLogsRepository(context.db).create_search_log(request, len(trips))
             context.db.commit()
         except SQLAlchemyError:
             context.db.rollback()
+            for trip in trips:
+                trip.suggestionId = None
 
         return SearchTripsOutput(
             trips=trips,

@@ -1,6 +1,6 @@
 from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
 from app.services.trip_explainer import build_explanation, build_tags, build_warnings
-from app.services.trip_scoring import calculate_trip_score
+from app.services.trip_scoring import ScoringContext, calculate_deal_score, calculate_fit_score
 
 
 def build_trips(
@@ -8,6 +8,7 @@ def build_trips(
     airports: list[Airport],
     flights: list[Flight],
     transfers: list[GroundTransfer],
+    scoring: ScoringContext | None = None,
 ) -> list[TripOption]:
     airports_by_code = {airport.code: airport for airport in airports}
     origin_codes = {code.upper() for code in request.originAirports}
@@ -93,7 +94,11 @@ def build_trips(
                 provider=pick_trip_provider(outbound, return_flight),
                 linkType=pick_trip_link_type(outbound, return_flight),
             )
-            trip.score = calculate_trip_score(trip, request)
+            trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, scoring)
+            trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(
+                trip, request, scoring.profile if scoring else None
+            )
+            trip.score = trip.dealScore
             trip.explanation = build_explanation(trip, request, airports_by_code)
             trip.tags = build_tags(trip)
             trips.append(trip)
@@ -102,7 +107,8 @@ def build_trips(
     return sorted(
         trips,
         key=lambda trip: (
-            -trip.score,
+            -trip.dealScore,
+            -(trip.fitScore or 0),
             trip.totalPrice,
             trip.groundTransfer.durationHours if trip.groundTransfer else 0,
         ),

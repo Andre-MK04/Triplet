@@ -58,6 +58,30 @@ class FlightDB(Base):
     raw_provider_hash: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
 
+class TripSuggestionDB(Base):
+    __tablename__ = "trip_suggestions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    saved_search_id: Mapped[str | None] = mapped_column(ForeignKey("saved_searches.id"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    trip_type: Mapped[str] = mapped_column(String(20))
+    origin_airport: Mapped[str] = mapped_column(String(8), index=True)
+    outbound_destination: Mapped[str] = mapped_column(String(8), index=True)
+    return_origin: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    final_arrival_airport: Mapped[str] = mapped_column(String(8))
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    nights: Mapped[int] = mapped_column(Integer)
+    total_price: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="EUR")
+    deal_score: Mapped[int] = mapped_column(Integer, default=0)
+    fit_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class PriceObservationDB(Base):
     __tablename__ = "price_observations"
 

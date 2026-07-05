@@ -6,6 +6,7 @@ from app.auth.dependencies import get_current_user_optional
 from app.billing.usage import assert_origin_airports_allowed
 from app.database import get_db
 from app.db.models import UserDB
+from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import TripSearchRequest, TripSearchResponse
 from app.config import settings
 from app.rate_limit import rate_limit
@@ -39,7 +40,7 @@ def search_trips(
         raise HTTPException(status_code=400, detail="maxTripLengthDays must be greater than or equal to minTripLengthDays")
     assert_origin_airports_allowed(user, len(request.originAirports))
 
-    context = ToolContext(db=db)
+    context = ToolContext(db=db, user_id=user.id if user else None)
     try:
         result = tool_registry.run_tool("search_trips", request, context)
     except SQLAlchemyError as exc:
@@ -61,3 +62,25 @@ def search_trips(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return TripSearchResponse.model_validate(result.model_dump())
+
+
+@router.get("/suggestions/{suggestion_id}")
+def get_trip_suggestion(
+    suggestion_id: str,
+    db: Session = Depends(get_db),
+    user: UserDB | None = Depends(get_current_user_optional),
+) -> dict:
+    row = TripSuggestionsRepository(db).get_visible(suggestion_id, user_id=user.id if user else None)
+    if not row:
+        raise HTTPException(status_code=404, detail="Trip suggestion not found or expired.")
+    return {
+        "id": row.id,
+        "title": row.title,
+        "tripType": row.trip_type,
+        "createdAt": row.created_at,
+        "expiresAt": row.expires_at,
+        "dealScore": row.deal_score,
+        "fitScore": row.fit_score,
+        "trip": row.payload,
+        "disclaimer": "Prices were observed when this suggestion was created and may have changed.",
+    }

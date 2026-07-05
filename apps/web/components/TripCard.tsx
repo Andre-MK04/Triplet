@@ -1,20 +1,49 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import { useState } from "react";
 
 import { airportCity } from "../lib/airports";
 import { confidenceLabel, formatDate, formatDuration, formatPrice, formatTime, timeAgo } from "../lib/format";
-import type { Flight, TripOption } from "../lib/types";
+import type { Flight, ScoreComponent, TripOption } from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 
 export function DealScoreBadge({ score }: { score: number }) {
   const tone = score >= 75 ? "mint" : score >= 50 ? "gold" : "neutral";
   return (
-    <Badge tone={tone} title="Rule-based deal score from 0 to 100" className="font-bold">
+    <Badge tone={tone} title="Explainable deal score from 0 to 100: price vs. observed history and trip quality" className="font-bold">
       {score} deal score
     </Badge>
+  );
+}
+
+export function FitScoreBadge({ score }: { score: number }) {
+  const tone = score >= 75 ? "sky" : score >= 50 ? "neutral" : "coral";
+  return (
+    <Badge tone={tone} title="How well this trip matches your travel profile" className="font-bold">
+      {score} fit
+    </Badge>
+  );
+}
+
+function ScoreBreakdown({ title, components }: { title: string; components: ScoreComponent[] }) {
+  if (components.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-mist/70">{title}</p>
+      <ul className="mt-1 space-y-0.5">
+        {components.map((component) => (
+          <li key={component.label} className="flex items-baseline justify-between gap-3 text-xs">
+            <span className="text-mist">{component.label}</span>
+            <span className={component.points > 0 ? "font-semibold text-mint" : "font-semibold text-coral"}>
+              {component.points > 0 ? `+${component.points}` : component.points}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -84,7 +113,8 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
       </header>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <DealScoreBadge score={trip.score} />
+        <DealScoreBadge score={trip.dealScore ?? trip.score} />
+        {typeof trip.fitScore === "number" ? <FitScoreBadge score={trip.fitScore} /> : null}
         <Badge tone={confidence.tone}>{confidence.label}</Badge>
         {trip.tripType === "open_jaw" ? <Badge tone="sky">Open-jaw</Badge> : null}
         {trip.tags.slice(0, 3).map((tag) => (
@@ -123,6 +153,12 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
               Separate tickets / self-transfer logic. Check final details before booking.
             </p>
           ) : null}
+          {(trip.dealScoreBreakdown?.length || trip.fitScoreBreakdown?.length) ? (
+            <div className="grid gap-3 border-t border-line pt-3 sm:grid-cols-2">
+              <ScoreBreakdown title="Deal score factors" components={trip.dealScoreBreakdown ?? []} />
+              <ScoreBreakdown title="Fit score factors" components={trip.fitScoreBreakdown ?? []} />
+            </div>
+          ) : null}
           <p className="text-xs text-mist/70">
             {observed ? `Last checked ${observed}. ` : ""}Prices are observed, not guaranteed — check the final
             price with the provider.
@@ -131,14 +167,24 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
       ) : null}
 
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-line pt-3">
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          className="text-sm font-medium text-sky transition hover:text-cloud"
-          aria-expanded={expanded}
-        >
-          {expanded ? "Hide details" : "Why this works"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="text-sm font-medium text-sky transition hover:text-cloud"
+            aria-expanded={expanded}
+          >
+            {expanded ? "Hide details" : "Why this works"}
+          </button>
+          {trip.suggestionId ? (
+            <Link
+              href={`/trip/${trip.suggestionId}`}
+              className="text-sm font-medium text-mist transition hover:text-cloud"
+            >
+              Open →
+            </Link>
+          ) : null}
+        </div>
         <div className="flex items-center gap-2">
           {onSaveAlert ? (
             <Button variant="secondary" size="sm" onClick={onSaveAlert}>

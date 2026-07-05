@@ -7,7 +7,13 @@ from pydantic import ValidationError
 
 from app.ai.intent_parser import parse_trip_intent
 from app.ai.prompts import TRIPLET_SYSTEM_PROMPT
-from app.ai.providers import AIProviderConfigError, AIProviderError, OpenAIProvider
+from app.ai.providers import (
+    SUPPORTED_AI_PROVIDERS,
+    AIProviderConfigError,
+    AIProviderError,
+    active_ai_model,
+    build_ai_provider,
+)
 from app.ai.schemas import (
     AIMetadata,
     AIParseOnlyResponse,
@@ -71,7 +77,7 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
             warnings=["AI unavailable - used rule-based parsing."],
         )
 
-    if settings.ai_provider != "openai":
+    if settings.ai_provider.lower() not in SUPPORTED_AI_PROVIDERS:
         return run_rule_based_search(
             request,
             registry,
@@ -96,7 +102,7 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
         return compact_tool_result(name, result)
 
     try:
-        provider = OpenAIProvider()
+        provider = build_ai_provider()
         result = provider.run_chat_with_tools(
             messages=[
                 {"role": "system", "content": TRIPLET_SYSTEM_PROMPT},
@@ -132,7 +138,7 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
                 confidence=None,
                 aiMetadata=AIMetadata(
                     aiProvider=settings.ai_provider,
-                    model=settings.openai_model,
+                    model=active_ai_model(),
                     toolCallsUsed=result.toolCallsUsed,
                     fallbackUsed=False,
                     warnings=result.warnings + [str(exc)],
@@ -149,7 +155,7 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
         providerMetadata=output.providerMetadata,
         aiMetadata=AIMetadata(
             aiProvider=settings.ai_provider,
-            model=settings.openai_model,
+            model=active_ai_model(),
             toolCallsUsed=result.toolCallsUsed,
             fallbackUsed=False,
             warnings=result.warnings,
@@ -160,7 +166,7 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
 def run_ai_parse(request: AISearchRequest, registry: ToolRegistry, context: ToolContext) -> AIParseOnlyResponse:
     if settings.ai_enabled:
         try:
-            provider = OpenAIProvider()
+            provider = build_ai_provider()
             latest_parse: dict[str, Any] = {}
 
             def execute_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:

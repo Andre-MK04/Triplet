@@ -57,7 +57,7 @@ def ai_search(
     if user:
         increment_usage(db, user.id, AI_SEARCH)
     try:
-        response = run_ai_search(request, tool_registry, ToolContext(db=db))
+        response = run_ai_search(request, tool_registry, ToolContext(db=db, user_id=user.id if user else None))
         if response.parsedRequest:
             assert_origin_airports_allowed(user, len(response.parsedRequest.originAirports))
         return response

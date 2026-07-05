@@ -26,9 +26,15 @@ export function formatDuration(minutes?: number | null): string | null {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
+/** API timestamps are naive UTC; treat them as UTC unless a timezone is present. */
+function parseUtc(iso: string): number {
+  const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(hasTimezone ? iso : `${iso}Z`).getTime();
+}
+
 export function timeAgo(iso?: string | null): string | null {
   if (!iso) return null;
-  const then = new Date(iso).getTime();
+  const then = parseUtc(iso);
   if (Number.isNaN(then)) return null;
   const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
   if (seconds < 60) return "just now";

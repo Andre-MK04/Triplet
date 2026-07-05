@@ -32,6 +32,11 @@ export type GroundTransfer = {
   mode: string;
 };
 
+export type ScoreComponent = {
+  label: string;
+  points: number;
+};
+
 export type TripOption = {
   id: string;
   tripType: "same_city" | "open_jaw";
@@ -42,6 +47,11 @@ export type TripOption = {
   tripLengthDays: number;
   nights: number;
   score: number;
+  dealScore?: number;
+  fitScore?: number | null;
+  dealScoreBreakdown?: ScoreComponent[];
+  fitScoreBreakdown?: ScoreComponent[];
+  suggestionId?: string | null;
   explanation: string;
   warnings: string[];
   tags: string[];
@@ -198,6 +208,18 @@ export type DashboardResponse = {
   usage: Record<string, number>;
   savedSearches: SavedSearch[];
   savedSearchSummary: { total: number; active: number };
+};
+
+export type TripSuggestionResponse = {
+  id: string;
+  title: string;
+  tripType: string;
+  createdAt: string;
+  expiresAt?: string | null;
+  dealScore: number;
+  fitScore?: number | null;
+  trip: TripOption;
+  disclaimer: string;
 };
 
 export type ProviderStatusEntry = {

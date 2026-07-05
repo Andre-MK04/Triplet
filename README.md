@@ -689,13 +689,18 @@ curl -X POST http://localhost:8001/tools/run \
 
 ### Step 6 Natural-Language AI Search
 
-AI is disabled by default, so local development is free and does not call OpenAI.
+AI is disabled by default, so local development is free and does not call any AI provider.
+Both OpenAI and Anthropic are supported through the same guarded tool-calling contract.
 
 Configuration:
 
 ```text
 AI_ENABLED=false
+# openai or anthropic
 AI_PROVIDER=openai
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-5
+ANTHROPIC_MAX_TOKENS=1024
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_TEMPERATURE=0.2
@@ -905,7 +910,12 @@ Two trip types are supported:
 - Same-city trips, where the outbound destination and return departure airport are the same or belong to the same airport area, such as `VCE` and `TSF` for Venice.
 - Open-jaw trips, where the outbound city and return city are connected by a known mock ground transfer within the user's max transfer time.
 
-Each trip totals flight prices plus any ground-transfer cost, filters by budget, generates warnings and tags, and receives a rule-based score from 0 to 100. Results are sorted by score, price, and shorter ground transfer.
+Each trip totals flight prices plus any ground-transfer cost, filters by budget, and generates warnings and tags. Trips receive two explainable rule-based scores from 0 to 100, each with a per-factor breakdown in the API response:
+
+- **DealScore** — price/quality independent of taste: budget headroom, flight times, transfer effort, stops, baggage, fare confidence, and (once `price_observations` has at least 3 samples for a route) the price versus the route's observed baseline.
+- **FitScore** — match against the searcher's saved travel profile: origin airports, preferred trip length and months, comfort rules, open-jaw willingness, and budget comfort zone. Without a profile, a request-only fit is used.
+
+Results are sorted by deal score, fit score, price, and shorter ground transfer. The top results of every search are persisted as trip suggestions (7-day TTL) and served by `GET /trips/suggestions/{id}`; suggestions created by a logged-in user are private to that user. The saved-watch runner passes the watch owner through the same path, so alert results are profile-aware too.
 
 ## Known Limitations
 

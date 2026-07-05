@@ -163,7 +163,7 @@ def test_ai_search_uses_search_trips_tool_output(db_session, monkeypatch):
             assert "trips" in output
             return AIProviderResult(message="Here are deterministic trip results.", toolCallsUsed=1)
 
-    monkeypatch.setattr(orchestrator, "OpenAIProvider", FakeOpenAIProvider)
+    monkeypatch.setattr(orchestrator, "build_ai_provider", lambda: FakeOpenAIProvider())
 
     response = client.post(
         "/ai/search",
@@ -212,7 +212,7 @@ def test_ai_search_sanitizes_markdown_message(db_session, monkeypatch):
                 toolCallsUsed=1,
             )
 
-    monkeypatch.setattr(orchestrator, "OpenAIProvider", MarkdownOpenAIProvider)
+    monkeypatch.setattr(orchestrator, "build_ai_provider", lambda: MarkdownOpenAIProvider())
 
     response = client.post(
         "/ai/search",
@@ -239,7 +239,7 @@ def test_ai_search_provider_error_falls_back(db_session, monkeypatch):
         def __init__(self):
             raise AIProviderConfigError("Provider failed cleanly.")
 
-    monkeypatch.setattr(orchestrator, "OpenAIProvider", FailingOpenAIProvider)
+    monkeypatch.setattr(orchestrator, "build_ai_provider", lambda: FailingOpenAIProvider())
 
     response = client.post(
         "/ai/search",

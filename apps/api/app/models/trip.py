@@ -20,6 +20,11 @@ class TripSearchRequest(BaseModel):
     includeBaggage: bool = False
 
 
+class ScoreComponent(BaseModel):
+    label: str
+    points: int
+
+
 class TripOption(BaseModel):
     id: str
     tripType: Literal["same_city", "open_jaw"]
@@ -30,6 +35,11 @@ class TripOption(BaseModel):
     tripLengthDays: int
     nights: int
     score: int
+    dealScore: int = 0
+    fitScore: int | None = None
+    dealScoreBreakdown: list[ScoreComponent] = []
+    fitScoreBreakdown: list[ScoreComponent] = []
+    suggestionId: str | None = None
     explanation: str
     warnings: list[str]
     tags: list[str]

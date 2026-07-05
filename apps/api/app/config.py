@@ -58,6 +58,9 @@ class Settings:
     skyscanner_affiliate_utm_campaign: str = os.getenv("SKYSCANNER_AFFILIATE_UTM_CAMPAIGN", "triplet_search")
     ai_enabled: bool = os.getenv("AI_ENABLED", "false").lower() == "true"
     ai_provider: str = os.getenv("AI_PROVIDER", "openai")
+    anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY") or None
+    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
+    anthropic_max_tokens: int = int(os.getenv("ANTHROPIC_MAX_TOKENS", "1024"))
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY") or None
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
     openai_temperature: float = float(os.getenv("OPENAI_TEMPERATURE", "0.2"))

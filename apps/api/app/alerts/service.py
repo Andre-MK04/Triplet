@@ -248,7 +248,9 @@ class SavedSearchService:
 
     def _search(self, row: SavedSearchDB) -> SearchTripsOutput:
         request = saved_search_to_trip_request(row)
-        result = self.registry.run_tool("search_trips", request.model_dump(mode="json"), ToolContext(db=self.db))
+        # Pass ownership so scoring can use the owner's travel profile (fit score).
+        context = ToolContext(db=self.db, user_id=row.user_id)
+        result = self.registry.run_tool("search_trips", request.model_dump(mode="json"), context)
         return SearchTripsOutput.model_validate(result)
 
     def _validate_request(self, request: CreateSavedSearchRequest) -> None:
