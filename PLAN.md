@@ -116,6 +116,8 @@ labeled "Indicative", never presented as live. That labeling must not change.
 - [x] Stage 2 — API + Postgres live at https://triplet-production.up.railway.app
       (verified 2026-07-06: /ready green, dev tools 404, real search returns
       30 all-indicative trips with affiliate-attributed links, zero mock fares)
-- [ ] Stage 3 — Web live on the real domain
+- [x] Stage 3 — Web live at https://triplet-web.vercel.app (verified 2026-07-06:
+      page serves, Drive snippet in HTML, CSP points at the Railway API, CORS
+      preflight passes with credentials for the Vercel origin)
 - [ ] Stage 4 — Cron runner + TP verification (+ SMTP later)
 - [ ] Stage 5 — Live fares (TP real-time application submitted; Duffel bridge decided)
