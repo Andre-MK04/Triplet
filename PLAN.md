@@ -24,12 +24,12 @@ search**. The owner does the account/dashboard steps; sessions do the rest.
   no-approval bridge.** Rejected: Skyscanner (needs partner status we can't
   get yet); scraping (banned by project rules and by terms).
 
-## Stage 1 — GitHub remote (visible endpoint: repo online)
+## Stage 1 — GitHub remote (visible endpoint: repo online) ✅ DONE 2026-07-06
 
-Owner: create a **private** GitHub repo, then a session runs
-`git remote add origin … && git push -u origin main`.
-Verify: repo shows the full commit history, `.env` files ARE NOT in it.
-Fence: no CI setup yet; just the remote.
+Repo: https://github.com/Andre-MK04/Triplet (**public** — owner's choice).
+Verified before/at push: full history scanned against every real secret value
+from `.env` — zero hits; no `.env` file ever committed. Keep it that way:
+the history of a public repo is forever.
 
 ## Stage 2 — API + Postgres on Railway (visible: /ready says "ready" on a public URL)
 
@@ -112,7 +112,7 @@ labeled "Indicative", never presented as live. That labeling must not change.
 
 ## Status
 
-- [ ] Stage 1 — GitHub remote
+- [x] Stage 1 — GitHub remote (public repo, history verified secret-free)
 - [ ] Stage 2 — API + Postgres live, reference-only seed
 - [ ] Stage 3 — Web live on the real domain
 - [ ] Stage 4 — Cron runner + TP verification (+ SMTP later)
