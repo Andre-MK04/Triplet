@@ -30,6 +30,8 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
     """
 
     name = "travelpayouts"
+    # Cached data is month-granular; smoke-test a ~4-week window, not a single day.
+    smoke_test_window_days = 27
 
     def __init__(
         self,

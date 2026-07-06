@@ -286,7 +286,7 @@ clearly labeled as demo/cached fares.
 
 | Capability | Mock | Database | Duffel | Travelpayouts / Aviasales | Skyscanner | FutureProvider |
 | --- | --- | --- | --- | --- | --- | --- |
-| Access status | available | available | **not configured** (self-serve signup) | **not configured** (affiliate signup) | requires approval (partner program) | planned |
+| Access status | available | available | **not configured** (self-serve signup) | **available** (smoke-tested with live token 2026-07-06) | requires approval (partner program) | planned |
 | One-way search | yes | yes (cached) | yes | yes | yes | — |
 | Return search | yes | yes (cached) | yes (two one-ways) | yes | yes (two one-ways) | — |
 | Multi-city / open-jaw | no (trip builder composes) | no (trip builder composes) | yes (multi-slice, not mapped yet) | no | no | — |
@@ -298,7 +298,7 @@ clearly labeled as demo/cached fares.
 | Live availability | no | **never** | yes | **no — indicative prices only** | yes | — |
 | Pricing / rate limits | none | local reads | metered per search request; cap `DUFFEL_MAX_REQUESTS_PER_SEARCH` | generous but cached data; cap `TRAVELPAYOUTS_MAX_REQUESTS_PER_SEARCH` | partner terms; cap `SKYSCANNER_MAX_REQUESTS_PER_SEARCH` | — |
 | Required env vars | — | `DATABASE_URL` | `DUFFEL_API_ENABLED`, `DUFFEL_API_KEY` | `TRAVELPAYOUTS_API_ENABLED`, `TRAVELPAYOUTS_API_TOKEN`, `TRAVELPAYOUTS_MARKER` | `SKYSCANNER_API_ENABLED`, `SKYSCANNER_API_KEY`, `SKYSCANNER_MEDIA_PARTNER_ID` | — |
-| Implementation status | implemented | implemented | implemented (needs credentials for smoke test) | implemented (needs token for smoke test) | adapter only, dormant | planned |
+| Implementation status | implemented | implemented | implemented (needs credentials for smoke test) | **implemented and verified against the live API** | adapter only, dormant | planned |
 
 Notes:
 
@@ -936,7 +936,8 @@ Results are sorted by deal score, fit score, price, and shorter ground transfer.
 - Ground transfers are static city/airport pairs, not live train or bus schedules.
 - Repository tests use SQLite in memory; local development uses PostgreSQL.
 - Provider tests (Duffel, Travelpayouts, Skyscanner) use mocked HTTP responses; no real external API calls run in tests.
-- Duffel and Travelpayouts adapters are implemented but not smoke-tested against live APIs yet: no credentials are configured. Do not treat live search as working until a smoke test passes.
+- Travelpayouts is smoke-tested against the live API (2026-07-06): hybrid search returns real indicative fares with affiliate links and records price observations. The Duffel adapter is implemented but has no credentials configured yet.
+- Travelpayouts smoke tests use a ~4-week window because its cached data is month-granular; single-day queries on thin routes can legitimately return nothing.
 - Duffel offers have no public deep link (it is a booking API); Travelpayouts prices are indicative, never live.
 - Skyscanner mapping supports direct one-way offers and simple single-itinerary connections; complex multi-itinerary offers may be skipped. The adapter is dormant pending partner approval.
 - AI is optional. OpenAI is called only when `AI_ENABLED=true`; otherwise rule-based fallback is used.

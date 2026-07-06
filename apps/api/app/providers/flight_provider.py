@@ -110,6 +110,9 @@ class FlightProvider(ABC):
     """
 
     name: str = "abstract"
+    # How many days after the requested departure date the smoke test may search.
+    # Providers with month-granular cached data (Travelpayouts) widen this window.
+    smoke_test_window_days: int = 0
 
     def __init__(self) -> None:
         self.requests_attempted = 0
@@ -189,18 +192,26 @@ class FlightProvider(ABC):
             result.warnings.append(f"Provider '{self.name}' is not enabled and configured; smoke test skipped.")
             return result
         try:
-            flights = self.search_one_way(origin, destination, departure_date)
+            flights = self.search_flexible(
+                [origin],
+                [destination],
+                DateRange(start=departure_date, end=departure_date + timedelta(days=self.smoke_test_window_days)),
+                constraints=SearchConstraints(),
+            )
         except ProviderError as exc:
             result.warnings.append(str(exc))
             return result
         result.apiOk = True
         result.ok = True
-        result.mappedFlightsCount = min(len(flights), max_results) if max_results else len(flights)
-        result.deepLinksReturned = sum(1 for flight in flights if flight.deepLink)
+        result.rawOffersCount = self.raw_offers_count or len(flights)
+        result.mappedFlightsCount = len(flights)
+        result.skippedOffersCount = self.skipped_offers_count
+        result.deepLinksReturned = self.deep_links_returned or sum(1 for flight in flights if flight.deepLink)
+        result.affiliateLinkGenerated = self.affiliate_links_generated > 0
         if flights:
             result.sampleFlight = sanitize_flight_summary(flights[0])
         else:
-            result.warnings.append("No flights found for the smoke-test route and date.")
+            result.warnings.append("No flights found for the smoke-test route and window.")
         return result
 
     def normalize_response_to_internal_flights(self, raw_response: Any) -> list[Flight]:
