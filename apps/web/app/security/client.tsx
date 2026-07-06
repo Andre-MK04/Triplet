@@ -21,7 +21,7 @@ const SECTIONS = [
       "Your travel profile (airports, budget, preferences) is used for exactly one thing: ranking trips for you.",
       "We store observed flight prices — not your browsing history.",
       "Alert emails include one-click manage and unsubscribe links; the tokens for those links are stored only as hashes.",
-      "We don't sell your data. There are no third-party ad trackers in the app.",
+      "We don't sell your data and run no ad trackers. The only third-party script is Travelpayouts' affiliate attribution, which credits Triplet when you open a flight deal link.",
     ],
   },
   {

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 import { AuthProvider } from "../components/AuthContext";
@@ -24,6 +25,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
+        {/* Travelpayouts Drive: affiliate attribution/verification. beforeInteractive
+            renders it into the server-side <head>, as Travelpayouts requires. */}
+        <Script id="travelpayouts-drive" strategy="beforeInteractive">
+          {`(function () {
+              var script = document.createElement("script");
+              script.async = 1;
+              script.src = 'https://emrldtp.cc/NTQ3MDYz.js?t=547063';
+              document.head.appendChild(script);
+          })();`}
+        </Script>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
