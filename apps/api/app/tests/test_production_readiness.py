@@ -72,3 +72,12 @@ def test_generic_rate_limit_blocks_after_threshold():
         assert getattr(exc, "status_code") == 429
     else:
         raise AssertionError("rate limit should block the second request")
+
+
+def test_database_url_normalization_accepts_hosting_provider_schemes():
+    from app.config import normalize_database_url
+
+    assert normalize_database_url("postgres://u:p@host:5432/db") == "postgresql+psycopg://u:p@host:5432/db"
+    assert normalize_database_url("postgresql://u:p@host:5432/db") == "postgresql+psycopg://u:p@host:5432/db"
+    assert normalize_database_url("postgresql+psycopg://u:p@host/db") == "postgresql+psycopg://u:p@host/db"
+    assert normalize_database_url("sqlite:///./dev.db") == "sqlite:///./dev.db"

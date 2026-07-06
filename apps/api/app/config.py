@@ -5,13 +5,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def normalize_database_url(url: str) -> str:
+    """Accept the postgres:// / postgresql:// URLs hosting providers hand out.
+
+    We ship psycopg v3, so plain postgresql:// (which SQLAlchemy maps to
+    psycopg2) must be rewritten to the explicit +psycopg driver scheme.
+    """
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
 class Settings:
     app_env: str = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "local"))
     environment: str = app_env
     app_name: str = os.getenv("APP_NAME", "Triplet")
-    database_url: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://triplet:triplet@localhost:5433/triplet",
+    database_url: str = normalize_database_url(
+        os.getenv(
+            "DATABASE_URL",
+            "postgresql+psycopg://triplet:triplet@localhost:5433/triplet",
+        )
     )
     flight_provider: str = os.getenv("FLIGHT_PROVIDER", "database")
     live_flight_provider: str = os.getenv("LIVE_FLIGHT_PROVIDER", "duffel")
