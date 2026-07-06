@@ -113,7 +113,9 @@ labeled "Indicative", never presented as live. That labeling must not change.
 ## Status
 
 - [x] Stage 1 — GitHub remote (public repo, history verified secret-free)
-- [ ] Stage 2 — API + Postgres live, reference-only seed
+- [x] Stage 2 — API + Postgres live at https://triplet-production.up.railway.app
+      (verified 2026-07-06: /ready green, dev tools 404, real search returns
+      30 all-indicative trips with affiliate-attributed links, zero mock fares)
 - [ ] Stage 3 — Web live on the real domain
 - [ ] Stage 4 — Cron runner + TP verification (+ SMTP later)
 - [ ] Stage 5 — Live fares (TP real-time application submitted; Duffel bridge decided)
