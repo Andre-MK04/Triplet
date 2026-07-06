@@ -122,7 +122,12 @@ def dt(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
-def seed_session(db) -> None:
+def seed_session(db, include_demo_flights: bool = True) -> None:
+    """Seed reference data (areas, airports, transfers) and optionally demo flights.
+
+    Production runs must use include_demo_flights=False: reference data is required
+    for the trip builder, but mock fares must never appear in a real deployment.
+    """
     area_by_slug = {}
     for slug, name, country in AIRPORT_AREAS:
         area = db.scalar(select(AirportAreaDB).where(AirportAreaDB.slug == slug))
@@ -147,21 +152,22 @@ def seed_session(db) -> None:
         airport.area_id = area_by_slug[area_slug].id
         airport.is_user_origin_candidate = is_origin
 
-    for flight_id, origin, destination, departure, arrival, airline, price, baggage in FLIGHTS:
-        flight = db.get(FlightDB, flight_id)
-        if not flight:
-            flight = FlightDB(id=flight_id)
-            db.add(flight)
-        flight.origin_code = origin
-        flight.destination_code = destination
-        flight.departure_datetime = dt(departure)
-        flight.arrival_datetime = dt(arrival)
-        flight.airline = airline
-        flight.price = price
-        flight.currency = "EUR"
-        flight.booking_url = None
-        flight.baggage_included = baggage
-        flight.provider = "mock"
+    if include_demo_flights:
+        for flight_id, origin, destination, departure, arrival, airline, price, baggage in FLIGHTS:
+            flight = db.get(FlightDB, flight_id)
+            if not flight:
+                flight = FlightDB(id=flight_id)
+                db.add(flight)
+            flight.origin_code = origin
+            flight.destination_code = destination
+            flight.departure_datetime = dt(departure)
+            flight.arrival_datetime = dt(arrival)
+            flight.airline = airline
+            flight.price = price
+            flight.currency = "EUR"
+            flight.booking_url = None
+            flight.baggage_included = baggage
+            flight.provider = "mock"
 
     for from_code, to_code, from_city, to_city, duration, cost, mode in TRANSFERS:
         transfer = db.scalar(
@@ -181,11 +187,37 @@ def seed_session(db) -> None:
     db.commit()
 
 
-def seed_database() -> None:
+def seed_database(include_demo_flights: bool = True) -> None:
     with SessionLocal() as db:
-        seed_session(db)
+        seed_session(db, include_demo_flights=include_demo_flights)
+
+
+def remove_demo_flights() -> None:
+    """Delete mock fares from an existing database (production cleanup)."""
+    with SessionLocal() as db:
+        deleted = db.query(FlightDB).filter(FlightDB.provider == "mock").delete()
+        db.commit()
+        print(f"Removed {deleted} demo flight(s).")
 
 
 if __name__ == "__main__":
-    seed_database()
-    print("Seeded Triplet database.")
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Seed Triplet reference data.")
+    parser.add_argument(
+        "--no-demo-flights",
+        action="store_true",
+        help="Seed airports/areas/transfers only. Required for production.",
+    )
+    parser.add_argument(
+        "--remove-demo-flights",
+        action="store_true",
+        help="Delete previously seeded mock fares, then exit.",
+    )
+    args = parser.parse_args()
+
+    if args.remove_demo_flights:
+        remove_demo_flights()
+    else:
+        seed_database(include_demo_flights=not args.no_demo_flights)
+        print("Seeded Triplet database" + (" (reference data only)." if args.no_demo_flights else "."))
