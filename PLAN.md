@@ -79,12 +79,12 @@ Fence: don't touch billing/SMTP yet.
 
 Two doors, not mutually exclusive:
 
-1. **Travelpayouts Real-Time Search API** (recommended end-state: live prices
-   AND affiliate attribution). Owner applies in the TP dashboard — approval
-   usually wants a live site, which Stage 3 provides. When access is granted,
-   a session builds `app/providers/travelpayouts/realtime.py` implementing the
-   init-search/poll-results flow behind the existing `FlightProvider`
-   interface, marks fares `confidenceLevel="live"`, smoke test before use.
+1. **Travelpayouts Real-Time Search API** — ❌ closed for now (checked
+   2026-07-07): requires ≥50,000 monthly active users, far beyond a new
+   product. Tripwire fired as planned → door 2 is the live-fare path.
+   Revisit if/when Triplet approaches that scale. If granted someday: build
+   `app/providers/travelpayouts/realtime.py` behind the existing interface,
+   fares marked `confidenceLevel="live"`, smoke test before use.
 2. **Duffel bridge** (works today, no approval): owner creates a duffel.com
    account, sets `DUFFEL_API_ENABLED=true` + `DUFFEL_API_KEY`; the adapter is
    already built and tested. `LIVE_FLIGHT_PROVIDER=duffel` for live prices,
@@ -120,4 +120,6 @@ labeled "Indicative", never presented as live. That labeling must not change.
       page serves, Drive snippet in HTML, CSP points at the Railway API, CORS
       preflight passes with credentials for the Vercel origin)
 - [ ] Stage 4 — Cron runner + TP verification (+ SMTP later)
-- [ ] Stage 5 — Live fares (TP real-time application submitted; Duffel bridge decided)
+- [ ] Stage 5 — Live fares: TP real-time ruled out (50k MAU floor); Duffel is
+      the path whenever the owner wants live prices. Until then: indicative
+      fares, honestly labeled — a valid steady state.
