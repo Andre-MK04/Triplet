@@ -12,10 +12,14 @@ def build_trips(
 ) -> list[TripOption]:
     airports_by_code = {airport.code: airport for airport in airports}
     origin_codes = {code.upper() for code in request.originAirports}
+    destination_codes = (
+        {code.upper() for code in request.destinationAirports} if request.destinationAirports else None
+    )
     outbound_candidates = [
         flight
         for flight in flights
         if flight.origin in origin_codes
+        and (destination_codes is None or flight.destination in destination_codes)
         and request.startDate <= flight.departureDateTime.date() <= request.endDate
     ]
 

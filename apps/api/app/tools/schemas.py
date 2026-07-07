@@ -56,6 +56,7 @@ class ParseTripIntentInput(BaseModel):
 
 class ParsedTripIntent(BaseModel):
     originAirports: list[str] = []
+    destinationAirports: list[str] | None = None
     startDate: date | None = None
     endDate: date | None = None
     minTripLengthDays: int | None = None

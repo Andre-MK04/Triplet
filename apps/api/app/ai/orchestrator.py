@@ -253,6 +253,7 @@ def build_trip_search_request(
     use_defaults: bool,
 ) -> TripSearchRequest:
     origin_airports = request.originAirports or intent.originAirports or (DEFAULT_ORIGINS if use_defaults else [])
+    destination_airports = request.destinationAirports or intent.destinationAirports
     start_date = request.startDate or intent.startDate or (DEFAULT_START_DATE if use_defaults else None)
     end_date = request.endDate or intent.endDate or (DEFAULT_END_DATE if use_defaults else None)
     min_days = request.minTripLengthDays or intent.minTripLengthDays or (4 if use_defaults else None)
@@ -265,6 +266,7 @@ def build_trip_search_request(
 
     search_request = TripSearchRequest(
         originAirports=[code.upper() for code in origin_airports],
+        destinationAirports=[code.upper() for code in destination_airports] if destination_airports else None,
         startDate=start_date,
         endDate=end_date,
         minTripLengthDays=min_days,

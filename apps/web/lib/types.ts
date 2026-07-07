@@ -69,6 +69,7 @@ export type TripStyle = "one city" | "two nearby cities" | "surprise me";
 
 export type TripSearchPayload = {
   originAirports: string[];
+  destinationAirports?: string[] | null;
   startDate: string;
   endDate: string;
   minTripLengthDays: number;

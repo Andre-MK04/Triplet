@@ -10,4 +10,10 @@ SEARCH_DESTINATIONS = [
     "ATH",
     "CTA",
     "PMI",
+    "CPH",
+    "ARN",
+    "GOT",
+    "OSL",
+    "BGO",
+    "HEL",
 ]

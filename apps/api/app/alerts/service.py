@@ -45,6 +45,7 @@ class SavedSearchService:
             email=request.email,
             name=request.name,
             origin_airports=request.originAirports,
+            destination_airports=request.destinationAirports,
             start_date=request.startDate,
             end_date=request.endDate,
             min_trip_length_days=request.minTripLengthDays,
@@ -108,6 +109,9 @@ class SavedSearchService:
             row.name = request.name
         if request.originAirports is not None:
             row.origin_airports = request.originAirports
+        if request.destinationAirports is not None:
+            # An empty list clears the filter back to "anywhere".
+            row.destination_airports = request.destinationAirports or None
         if request.startDate is not None:
             row.start_date = request.startDate
         if request.endDate is not None:
@@ -276,6 +280,7 @@ class SavedSearchService:
             email=row.email,
             name=row.name,
             originAirports=row.origin_airports,
+            destinationAirports=row.destination_airports,
             startDate=row.start_date,
             endDate=row.end_date,
             minTripLengthDays=row.min_trip_length_days,
@@ -335,6 +340,7 @@ class SavedSearchService:
 def saved_search_to_trip_request(row: SavedSearchDB) -> TripSearchRequest:
     return TripSearchRequest(
         originAirports=row.origin_airports,
+        destinationAirports=row.destination_airports,
         startDate=row.start_date,
         endDate=row.end_date,
         minTripLengthDays=row.min_trip_length_days,
@@ -358,6 +364,7 @@ def saved_search_to_response(
         email=row.email,
         name=row.name,
         originAirports=row.origin_airports,
+        destinationAirports=row.destination_airports,
         startDate=row.start_date,
         endDate=row.end_date,
         minTripLengthDays=row.min_trip_length_days,

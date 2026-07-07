@@ -149,6 +149,7 @@ class SavedSearchDB(Base):
     email: Mapped[str] = mapped_column(String(320), index=True)
     name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     origin_airports: Mapped[list[str]] = mapped_column(JSON)
+    destination_airports: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
     min_trip_length_days: Mapped[int] = mapped_column(Integer)

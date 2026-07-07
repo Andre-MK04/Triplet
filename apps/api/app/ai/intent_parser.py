@@ -1,6 +1,7 @@
 import re
 from datetime import date
 
+from app.data.regions import CITY_TO_DESTINATION_AIRPORTS, REGION_TO_AIRPORTS
 from app.models import TripSearchRequest
 from app.tools.schemas import ParsedTripIntent
 
@@ -18,7 +19,8 @@ CITY_TO_AIRPORTS = {
 
 def parse_trip_intent(message: str) -> ParsedTripIntent:
     text = message.lower()
-    origin_airports = parse_origins(text)
+    destination_airports = parse_destinations(text)
+    origin_airports = parse_origins(text, exclude=set(destination_airports or []))
     start_date, end_date = parse_date_range(text)
     min_days, max_days = parse_trip_length(text)
     max_budget = parse_budget(text)
@@ -42,6 +44,7 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     if not missing_fields:
         parsed_search = TripSearchRequest(
             originAirports=origin_airports,
+            destinationAirports=destination_airports,
             startDate=start_date,
             endDate=end_date,
             minTripLengthDays=min_days,
@@ -63,6 +66,7 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
 
     return ParsedTripIntent(
         originAirports=origin_airports,
+        destinationAirports=destination_airports,
         startDate=start_date,
         endDate=end_date,
         minTripLengthDays=min_days,
@@ -79,11 +83,25 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     )
 
 
-def parse_origins(text: str) -> list[str]:
+def parse_destinations(text: str) -> list[str] | None:
+    """Regions anywhere in the text, plus cities that follow 'to'/'in' phrasing."""
+    airports: list[str] = []
+    for region, codes in REGION_TO_AIRPORTS.items():
+        if region in text:
+            airports.extend(codes)
+    for city, codes in CITY_TO_DESTINATION_AIRPORTS.items():
+        if re.search(rf"\b(?:to|in|towards?|visit(?:ing)?)\s+(?:the\s+)?{city}\b", text):
+            airports.extend(codes)
+    deduped = list(dict.fromkeys(airports))
+    return deduped or None
+
+
+def parse_origins(text: str, exclude: set[str] | None = None) -> list[str]:
+    exclude = exclude or set()
     airports: list[str] = []
     for city, codes in CITY_TO_AIRPORTS.items():
-        if city in text:
-            airports.extend(codes)
+        if city in text and not all(code in exclude for code in codes):
+            airports.extend(code for code in codes if code not in exclude)
     return list(dict.fromkeys(airports))
 
 

@@ -77,3 +77,25 @@ def test_sorts_by_score_descending(trip_data):
 
     assert trips
     assert scores == sorted(scores, reverse=True)
+
+
+def test_destination_filter_restricts_outbound_destinations(trip_data):
+    # With a destination filter, every outbound leg must land in the requested set.
+    trips = build_trips(
+        default_request(destinationAirports=["ALC"], tripStyle="one city"),
+        **trip_data,
+    )
+
+    assert trips
+    assert all(trip.outboundFlight.destination == "ALC" for trip in trips)
+
+
+def test_destination_filter_excludes_other_destinations(trip_data):
+    # A destination we have no seeded flights to must yield no trips, not fall
+    # back to showing unrelated cities.
+    trips = build_trips(
+        default_request(destinationAirports=["CPH"], tripStyle="one city"),
+        **trip_data,
+    )
+
+    assert trips == []

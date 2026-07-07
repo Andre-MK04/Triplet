@@ -25,6 +25,12 @@ DESTINATION_STYLES: dict[str, list[str]] = {
     "ZAG": ["culture", "weekend_city_break"],
     "LJU": ["culture", "nature", "weekend_city_break"],
     "TRS": ["culture", "food"],
+    "CPH": ["culture", "food", "weekend_city_break"],
+    "ARN": ["culture", "weekend_city_break"],
+    "GOT": ["culture", "food"],
+    "OSL": ["culture", "nature"],
+    "BGO": ["nature"],
+    "HEL": ["culture", "nature"],
 }
 
 STYLE_LABELS: dict[str, str] = {

@@ -52,3 +52,30 @@ def test_maps_venice_to_vce_and_tsf():
     intent = parse_trip_intent("from Venice in August under 180 euros for 5 days")
 
     assert intent.originAirports == ["VCE", "TSF"]
+
+
+def test_parses_scandinavia_region_as_destination():
+    intent = parse_trip_intent(
+        "from Vienna in August under 300 euros for 5 days, trip to Scandinavia"
+    )
+
+    assert intent.originAirports == ["VIE"]
+    assert intent.destinationAirports is not None
+    assert set(intent.destinationAirports) == {"CPH", "OSL", "BGO", "ARN", "GOT"}
+    # The origin must not leak into destinations, nor the reverse.
+    assert "VIE" not in intent.destinationAirports
+
+
+def test_parses_named_destination_city_after_to():
+    intent = parse_trip_intent(
+        "from Vienna in August under 300 euros for 5 days to Copenhagen"
+    )
+
+    assert intent.destinationAirports == ["CPH"]
+    assert intent.originAirports == ["VIE"]
+
+
+def test_no_destination_stays_anywhere():
+    intent = parse_trip_intent("from Vienna in August under 200 euros for 5 days")
+
+    assert intent.destinationAirports is None

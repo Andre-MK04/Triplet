@@ -8,7 +8,7 @@ from app.db.repositories.transfers_repository import TransfersRepository
 
 def test_seed_data_can_be_inserted(db_session):
     assert db_session.query(AirportAreaDB).count() >= 18
-    assert db_session.query(AirportDB).count() == 19
+    assert db_session.query(AirportDB).count() >= 19
     assert db_session.query(FlightDB).count() >= 50
     assert db_session.query(GroundTransferDB).count() == 12
 
@@ -16,8 +16,10 @@ def test_seed_data_can_be_inserted(db_session):
 def test_airports_can_be_listed(db_session):
     airports = AirportsRepository(db_session).list_airports()
 
-    assert len(airports) == 19
+    assert len(airports) >= 19
     assert any(airport.code == "VIE" and airport.areaSlug == "vienna" for airport in airports)
+    # Nordic destinations are seeded so "trip to Scandinavia" has somewhere to go.
+    assert {"CPH", "OSL", "ARN", "HEL"} <= {airport.code for airport in airports}
 
 
 def test_origin_candidate_airports_can_be_listed(db_session):

@@ -12,7 +12,7 @@ import { Chip } from "../../components/ui/Chip";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
 import { EmptyState, Notice } from "../../components/ui/Misc";
 import { ApiError, apiPost, apiGet } from "../../lib/api";
-import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
+import { AIRPORTS_BY_CODE, DESTINATION_REGIONS, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import type {
   AISearchResponse,
@@ -40,6 +40,7 @@ const BUDGET_TO_AMOUNT: Record<TravelProfile["budgetComfortZone"], number> = {
 
 type AdvancedForm = {
   originAirports: string[];
+  destinationAirports: string[];
   startDate: string;
   endDate: string;
   minTripLengthDays: number;
@@ -52,6 +53,7 @@ type AdvancedForm = {
 
 const defaultForm: AdvancedForm = {
   originAirports: ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"],
+  destinationAirports: [],
   startDate: "2026-07-15",
   endDate: "2026-08-31",
   minTripLengthDays: 4,
@@ -162,6 +164,7 @@ export function DiscoverClient() {
   const payload = useMemo<TripSearchPayload>(
     () => ({
       originAirports: form.originAirports,
+      destinationAirports: form.destinationAirports.length > 0 ? form.destinationAirports : null,
       startDate: form.startDate,
       endDate: form.endDate,
       minTripLengthDays: form.minTripLengthDays,
@@ -260,6 +263,16 @@ export function DiscoverClient() {
         ? current.originAirports.filter((airport) => airport !== code)
         : [...current.originAirports, code],
     }));
+  }
+
+  function toggleDestinationRegion(codes: string[]) {
+    setForm((current) => {
+      const allSelected = codes.every((code) => current.destinationAirports.includes(code));
+      const next = allSelected
+        ? current.destinationAirports.filter((code) => !codes.includes(code))
+        : [...new Set([...current.destinationAirports, ...codes])];
+      return { ...current, destinationAirports: next };
+    });
   }
 
   return (
@@ -362,6 +375,33 @@ export function DiscoverClient() {
                       }}
                     />
                   </span>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-mist">To (optional)</p>
+                  {form.destinationAirports.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, destinationAirports: [] })}
+                      className="text-xs text-mist underline hover:text-cloud"
+                    >
+                      Clear — surprise me
+                    </button>
+                  ) : (
+                    <span className="text-xs text-mist/70">Leave empty for anywhere</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {DESTINATION_REGIONS.map((region) => {
+                    const active = region.codes.every((code) => form.destinationAirports.includes(code));
+                    return (
+                      <Chip key={region.label} selected={active} onClick={() => toggleDestinationRegion(region.codes)}>
+                        {region.label}
+                      </Chip>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -587,7 +627,9 @@ export function DiscoverClient() {
 
           {!isLoading && hasSearched && trips.length === 0 && !error ? (
             <EmptyState icon="🛫" title="No trips matched this search">
-              Try widening the budget, adding more origin airports, or allowing longer ground transfers.
+              {lastPayload?.destinationAirports?.length
+                ? "We couldn't find fares to that destination in your budget and dates. Try widening the dates or budget, or clear the destination to see anywhere."
+                : "Try widening the budget, adding more origin airports, or allowing longer ground transfers."}
             </EmptyState>
           ) : null}
 

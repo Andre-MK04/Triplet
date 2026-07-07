@@ -14,6 +14,7 @@ class CreateSavedSearchRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     name: str | None = Field(default=None, max_length=160)
     originAirports: list[str] = Field(min_length=1, max_length=12)
+    destinationAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
     startDate: date
     endDate: date
     minTripLengthDays: int = Field(ge=1)
@@ -38,10 +39,18 @@ class CreateSavedSearchRequest(BaseModel):
     def normalize_airports(cls, value: list[str]) -> list[str]:
         return list(dict.fromkeys(code.strip().upper() for code in value if code.strip()))
 
+    @field_validator("destinationAirports")
+    @classmethod
+    def normalize_destinations(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return list(dict.fromkeys(code.strip().upper() for code in value if code.strip())) or None
+
 
 class UpdateSavedSearchRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
     originAirports: list[str] | None = Field(default=None, min_length=1, max_length=12)
+    destinationAirports: list[str] | None = Field(default=None, max_length=20)
     startDate: date | None = None
     endDate: date | None = None
     minTripLengthDays: int | None = Field(default=None, ge=1)
@@ -66,6 +75,7 @@ class SavedSearchResponse(BaseModel):
     email: str
     name: str | None = None
     originAirports: list[str]
+    destinationAirports: list[str] | None = None
     startDate: date
     endDate: date
     minTripLengthDays: int

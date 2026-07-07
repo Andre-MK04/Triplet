@@ -27,6 +27,22 @@ export const AIRPORTS: AirportInfo[] = [
   { code: "ATH", city: "Athens", country: "Greece", lat: 37.94, lon: 23.94 },
   { code: "CTA", city: "Catania", country: "Italy", lat: 37.47, lon: 15.07 },
   { code: "PMI", city: "Palma de Mallorca", country: "Spain", lat: 39.55, lon: 2.74 },
+  { code: "CPH", city: "Copenhagen", country: "Denmark", lat: 55.62, lon: 12.65 },
+  { code: "ARN", city: "Stockholm", country: "Sweden", lat: 59.65, lon: 17.93 },
+  { code: "GOT", city: "Gothenburg", country: "Sweden", lat: 57.66, lon: 12.28 },
+  { code: "OSL", city: "Oslo", country: "Norway", lat: 60.19, lon: 11.1 },
+  { code: "BGO", city: "Bergen", country: "Norway", lat: 60.29, lon: 5.22 },
+  { code: "HEL", city: "Helsinki", country: "Finland", lat: 60.32, lon: 24.96 },
+];
+
+// Quick-select regions for the destination picker; codes match the backend's region map.
+export const DESTINATION_REGIONS: Array<{ label: string; codes: string[] }> = [
+  { label: "🌊 Spain", codes: ["BCN", "MAD", "VLC", "ALC", "AGP", "SVQ", "PMI"] },
+  { label: "🌅 Portugal", codes: ["LIS", "OPO"] },
+  { label: "🏛 Greece", codes: ["ATH"] },
+  { label: "🍝 Italy", codes: ["VCE", "TSF", "TRS", "CTA"] },
+  { label: "❄️ Scandinavia", codes: ["CPH", "OSL", "BGO", "ARN", "GOT"] },
+  { label: "🧭 Nordics", codes: ["CPH", "OSL", "BGO", "ARN", "GOT", "HEL"] },
 ];
 
 export const AIRPORTS_BY_CODE: Record<string, AirportInfo> = Object.fromEntries(

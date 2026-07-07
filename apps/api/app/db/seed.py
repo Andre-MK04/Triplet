@@ -25,6 +25,12 @@ AIRPORT_AREAS = [
     ("athens", "Athens", "Greece"),
     ("catania", "Catania", "Italy"),
     ("palma", "Palma de Mallorca", "Spain"),
+    ("copenhagen", "Copenhagen", "Denmark"),
+    ("stockholm", "Stockholm", "Sweden"),
+    ("gothenburg", "Gothenburg", "Sweden"),
+    ("oslo", "Oslo", "Norway"),
+    ("bergen", "Bergen", "Norway"),
+    ("helsinki", "Helsinki", "Finland"),
 ]
 
 AIRPORTS = [
@@ -47,6 +53,12 @@ AIRPORTS = [
     ("ATH", "Athens", "Athens", "Greece", "athens", False),
     ("CTA", "Catania", "Catania", "Italy", "catania", False),
     ("PMI", "Palma de Mallorca", "Palma de Mallorca", "Spain", "palma", False),
+    ("CPH", "Copenhagen Kastrup", "Copenhagen", "Denmark", "copenhagen", False),
+    ("ARN", "Stockholm Arlanda", "Stockholm", "Sweden", "stockholm", False),
+    ("GOT", "Gothenburg Landvetter", "Gothenburg", "Sweden", "gothenburg", False),
+    ("OSL", "Oslo Gardermoen", "Oslo", "Norway", "oslo", False),
+    ("BGO", "Bergen Flesland", "Bergen", "Norway", "bergen", False),
+    ("HEL", "Helsinki Vantaa", "Helsinki", "Finland", "helsinki", False),
 ]
 
 FLIGHTS = [

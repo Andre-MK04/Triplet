@@ -111,18 +111,38 @@ class FlightSearchService:
         return FlightSearchResult(flights=merged, metadata=metadata)
 
     def _search_with_provider(self, provider: FlightProvider, request: TripSearchRequest) -> list[Flight]:
-        outbound_flights = provider.search_outbound_flights(
-            request.originAirports,
-            request.startDate,
-            request.endDate,
-            request.directOnly,
-        )
-        return_flights = provider.search_return_flights(
-            request.originAirports,
-            request.startDate,
-            request.endDate + timedelta(days=request.maxTripLengthDays),
-            request.directOnly,
-        )
+        return_window_end = request.endDate + timedelta(days=request.maxTripLengthDays)
+        if request.destinationAirports:
+            # Targeted search: origins → chosen destinations, returns from those
+            # destinations back to the origins. Live providers spend their request
+            # budget on exactly the routes the user asked for.
+            outbound_flights = provider.search_flights(
+                request.originAirports,
+                request.startDate,
+                request.endDate,
+                destination_codes=request.destinationAirports,
+                direct_only=request.directOnly,
+            )
+            return_flights = provider.search_flights(
+                request.destinationAirports,
+                request.startDate,
+                return_window_end,
+                destination_codes=request.originAirports,
+                direct_only=request.directOnly,
+            )
+        else:
+            outbound_flights = provider.search_outbound_flights(
+                request.originAirports,
+                request.startDate,
+                request.endDate,
+                request.directOnly,
+            )
+            return_flights = provider.search_return_flights(
+                request.originAirports,
+                request.startDate,
+                return_window_end,
+                request.directOnly,
+            )
         return deduplicate_flights(outbound_flights + return_flights)
 
     def _metadata_from_provider(self, provider: FlightProvider, provider_used: str) -> ProviderMetadata:

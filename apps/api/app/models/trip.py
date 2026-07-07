@@ -9,6 +9,8 @@ from app.models.transfer import GroundTransfer
 
 class TripSearchRequest(BaseModel):
     originAirports: list[str] = Field(min_length=1)
+    # None means "anywhere" — the classic Triplet surprise search.
+    destinationAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
     startDate: date
     endDate: date
     minTripLengthDays: int = Field(ge=1)
