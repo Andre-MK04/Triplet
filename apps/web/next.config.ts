@@ -3,6 +3,11 @@ import path from "node:path";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
+// When set (production), API calls go to a same-origin path (/backend/…) and Next
+// proxies them here server-side. First-party cookies: browsers' third-party cookie
+// blocking between vercel.app and railway.app can't break auth this way.
+const apiProxyTarget = process.env.API_PROXY_TARGET;
+
 // 'unsafe-inline'/'unsafe-eval' concessions: Next.js dev tooling and hydration need inline
 // scripts without a nonce setup; styles are injected inline by Tailwind/Framer Motion.
 // connect-src is limited to self + the Triplet API. No third-party origins.
@@ -12,7 +17,8 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:800
 // https deployment the browser only allows https for it anyway.
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `connect-src 'self' ${apiBaseUrl} emrldtp.cc`,
+  // A relative API base (proxy mode) is already covered by 'self'.
+  `connect-src 'self' ${apiBaseUrl.startsWith("http") ? apiBaseUrl + " " : ""}emrldtp.cc`,
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' emrldtp.cc",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: emrldtp.cc",
@@ -39,6 +45,15 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+    ];
+  },
+  async rewrites() {
+    if (!apiProxyTarget) return [];
+    return [
+      {
+        source: "/backend/:path*",
+        destination: `${apiProxyTarget.replace(/\/$/, "")}/:path*`,
       },
     ];
   },
