@@ -179,6 +179,25 @@ def update_me(
     return AuthResponse(user=auth_user_response(user), message="Profile updated.")
 
 
+@router.delete("/me")
+def delete_me(
+    request: Request,
+    response: Response,
+    user: UserDB = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """GDPR right to erasure: permanently delete the account and all linked data."""
+    from app.privacy.service import erase_user
+
+    try:
+        erase_user(db, user, request=request)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Could not delete account right now.") from exc
+    clear_auth_cookies(response)
+    return {"ok": True}
+
+
 @router.post("/change-password")
 def change_password(
     request_data: ChangePasswordRequest,

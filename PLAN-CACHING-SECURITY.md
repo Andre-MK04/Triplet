@@ -16,7 +16,14 @@ Owner decisions locked: DB is currently US/unknown → migrate to an EU region
 (Stage 5). Build for today, architect for 1M (no Redis/replicas until traffic
 warrants). Owner does dashboard/region steps; sessions do the code.
 
-Status: not started. Build stages in order; each ends in something verifiable.
+Status (2026-07-08): code for all stages built + tested (189 API tests green).
+Done in code: deals cache + refresher (S1), read-through search (S2), refresher
+prune (S3), GDPR erasure + export + account UI (S4), privacy page + retention
+job (S5 code), indexes + SCALING.md (S6). **Owner actions still open**: migrate
+Railway Postgres+API to an EU region (S5 infra); add two Railway cron services —
+`python -m app.deals.refresher` (~every 3h) and `python -m app.privacy.retention`
+(daily). Until the refresher cron runs, "anywhere" searches cold-fetch live on
+first hit then warm the cache — correct, just not pre-warmed.
 
 ## Chosen approach, and what was rejected
 

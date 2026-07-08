@@ -63,6 +63,17 @@ def get_dashboard(
     }
 
 
+@router.get("/export")
+def export_my_data(
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> dict:
+    """GDPR right of access: everything we hold linked to this account, as JSON."""
+    from app.privacy.service import export_user_data
+
+    return export_user_data(db, user)
+
+
 @router.get("/travel-profile", response_model=TravelProfileResponse)
 def get_travel_profile(
     db: Session = Depends(get_db),

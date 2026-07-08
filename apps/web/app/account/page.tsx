@@ -9,7 +9,7 @@ import { Button, ButtonLink } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Field, Input } from "../../components/ui/Input";
 import { EmptyState, Notice, Spinner } from "../../components/ui/Misc";
-import { apiGet, apiPatch, apiPost } from "../../lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
 
 type AccountBilling = {
   plan: string;
@@ -58,6 +58,34 @@ export default function AccountPage() {
       window.location.href = data.portalUrl;
     } catch {
       setStatus({ tone: "error", text: "Could not open the billing portal." });
+    }
+  }
+
+  async function downloadData() {
+    try {
+      const data = await apiGet<Record<string, unknown>>("/me/export");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "triplet-my-data.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus({ tone: "success", text: "Your data has been downloaded." });
+    } catch {
+      setStatus({ tone: "error", text: "Could not export your data." });
+    }
+  }
+
+  async function deleteAccount() {
+    if (!window.confirm("Permanently delete your account and all your data? This cannot be undone.")) {
+      return;
+    }
+    try {
+      await apiDelete("/auth/me");
+      window.location.href = "/?deleted=1";
+    } catch {
+      setStatus({ tone: "error", text: "Could not delete your account. Please try again." });
     }
   }
 
@@ -134,6 +162,18 @@ export default function AccountPage() {
           <h2 className="font-display text-lg font-bold text-cloud">Travel profile</h2>
           <p className="mt-2 text-sm text-mist">Airports, budget, comfort rules — everything that powers your alerts.</p>
           <ButtonLink href="/onboarding" variant="secondary" className="mt-4">Edit travel profile</ButtonLink>
+        </Card>
+
+        <Card>
+          <h2 className="font-display text-lg font-bold text-cloud">Your data &amp; privacy</h2>
+          <p className="mt-2 text-sm text-mist">
+            Download everything we hold about you, or permanently delete your account and all its data.
+            See our <a href="/privacy" className="text-sky hover:text-cloud underline">privacy policy</a>.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button variant="secondary" onClick={() => void downloadData()}>Download my data</Button>
+            <Button variant="danger" onClick={() => void deleteAccount()}>Delete my account</Button>
+          </div>
         </Card>
 
         <div className="flex flex-wrap gap-3">
