@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.db.repositories.cached_deals_repository import CachedDealsRepository
 from app.db.repositories.price_observations_repository import PriceObservationsRepository
 from app.models import Flight, ProviderMetadata, TripSearchRequest
 from app.providers import DatabaseFlightProvider, FlightProvider
@@ -68,11 +69,13 @@ class FlightSearchService:
         return self.provider.search_flights(origin_codes, start_date, end_date, destination_codes)
 
     def discover_round_trip_fares(self, request: TripSearchRequest):
-        """Round-trip fares from a discovery-capable provider (Travelpayouts).
+        """Round-trip fares, served from the deals cache when fresh.
 
-        A requested destination uses direct per-route round-trip queries (always
-        yields something for that place); an open "anywhere" search uses
-        city-directions to discover cheap destinations. Returns [] otherwise.
+        Open "anywhere" searches read the scheduled deals cache and only call the
+        provider (city-directions) on a cold/stale cache, then warm it. A specific
+        requested destination always does a direct per-route round-trip query (so
+        that place yields something) and caches the result. Read-through keeps the
+        user path off the live API on the common path.
         """
         provider = self.provider
         if self.provider_name == "hybrid":
@@ -82,20 +85,32 @@ class FlightSearchService:
                 provider = build_live_provider(self.db)
             except (UnknownFlightProviderError, ProviderError):
                 return []
+
+        deals_repo = CachedDealsRepository(self.db) if self.db is not None else None
         try:
             if request.destinationAirports:
                 routes = getattr(provider, "round_trips_for", None)
                 if not callable(routes):
                     return []
-                return routes(
+                fares = routes(
                     request.originAirports,
                     request.destinationAirports,
                     DateRange(start=request.startDate, end=request.endDate),
                 )
+                if deals_repo and fares:
+                    deals_repo.upsert_deals(fares)
+                return fares
+
+            # "Anywhere": serve fresh cached deals; only fetch live on a cold cache.
+            if deals_repo and deals_repo.has_fresh(request.originAirports):
+                return deals_repo.fresh_deals(request.originAirports)
             discover = getattr(provider, "discover_round_trips", None)
             if not callable(discover):
                 return []
-            return discover(request.originAirports)
+            fares = discover(request.originAirports)
+            if deals_repo and fares:
+                deals_repo.upsert_deals(fares)
+            return fares
         except ProviderError:
             return []
 

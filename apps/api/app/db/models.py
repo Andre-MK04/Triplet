@@ -96,6 +96,37 @@ class TripSuggestionDB(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class CachedRoundTripDB(Base):
+    """Precomputed cheapest round trips per route, refreshed on a schedule.
+
+    This is the "deals" surface user searches read from, so searches don't call
+    the provider live. Not FK-constrained (provider metro codes), deduped on the
+    (origin, destination, dates) natural key keeping the cheapest price.
+    """
+
+    __tablename__ = "cached_round_trips"
+    __table_args__ = (
+        UniqueConstraint(
+            "origin_code", "destination_code", "departure_date", "return_date",
+            name="uq_cached_round_trip_route_dates",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    origin_code: Mapped[str] = mapped_column(String(8), index=True)
+    destination_code: Mapped[str] = mapped_column(String(8), index=True)
+    departure_date: Mapped[date] = mapped_column(Date)
+    return_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    price: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="EUR")
+    airline: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    stops: Mapped[int] = mapped_column(Integer, default=0)
+    booking_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    affiliate_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class PriceObservationDB(Base):
     __tablename__ = "price_observations"
 
