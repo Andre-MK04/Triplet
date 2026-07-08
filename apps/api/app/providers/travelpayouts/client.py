@@ -66,6 +66,20 @@ class TravelpayoutsHttpClient:
             },
         )
 
+    def city_directions(self, origin: str, currency: str | None = None) -> dict[str, Any]:
+        """Cheapest cached fares from an origin to every popular destination.
+
+        This is the "anywhere" primitive: the provider discovers destinations
+        for us, so the search is not limited to a hardcoded destination list.
+        """
+        return self._get(
+            "/v1/city-directions",
+            {
+                "origin": origin.upper(),
+                "currency": (currency or settings.travelpayouts_currency).lower(),
+            },
+        )
+
     def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         if not self.api_token:
             raise TravelpayoutsConfigError("Travelpayouts API token is not configured.")

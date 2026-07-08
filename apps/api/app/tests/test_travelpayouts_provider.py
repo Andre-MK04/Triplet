@@ -160,3 +160,22 @@ def test_travelpayouts_status_not_configured_without_token(monkeypatch):
     assert status.capabilities.liveAvailability is False
     assert status.capabilities.affiliateLinks is True
     assert "TRAVELPAYOUTS_API_TOKEN" in status.requiredEnvVars
+
+
+def test_city_directions_queries_anywhere_from_origin(monkeypatch):
+    captured = {}
+
+    def fake_get(url, params, headers, timeout):
+        captured["url"] = url
+        captured["params"] = params
+        return FakeResponse({"success": True, "currency": "eur", "data": {"CPH": {"price": 120}}})
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    client = TravelpayoutsHttpClient(api_token="tp-secret")
+
+    result = client.city_directions("vie")
+
+    assert "/v1/city-directions" in captured["url"]
+    assert captured["params"]["origin"] == "VIE"
+    assert captured["params"]["currency"] == "eur"
+    assert result["data"]["CPH"]["price"] == 120
