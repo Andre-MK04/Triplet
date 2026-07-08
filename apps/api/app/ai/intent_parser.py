@@ -1,11 +1,12 @@
 import re
 from datetime import date
 
-from app.data.regions import CITY_TO_DESTINATION_AIRPORTS, REGION_TO_AIRPORTS
+from app.data.geography import resolve_place_names
 from app.models import TripSearchRequest
 from app.tools.schemas import ParsedTripIntent
 
 
+# Origin-candidate cities Triplet flies users out of (the "from" side).
 CITY_TO_AIRPORTS = {
     "ljubljana": ["LJU"],
     "zagreb": ["ZAG"],
@@ -19,8 +20,8 @@ CITY_TO_AIRPORTS = {
 
 def parse_trip_intent(message: str) -> ParsedTripIntent:
     text = message.lower()
-    destination_airports = parse_destinations(text)
-    origin_airports = parse_origins(text, exclude=set(destination_airports or []))
+    origin_airports = parse_origins(text)
+    destination_airports = parse_destinations(text, exclude=set(origin_airports))
     start_date, end_date = parse_date_range(text)
     min_days, max_days = parse_trip_length(text)
     max_budget = parse_budget(text)
@@ -83,25 +84,22 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     )
 
 
-def parse_destinations(text: str) -> list[str] | None:
-    """Regions anywhere in the text, plus cities that follow 'to'/'in' phrasing."""
-    airports: list[str] = []
-    for region, codes in REGION_TO_AIRPORTS.items():
-        if region in text:
-            airports.extend(codes)
-    for city, codes in CITY_TO_DESTINATION_AIRPORTS.items():
-        if re.search(rf"\b(?:to|in|towards?|visit(?:ing)?)\s+(?:the\s+)?{city}\b", text):
-            airports.extend(codes)
-    deduped = list(dict.fromkeys(airports))
-    return deduped or None
+def parse_destinations(text: str, exclude: set[str] | None = None) -> list[str] | None:
+    """Any European region, country, or city named in the request.
 
-
-def parse_origins(text: str, exclude: set[str] | None = None) -> list[str]:
+    Origin airports are excluded so "from Vienna to Sweden" doesn't put Vienna
+    on both sides. Returns None (= anywhere) when no place is recognised.
+    """
     exclude = exclude or set()
+    codes = [code for code in resolve_place_names(text) if code not in exclude]
+    return codes or None
+
+
+def parse_origins(text: str) -> list[str]:
     airports: list[str] = []
     for city, codes in CITY_TO_AIRPORTS.items():
-        if city in text and not all(code in exclude for code in codes):
-            airports.extend(code for code in codes if code not in exclude)
+        if city in text:
+            airports.extend(codes)
     return list(dict.fromkeys(airports))
 
 

@@ -61,12 +61,20 @@ def test_parses_scandinavia_region_as_destination():
 
     assert intent.originAirports == ["VIE"]
     assert intent.destinationAirports is not None
-    assert set(intent.destinationAirports) == {"CPH", "OSL", "BGO", "ARN", "GOT"}
-    # The origin must not leak into destinations, nor the reverse.
+    # Scandinavia = Sweden + Norway + Denmark airports; all Nordic, no origin leak.
+    assert {"ARN", "GOT", "OSL", "BGO", "CPH"} <= set(intent.destinationAirports)
     assert "VIE" not in intent.destinationAirports
+    assert "BCN" not in intent.destinationAirports
 
 
-def test_parses_named_destination_city_after_to():
+def test_parses_country_name_as_destination():
+    intent = parse_trip_intent("find me trips to Sweden in July from Vienna")
+
+    assert intent.originAirports == ["VIE"]
+    assert set(intent.destinationAirports) == {"ARN", "STO", "GOT"}
+
+
+def test_parses_named_destination_city():
     intent = parse_trip_intent(
         "from Vienna in August under 300 euros for 5 days to Copenhagen"
     )
