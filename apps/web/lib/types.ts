@@ -52,6 +52,7 @@ export type TripOption = {
   dealScoreBreakdown?: ScoreComponent[];
   fitScoreBreakdown?: ScoreComponent[];
   suggestionId?: string | null;
+  fareKind?: "two_one_ways" | "round_trip_bundle";
   explanation: string;
   warnings: string[];
   tags: string[];

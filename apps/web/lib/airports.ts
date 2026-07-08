@@ -33,16 +33,48 @@ export const AIRPORTS: AirportInfo[] = [
   { code: "OSL", city: "Oslo", country: "Norway", lat: 60.19, lon: 11.1 },
   { code: "BGO", city: "Bergen", country: "Norway", lat: 60.29, lon: 5.22 },
   { code: "HEL", city: "Helsinki", country: "Finland", lat: 60.32, lon: 24.96 },
+  // Wider Europe (display names for provider-discovered destinations).
+  { code: "CDG", city: "Paris", country: "France", lat: 49.01, lon: 2.55 },
+  { code: "NCE", city: "Nice", country: "France", lat: 43.66, lon: 7.22 },
+  { code: "LYS", city: "Lyon", country: "France", lat: 45.73, lon: 5.08 },
+  { code: "BER", city: "Berlin", country: "Germany", lat: 52.37, lon: 13.5 },
+  { code: "MUC", city: "Munich", country: "Germany", lat: 48.35, lon: 11.79 },
+  { code: "FRA", city: "Frankfurt", country: "Germany", lat: 50.03, lon: 8.56 },
+  { code: "HAM", city: "Hamburg", country: "Germany", lat: 53.63, lon: 10.0 },
+  { code: "CGN", city: "Cologne", country: "Germany", lat: 50.87, lon: 7.14 },
+  { code: "AMS", city: "Amsterdam", country: "Netherlands", lat: 52.31, lon: 4.76 },
+  { code: "BRU", city: "Brussels", country: "Belgium", lat: 50.9, lon: 4.48 },
+  { code: "LON", city: "London", country: "United Kingdom", lat: 51.51, lon: -0.13 },
+  { code: "MAN", city: "Manchester", country: "United Kingdom", lat: 53.35, lon: -2.27 },
+  { code: "DUB", city: "Dublin", country: "Ireland", lat: 53.42, lon: -6.27 },
+  { code: "FCO", city: "Rome", country: "Italy", lat: 41.8, lon: 12.24 },
+  { code: "MXP", city: "Milan", country: "Italy", lat: 45.63, lon: 8.72 },
+  { code: "NAP", city: "Naples", country: "Italy", lat: 40.89, lon: 14.29 },
+  { code: "PRG", city: "Prague", country: "Czechia", lat: 50.1, lon: 14.26 },
+  { code: "WAW", city: "Warsaw", country: "Poland", lat: 52.17, lon: 20.97 },
+  { code: "KRK", city: "Krakow", country: "Poland", lat: 50.08, lon: 19.8 },
+  { code: "OTP", city: "Bucharest", country: "Romania", lat: 44.57, lon: 26.1 },
+  { code: "ZRH", city: "Zurich", country: "Switzerland", lat: 47.46, lon: 8.55 },
+  { code: "STO", city: "Stockholm", country: "Sweden", lat: 59.33, lon: 18.06 },
+  { code: "KEF", city: "Reykjavik", country: "Iceland", lat: 63.99, lon: -22.61 },
+  { code: "TLL", city: "Tallinn", country: "Estonia", lat: 59.41, lon: 24.83 },
+  { code: "RIX", city: "Riga", country: "Latvia", lat: 56.92, lon: 23.97 },
 ];
 
-// Quick-select regions for the destination picker; codes match the backend's region map.
+// Quick-select destination scopes; codes are sent to the backend which scopes the
+// search. The backend geography knows the full country lists — these cover the
+// common picks and the values match its resolution.
 export const DESTINATION_REGIONS: Array<{ label: string; codes: string[] }> = [
-  { label: "🌊 Spain", codes: ["BCN", "MAD", "VLC", "ALC", "AGP", "SVQ", "PMI"] },
-  { label: "🌅 Portugal", codes: ["LIS", "OPO"] },
-  { label: "🏛 Greece", codes: ["ATH"] },
-  { label: "🍝 Italy", codes: ["VCE", "TSF", "TRS", "CTA"] },
-  { label: "❄️ Scandinavia", codes: ["CPH", "OSL", "BGO", "ARN", "GOT"] },
-  { label: "🧭 Nordics", codes: ["CPH", "OSL", "BGO", "ARN", "GOT", "HEL"] },
+  { label: "🇪🇸 Spain", codes: ["BCN", "MAD", "VLC", "ALC", "AGP", "SVQ", "PMI", "IBZ", "BIO"] },
+  { label: "🇵🇹 Portugal", codes: ["LIS", "OPO", "FAO"] },
+  { label: "🇮🇹 Italy", codes: ["FCO", "MXP", "NAP", "VCE", "CTA", "BLQ", "PMO"] },
+  { label: "🇫🇷 France", codes: ["CDG", "ORY", "NCE", "LYS", "MRS", "TLS", "BOD"] },
+  { label: "🇩🇪 Germany", codes: ["BER", "MUC", "FRA", "DUS", "HAM", "CGN", "STR"] },
+  { label: "🇬🇧 UK & Ireland", codes: ["LHR", "LGW", "STN", "LTN", "MAN", "EDI", "DUB"] },
+  { label: "🇬🇷 Greece", codes: ["ATH", "SKG", "HER", "JMK", "JTR"] },
+  { label: "❄️ Scandinavia", codes: ["CPH", "BLL", "OSL", "BGO", "TRD", "ARN", "STO", "GOT"] },
+  { label: "🧭 Nordics", codes: ["CPH", "BLL", "OSL", "BGO", "TRD", "ARN", "STO", "GOT", "HEL", "KEF"] },
+  { label: "🏰 Central Europe", codes: ["PRG", "WAW", "KRK", "BUD", "VIE", "BTS"] },
 ];
 
 export const AIRPORTS_BY_CODE: Record<string, AirportInfo> = Object.fromEntries(

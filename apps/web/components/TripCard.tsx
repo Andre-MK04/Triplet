@@ -47,7 +47,9 @@ function ScoreBreakdown({ title, components }: { title: string; components: Scor
   );
 }
 
-function FlightRow({ label, flight }: { label: string; flight: Flight }) {
+function FlightRow({ label, flight, showPrice = true }: { label: string; flight: Flight; showPrice?: boolean }) {
+  // Round-trip bundles carry the whole fare on the trip total, not per leg —
+  // exact times aren't provided, so we show dates without a fake time range.
   const duration = formatDuration(flight.durationMinutes);
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-ink-soft/60 px-3.5 py-2.5">
@@ -59,13 +61,21 @@ function FlightRow({ label, flight }: { label: string; flight: Flight }) {
           {airportCity(flight.destination)} <span className="text-mist">{flight.destination}</span>
         </p>
         <p className="text-xs text-mist">
-          {formatDate(flight.departureDateTime)} · {formatTime(flight.departureDateTime)}–{formatTime(flight.arrivalDateTime)}
-          {duration ? ` · ${duration}` : ""}
+          {formatDate(flight.departureDateTime)}
+          {showPrice ? (
+            <>
+              {" · "}
+              {formatTime(flight.departureDateTime)}–{formatTime(flight.arrivalDateTime)}
+              {duration ? ` · ${duration}` : ""}
+            </>
+          ) : null}
           {typeof flight.stops === "number" ? ` · ${flight.stops === 0 ? "direct" : `${flight.stops} stop${flight.stops > 1 ? "s" : ""}`}` : ""}
         </p>
         <p className="truncate text-xs text-mist/70">{flight.airline}</p>
       </div>
-      <p className="shrink-0 text-sm font-bold text-cloud">{formatPrice(flight.price, flight.currency)}</p>
+      {showPrice ? (
+        <p className="shrink-0 text-sm font-bold text-cloud">{formatPrice(flight.price, flight.currency)}</p>
+      ) : null}
     </div>
   );
 }
@@ -108,7 +118,11 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
         </div>
         <div className="shrink-0 text-right">
           <p className="font-display text-2xl font-bold text-mint">{formatPrice(trip.totalPrice, outbound.currency)}</p>
-          <p className="text-[11px] text-mist/70">total, flights{trip.groundTransfer ? " + transfer" : ""}</p>
+          <p className="text-[11px] text-mist/70">
+            {trip.fareKind === "round_trip_bundle"
+              ? "round trip"
+              : `total, flights${trip.groundTransfer ? " + transfer" : ""}`}
+          </p>
         </div>
       </header>
 
@@ -123,7 +137,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
       </div>
 
       <div className="space-y-2">
-        <FlightRow label="Outbound" flight={outbound} />
+        <FlightRow label="Outbound" flight={outbound} showPrice={trip.fareKind !== "round_trip_bundle"} />
         {trip.groundTransfer ? (
           <p className="flex items-center gap-2 px-2 text-xs text-gold">
             <span aria-hidden>🚆</span>
@@ -132,7 +146,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
             {formatPrice(trip.groundTransfer.estimatedCost)})
           </p>
         ) : null}
-        <FlightRow label="Return" flight={inbound} />
+        <FlightRow label="Return" flight={inbound} showPrice={trip.fareKind !== "round_trip_bundle"} />
       </div>
 
       {expanded ? (
