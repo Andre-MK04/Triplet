@@ -199,6 +199,23 @@ def run_ai_parse(request: AISearchRequest, registry: ToolRegistry, context: Tool
     )
 
 
+def summarize_search(parsed_request, output) -> str:
+    """User-facing summary of a completed search — no internal parser details."""
+    from app.data.geography import place_city
+
+    trips = output.trips
+    if not trips:
+        return (
+            "I couldn't find fares for that search right now. Try widening the dates, "
+            "raising the budget, or adding more airports you'd fly from."
+        )
+    dests = {t.outboundFlight.destination for t in trips}
+    where = f" to {place_city(next(iter(dests))) or next(iter(dests))}" if len(dests) == 1 else ""
+    cheapest = min(t.totalPrice for t in trips)
+    plural = "s" if len(trips) != 1 else ""
+    return f"Found {len(trips)} trip idea{plural}{where}, from €{round(cheapest)}. Best matches first."
+
+
 def run_rule_based_search(
     request: AISearchRequest,
     registry: ToolRegistry,
@@ -213,9 +230,7 @@ def run_rule_based_search(
         result = registry.run_tool("search_trips", parsed_request.model_dump(mode="json"), context)
         output = SearchTripsOutput.model_validate(result)
         return AISearchResponse(
-            message=sanitize_ai_message(
-                f"{message_prefix} Found {len(output.trips)} trip option(s) from deterministic search."
-            ),
+            message=sanitize_ai_message(summarize_search(parsed_request, output)),
             parsedRequest=parsed_request,
             trips=output.trips,
             missingFields=[],
@@ -231,7 +246,9 @@ def run_rule_based_search(
         )
     except (ValidationError, ToolValidationError, ValueError) as exc:
         return AISearchResponse(
-            message=sanitize_ai_message(f"{message_prefix} I need more details before I can run a search."),
+            message=sanitize_ai_message(
+                "Tell me a bit more — where you'd fly from, roughly when, and a budget — and I'll search."
+            ),
             parsedRequest=None,
             trips=[],
             missingFields=intent.missingFields or ["originAirports", "dateRange", "tripLength", "maxBudget"],

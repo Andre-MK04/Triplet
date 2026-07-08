@@ -44,8 +44,10 @@ def calculate_deal_score(
         add("Well under budget", -5)
     elif price_ratio <= 0.8:
         add("Uses most of the budget", -12)
-    else:
+    elif price_ratio <= 1.0:
         add("Close to budget limit", -22)
+    else:
+        add("Over your budget", -32)
 
     if trip.groundTransfer:
         if trip.groundTransfer.durationHours <= 2:

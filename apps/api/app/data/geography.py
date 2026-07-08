@@ -36,14 +36,14 @@ PLACES: dict[str, Place] = {
     "DBV": Place("DBV", "Dubrovnik", "Croatia", 42.56, 18.27),
     # Italy
     "VCE": Place("VCE", "Venice", "Italy", 45.51, 12.35),
-    "TSF": Place("TSF", "Venice Treviso", "Italy", 45.65, 12.19),
+    "TSF": Place("TSF", "Venice", "Italy", 45.65, 12.19),
     "TRS": Place("TRS", "Trieste", "Italy", 45.83, 13.47),
-    "FCO": Place("FCO", "Rome Fiumicino", "Italy", 41.80, 12.24),
-    "CIA": Place("CIA", "Rome Ciampino", "Italy", 41.80, 12.59),
+    "FCO": Place("FCO", "Rome", "Italy", 41.80, 12.24),
+    "CIA": Place("CIA", "Rome", "Italy", 41.80, 12.59),
     "ROM": Place("ROM", "Rome", "Italy", 41.90, 12.50),
-    "MXP": Place("MXP", "Milan Malpensa", "Italy", 45.63, 8.72),
-    "LIN": Place("LIN", "Milan Linate", "Italy", 45.45, 9.28),
-    "BGY": Place("BGY", "Milan Bergamo", "Italy", 45.67, 9.70),
+    "MXP": Place("MXP", "Milan", "Italy", 45.63, 8.72),
+    "LIN": Place("LIN", "Milan", "Italy", 45.45, 9.28),
+    "BGY": Place("BGY", "Milan", "Italy", 45.67, 9.70),
     "MIL": Place("MIL", "Milan", "Italy", 45.46, 9.19),
     "NAP": Place("NAP", "Naples", "Italy", 40.89, 14.29),
     "CTA": Place("CTA", "Catania", "Italy", 37.47, 15.07),
@@ -64,8 +64,8 @@ PLACES: dict[str, Place] = {
     "OPO": Place("OPO", "Porto", "Portugal", 41.24, -8.68),
     "FAO": Place("FAO", "Faro", "Portugal", 37.01, -7.97),
     # France
-    "CDG": Place("CDG", "Paris CDG", "France", 49.01, 2.55),
-    "ORY": Place("ORY", "Paris Orly", "France", 48.72, 2.38),
+    "CDG": Place("CDG", "Paris", "France", 49.01, 2.55),
+    "ORY": Place("ORY", "Paris", "France", 48.72, 2.38),
     "PAR": Place("PAR", "Paris", "France", 48.86, 2.35),
     "NCE": Place("NCE", "Nice", "France", 43.66, 7.22),
     "LYS": Place("LYS", "Lyon", "France", 45.73, 5.08),
@@ -84,21 +84,21 @@ PLACES: dict[str, Place] = {
     "AMS": Place("AMS", "Amsterdam", "Netherlands", 52.31, 4.76),
     "EIN": Place("EIN", "Eindhoven", "Netherlands", 51.45, 5.37),
     "BRU": Place("BRU", "Brussels", "Belgium", 50.90, 4.48),
-    "CRL": Place("CRL", "Brussels Charleroi", "Belgium", 50.46, 4.45),
+    "CRL": Place("CRL", "Brussels", "Belgium", 50.46, 4.45),
     "LUX": Place("LUX", "Luxembourg", "Luxembourg", 49.63, 6.21),
     # UK / Ireland
     "LON": Place("LON", "London", "United Kingdom", 51.51, -0.13),
-    "LHR": Place("LHR", "London Heathrow", "United Kingdom", 51.47, -0.45),
-    "LGW": Place("LGW", "London Gatwick", "United Kingdom", 51.15, -0.18),
-    "STN": Place("STN", "London Stansted", "United Kingdom", 51.89, 0.24),
-    "LTN": Place("LTN", "London Luton", "United Kingdom", 51.87, -0.37),
+    "LHR": Place("LHR", "London", "United Kingdom", 51.47, -0.45),
+    "LGW": Place("LGW", "London", "United Kingdom", 51.15, -0.18),
+    "STN": Place("STN", "London", "United Kingdom", 51.89, 0.24),
+    "LTN": Place("LTN", "London", "United Kingdom", 51.87, -0.37),
     "MAN": Place("MAN", "Manchester", "United Kingdom", 53.35, -2.27),
     "EDI": Place("EDI", "Edinburgh", "United Kingdom", 55.95, -3.37),
     "DUB": Place("DUB", "Dublin", "Ireland", 53.42, -6.27),
     # Nordics
     "CPH": Place("CPH", "Copenhagen", "Denmark", 55.62, 12.65),
     "BLL": Place("BLL", "Billund", "Denmark", 55.74, 9.15),
-    "ARN": Place("ARN", "Stockholm Arlanda", "Sweden", 59.65, 17.93),
+    "ARN": Place("ARN", "Stockholm", "Sweden", 59.65, 17.93),
     "STO": Place("STO", "Stockholm", "Sweden", 59.33, 18.06),
     "GOT": Place("GOT", "Gothenburg", "Sweden", 57.66, 12.28),
     "OSL": Place("OSL", "Oslo", "Norway", 60.19, 11.10),
@@ -106,6 +106,7 @@ PLACES: dict[str, Place] = {
     "TRD": Place("TRD", "Trondheim", "Norway", 63.46, 10.92),
     "HEL": Place("HEL", "Helsinki", "Finland", 60.32, 24.96),
     "KEF": Place("KEF", "Reykjavik", "Iceland", 63.99, -22.61),
+    "REK": Place("REK", "Reykjavik", "Iceland", 64.13, -21.94),
     # Central / Eastern Europe
     "BUD": Place("BUD", "Budapest", "Hungary", 47.44, 19.26),
     "PRG": Place("PRG", "Prague", "Czechia", 50.10, 14.26),
@@ -203,6 +204,21 @@ def place_country(code: str) -> str | None:
 def place_city(code: str) -> str | None:
     place = PLACES.get(code.upper())
     return place.city if place else None
+
+
+def scope_matches(code: str, scope: set[str]) -> bool:
+    """Whether a provider destination code satisfies a requested scope.
+
+    Matches on exact code or same city, so airport/metro pairs for one city
+    (KEF/REK Reykjavik, ARN/STO Stockholm) are treated as equivalent.
+    """
+    code = code.upper()
+    if code in scope:
+        return True
+    city = place_city(code)
+    if not city:
+        return False
+    return any(place_city(s) == city for s in scope)
 
 
 def airports_for_country(country: str) -> list[str]:

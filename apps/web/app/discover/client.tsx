@@ -129,7 +129,6 @@ export function DiscoverClient() {
   const [notice, setNotice] = useState<{ text: string; tone: "info" | "warning" } | null>(null);
   const [aiSummary, setAiSummary] = useState("");
   const [aiMissingFields, setAiMissingFields] = useState<string[]>([]);
-  const [aiFallback, setAiFallback] = useState(false);
   const [lastPayload, setLastPayload] = useState<TripSearchPayload | null>(null);
 
   const [alertOpen, setAlertOpen] = useState(false);
@@ -182,7 +181,6 @@ export function DiscoverClient() {
     setNotice(null);
     setAiSummary("");
     setAiMissingFields([]);
-    setAiFallback(false);
     setAlertStatus(null);
     setSavedAlert(null);
     setHasSearched(true);
@@ -213,7 +211,6 @@ export function DiscoverClient() {
       setTrips(data.trips);
       setAiSummary(data.message);
       setAiMissingFields(data.missingFields ?? []);
-      setAiFallback(data.aiMetadata.fallbackUsed);
       setLastPayload(data.parsedRequest);
       setNotice(providerNotice(data.providerMetadata, data.trips.length));
     } catch (searchError) {
@@ -519,9 +516,6 @@ export function DiscoverClient() {
               <span className="animate-ai-bounce text-2xl" aria-hidden>🤖</span>
               <div>
                 <p className="text-sm text-cloud">{aiSummary}</p>
-                {aiFallback ? (
-                  <p className="mt-1 text-xs text-mist/70">AI was unavailable — parsed with rules instead.</p>
-                ) : null}
                 {aiMissingFields.length > 0 ? (
                   <p className="mt-1 text-xs text-gold">
                     Assumed defaults for: {aiMissingFields.join(", ")}. Switch to Advanced to adjust.

@@ -75,3 +75,31 @@ def test_merge_prefers_cheaper_bundle_for_same_route():
     paired = []
     merged = merge_trip_options(paired, bundles)
     assert len(merged) == 1 and merged[0].totalPrice == 99
+
+
+def test_scope_matches_treats_metro_and_airport_as_same_city():
+    from app.data.geography import scope_matches
+    assert scope_matches("REK", {"KEF"})
+    assert scope_matches("STO", {"ARN"})
+    assert scope_matches("BCN", {"BCN"})
+    assert not scope_matches("CPH", {"ARN", "GOT"})
+
+
+def test_over_budget_trip_kept_for_specific_destination():
+    # departure falls inside the request's August window
+    fares = [RoundTripFare(origin="VIE", destination="KEF", price=411, currency="EUR",
+                           departureDate="2026-08-12", returnDate="2026-08-16", airline="FI",
+                           bookingUrl="/x")]
+    trips = build_round_trip_options(fares, request(destinationAirports=["KEF"], maxBudget=300),
+                                     scoring=None, enforce_budget=False)
+    assert len(trips) == 1
+    assert "Over budget" in trips[0].tags
+    assert any("Over your" in w for w in trips[0].warnings)
+
+
+def test_over_budget_trip_dropped_for_anywhere_search():
+    fares = [RoundTripFare(origin="VIE", destination="KEF", price=411, currency="EUR",
+                           departureDate="2026-07-24", returnDate="2026-07-28", airline="FI",
+                           bookingUrl="/x")]
+    trips = build_round_trip_options(fares, request(maxBudget=300), scoring=None, enforce_budget=True)
+    assert trips == []

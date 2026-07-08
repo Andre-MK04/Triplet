@@ -22,6 +22,7 @@ from app.providers.travelpayouts.mapper import (
     RoundTripFare,
     map_city_directions_response,
     map_prices_for_dates_response_to_flights,
+    map_round_trip_rows,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,35 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                 self.warnings.append(f"city-directions failed for {origin}: {exc}")
                 continue
             fares.extend(map_city_directions_response(payload, origin, settings.travelpayouts_marker))
+        return fares
+
+    def round_trips_for(self, origins: list[str], destinations: list[str], date_range: DateRange) -> list[RoundTripFare]:
+        """Direct round-trip fares for specific routes (prices_for_dates one_way=false).
+
+        Used for a requested destination so it always yields something, even a
+        pricey one — no one-way pairing that fails on thin routes. Returns []
+        (never raises); respects the per-search request cap.
+        """
+        if not settings.travelpayouts_api_enabled:
+            return []
+        months = months_in_range(date_range)
+        fares: list[RoundTripFare] = []
+        for origin in origins:
+            for destination in destinations:
+                if origin.upper() == destination.upper():
+                    continue
+                for month in months:
+                    if self.requests_attempted >= self.max_requests:
+                        return fares
+                    self.requests_attempted += 1
+                    try:
+                        payload = self.client.prices_for_dates(origin, destination, month, one_way=False)
+                    except ProviderNoResultsError:
+                        continue
+                    except ProviderError as exc:
+                        self.warnings.append(f"round-trip query failed for {origin}-{destination}: {exc}")
+                        continue
+                    fares.extend(map_round_trip_rows(payload, settings.travelpayouts_marker))
         return fares
 
     def normalize_response_to_internal_flights(self, raw_response: dict) -> list[Flight]:

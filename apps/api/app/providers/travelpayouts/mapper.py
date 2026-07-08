@@ -116,6 +116,38 @@ def map_price_row(row: dict[str, Any], currency: str, marker: str | None) -> Fli
     )
 
 
+def map_round_trip_rows(payload: dict[str, Any], marker: str | None) -> list[RoundTripFare]:
+    """Round-trip fares from prices_for_dates(one_way=false): reliable per-route
+    round trips, so a specifically-requested destination always yields something."""
+    rows = payload.get("data") or []
+    currency = str(payload.get("currency") or settings.travelpayouts_currency).upper()
+    fares: list[RoundTripFare] = []
+    for row in rows:
+        origin = code_or_none(row.get("origin"))
+        destination = code_or_none(row.get("destination"))
+        price = parse_float(row.get("price") or row.get("value"))
+        return_at = parse_datetime(row.get("return_at"))
+        departure = parse_datetime(row.get("departure_at"))
+        if not origin or not destination or price is None or price <= 0 or not return_at or not departure:
+            continue
+        link = build_search_link(row.get("link"), marker)
+        fares.append(
+            RoundTripFare(
+                origin=origin,
+                destination=destination,
+                price=price,
+                currency=currency,
+                departureDate=departure.date().isoformat(),
+                returnDate=return_at.date().isoformat(),
+                airline=(str(row.get("airline")).upper() if row.get("airline") else None),
+                stops=parse_int(row.get("transfers")) or 0,
+                bookingUrl=link,
+                affiliateUrl=link if marker else None,
+            )
+        )
+    return fares
+
+
 def map_city_directions_response(
     payload: dict[str, Any],
     origin: str,

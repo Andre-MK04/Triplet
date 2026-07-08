@@ -59,17 +59,21 @@ class SearchTripsTool(Tool):
         flight_result = flight_search.search_candidate_flights_with_metadata(request)
         transfers = TransfersRepository(context.db).list_transfers()
         scoring = build_scoring_context(context, flight_result.flights)
+        # A specific requested destination should always yield something, even if
+        # it's over budget (flagged, low score). "Anywhere" keeps the budget filter.
+        enforce_budget = request.destinationAirports is None
         paired_trips = build_trips(
             request,
             airports=airports,
             flights=flight_result.flights,
             transfers=transfers,
             scoring=scoring,
+            enforce_budget=enforce_budget,
         )
         # Augment with round-trip bundles discovered across Europe (city-directions),
         # which avoid one-way pairing gaps and give true round-trip prices.
         bundle_trips = build_round_trip_options(
-            flight_search.discover_round_trip_fares(request), request, scoring
+            flight_search.discover_round_trip_fares(request), request, scoring, enforce_budget=enforce_budget
         )
         trips = merge_trip_options(paired_trips, bundle_trips)
 

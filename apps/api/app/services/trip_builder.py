@@ -1,6 +1,6 @@
 from datetime import datetime, time
 
-from app.data.geography import PLACES, is_european, place_city
+from app.data.geography import PLACES, is_european, place_city, scope_matches
 from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
 from app.providers.travelpayouts.mapper import RoundTripFare
 from app.services.trip_explainer import build_explanation, build_tags, build_warnings
@@ -13,6 +13,7 @@ def build_trips(
     flights: list[Flight],
     transfers: list[GroundTransfer],
     scoring: ScoringContext | None = None,
+    enforce_budget: bool = True,
 ) -> list[TripOption]:
     airports_by_code = {airport.code: airport for airport in airports}
     origin_codes = {code.upper() for code in request.originAirports}
@@ -23,7 +24,7 @@ def build_trips(
         flight
         for flight in flights
         if flight.origin in origin_codes
-        and (destination_codes is None or flight.destination in destination_codes)
+        and (destination_codes is None or scope_matches(flight.destination, destination_codes))
         and request.startDate <= flight.departureDateTime.date() <= request.endDate
     ]
 
@@ -75,7 +76,11 @@ def build_trips(
                 + (ground_transfer.estimatedCost if ground_transfer else 0),
                 2,
             )
-            if total_price > request.maxBudget:
+            over_budget = total_price > request.maxBudget
+            if over_budget and enforce_budget:
+                # "Anywhere" searches have plenty of in-budget options, so drop
+                # the expensive ones. Specific-destination searches keep them
+                # (flagged) so a requested place always yields something.
                 continue
 
             warnings = build_warnings(
@@ -85,6 +90,8 @@ def build_trips(
                 nights,
                 request.includeBaggage,
             )
+            if over_budget:
+                warnings.insert(0, f"Over your €{request.maxBudget:g} budget at €{total_price:g}.")
             trip = TripOption(
                 id=f"{outbound.id}-{return_flight.id}",
                 tripType=trip_type,
@@ -114,6 +121,8 @@ def build_trips(
             trip.score = trip.dealScore
             trip.explanation = build_explanation(trip, request, airports_by_code)
             trip.tags = build_tags(trip)
+            if over_budget:
+                trip.tags.insert(0, "Over budget")
             trips.append(trip)
 
     mark_relative_tags(trips)
@@ -271,6 +280,7 @@ def build_round_trip_options(
     fares: list[RoundTripFare],
     request: TripSearchRequest,
     scoring: ScoringContext | None = None,
+    enforce_budget: bool = True,
 ) -> list[TripOption]:
     """Turn city-directions round-trip fares into scored same-city trips.
 
@@ -292,9 +302,10 @@ def build_round_trip_options(
         destination = fare.destination.upper()
         if destination in origin_codes or not is_european(destination):
             continue
-        if destination_codes is not None and destination not in destination_codes:
+        if destination_codes is not None and not scope_matches(destination, destination_codes):
             continue
-        if fare.price > request.maxBudget:
+        over_budget = fare.price > request.maxBudget
+        if over_budget and enforce_budget:
             continue
         departure = parse_iso_date(fare.departureDate)
         return_date = parse_iso_date(fare.returnDate)
@@ -368,6 +379,9 @@ def build_round_trip_options(
             f"{fare.currency} {round(fare.price)} total — the cheapest we found to {city} in your window."
         )
         trip.tags.extend(build_tags(trip))
+        if over_budget:
+            trip.tags.insert(0, "Over budget")
+            trip.warnings.insert(0, f"Over your €{request.maxBudget:g} budget at €{round(fare.price):g}.")
         trips.append(trip)
 
     mark_relative_tags(trips)

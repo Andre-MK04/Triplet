@@ -9,6 +9,7 @@ from app.db.repositories.price_observations_repository import PriceObservationsR
 from app.models import Flight, ProviderMetadata, TripSearchRequest
 from app.providers import DatabaseFlightProvider, FlightProvider
 from app.providers.errors import ProviderError
+from app.providers.flight_provider import DateRange
 from app.providers.registry import UnknownFlightProviderError, build_live_provider, build_provider
 
 logger = logging.getLogger(__name__)
@@ -67,8 +68,12 @@ class FlightSearchService:
         return self.provider.search_flights(origin_codes, start_date, end_date, destination_codes)
 
     def discover_round_trip_fares(self, request: TripSearchRequest):
-        """Cheapest round-trip fares from a provider that supports discovery
-        (Travelpayouts city-directions). Returns [] for providers without it."""
+        """Round-trip fares from a discovery-capable provider (Travelpayouts).
+
+        A requested destination uses direct per-route round-trip queries (always
+        yields something for that place); an open "anywhere" search uses
+        city-directions to discover cheap destinations. Returns [] otherwise.
+        """
         provider = self.provider
         if self.provider_name == "hybrid":
             if self.db is None:
@@ -77,10 +82,19 @@ class FlightSearchService:
                 provider = build_live_provider(self.db)
             except (UnknownFlightProviderError, ProviderError):
                 return []
-        discover = getattr(provider, "discover_round_trips", None)
-        if not callable(discover):
-            return []
         try:
+            if request.destinationAirports:
+                routes = getattr(provider, "round_trips_for", None)
+                if not callable(routes):
+                    return []
+                return routes(
+                    request.originAirports,
+                    request.destinationAirports,
+                    DateRange(start=request.startDate, end=request.endDate),
+                )
+            discover = getattr(provider, "discover_round_trips", None)
+            if not callable(discover):
+                return []
             return discover(request.originAirports)
         except ProviderError:
             return []
