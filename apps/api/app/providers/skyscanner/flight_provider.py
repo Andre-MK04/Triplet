@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.data.search_destinations import SEARCH_DESTINATIONS
 from app.db.repositories.flights_repository import FlightsRepository
+from app.providers.caching import cache_flights
 from app.models import Flight
 from app.providers.errors import ProviderError
 from app.providers.flight_provider import (
@@ -195,8 +196,7 @@ class SkyscannerFlightProvider(FlightProvider):
     def _finalize(self, flights: list[Flight]) -> list[Flight]:
         deduped = deduplicate_flights(flights)
         if self.cache_enabled and self.db and deduped:
-            FlightsRepository(self.db).upsert_flights(deduped)
-            self.cached_flights_count += len(deduped)
+            self.cached_flights_count += cache_flights(self.db, deduped)
         if self.requests_attempted and self.mapped_flights_count == 0:
             self.warnings.append("Skyscanner returned no supported live flight offers for this search.")
         logger.info(

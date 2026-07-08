@@ -36,8 +36,10 @@ class FlightDB(Base):
     __tablename__ = "flights"
 
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
-    origin_code: Mapped[str] = mapped_column(ForeignKey("airports.code"), index=True)
-    destination_code: Mapped[str] = mapped_column(ForeignKey("airports.code"), index=True)
+    # Not FK-constrained: providers return fares for any European airport/metro
+    # code (e.g. STO, PAR), which need not exist in the curated airports table.
+    origin_code: Mapped[str] = mapped_column(String(8), index=True)
+    destination_code: Mapped[str] = mapped_column(String(8), index=True)
     departure_datetime: Mapped[datetime] = mapped_column(DateTime)
     arrival_datetime: Mapped[datetime] = mapped_column(DateTime)
     airline: Mapped[str] = mapped_column(String(120))
