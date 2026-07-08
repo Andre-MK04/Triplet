@@ -1,4 +1,8 @@
+from datetime import datetime, time
+
+from app.data.geography import PLACES, is_european, place_city
 from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
+from app.providers.travelpayouts.mapper import RoundTripFare
 from app.services.trip_explainer import build_explanation, build_tags, build_warnings
 from app.services.trip_scoring import ScoringContext, calculate_deal_score, calculate_fit_score
 
@@ -27,7 +31,12 @@ def build_trips(
 
     for outbound in outbound_candidates:
         if outbound.destination not in airports_by_code:
-            continue
+            # Provider fares can reach any European airport; synthesize metadata
+            # from geography so we don't drop them just for being unseeded.
+            synthesized = synthesize_airport(outbound.destination)
+            if not synthesized:
+                continue
+            airports_by_code[outbound.destination] = synthesized
 
         for return_flight in flights:
             if not is_valid_return_candidate(outbound, return_flight, origin_codes, airports_by_code):
@@ -235,3 +244,172 @@ def pick_trip_booking_label(outbound: Flight, return_flight: Flight) -> str | No
     if link_type == "affiliate_referral":
         return "Check price"
     return None
+
+
+def synthesize_airport(code: str) -> Airport | None:
+    """Build airport metadata for a provider code from the geography dataset.
+
+    Returns None only when the code is not a known European place, so unknown
+    non-European codes are still excluded.
+    """
+    place = PLACES.get(code.upper())
+    if not place:
+        return None
+    return Airport(
+        code=place.code,
+        name=place.city,
+        city=place.city,
+        country=place.country,
+        latitude=place.lat,
+        longitude=place.lon,
+        areaSlug=place.city.lower().replace(" ", "-"),
+        areaName=place.city,
+    )
+
+
+def build_round_trip_options(
+    fares: list[RoundTripFare],
+    request: TripSearchRequest,
+    scoring: ScoringContext | None = None,
+) -> list[TripOption]:
+    """Turn city-directions round-trip fares into scored same-city trips.
+
+    These are complete round-trip bundles (one price, real dates), so there is no
+    one-way pairing and the total is the true round-trip fare, not a sum. Fares are
+    kept only when European, within budget, in the requested date window, and — if
+    the request scopes destinations — within that scope.
+    """
+    destination_codes = (
+        {code.upper() for code in request.destinationAirports} if request.destinationAirports else None
+    )
+    origin_codes = {code.upper() for code in request.originAirports}
+    # Round-trip fares carry no per-leg one-way price, so route history (one-way
+    # baselines) must not be applied; keep only the profile for fit scoring.
+    bundle_scoring = ScoringContext(profile=scoring.profile if scoring else None)
+
+    trips: list[TripOption] = []
+    for fare in fares:
+        destination = fare.destination.upper()
+        if destination in origin_codes or not is_european(destination):
+            continue
+        if destination_codes is not None and destination not in destination_codes:
+            continue
+        if fare.price > request.maxBudget:
+            continue
+        departure = parse_iso_date(fare.departureDate)
+        return_date = parse_iso_date(fare.returnDate)
+        if not departure or not (request.startDate <= departure <= request.endDate):
+            continue
+        nights = (return_date - departure).days if return_date else request.minTripLengthDays
+        if nights <= 0:
+            nights = request.minTripLengthDays
+
+        outbound = Flight(
+            id=f"rt-out-{fare.origin}-{destination}-{departure.isoformat()}",
+            origin=fare.origin.upper(),
+            destination=destination,
+            departureDateTime=datetime.combine(departure, time(hour=9)),
+            arrivalDateTime=datetime.combine(departure, time(hour=12)),
+            airline=fare.airline or "Multiple airlines",
+            price=fare.price,
+            currency=fare.currency,
+            bookingUrl=fare.bookingUrl,
+            deepLink=fare.bookingUrl,
+            affiliateUrl=fare.affiliateUrl,
+            provider="travelpayouts",
+            stops=fare.stops,
+            isLive=False,
+            confidenceLevel="indicative",
+        )
+        inbound = Flight(
+            id=f"rt-ret-{destination}-{fare.origin}-{(return_date or departure).isoformat()}",
+            origin=destination,
+            destination=fare.origin.upper(),
+            departureDateTime=datetime.combine(return_date or departure, time(hour=18)),
+            arrivalDateTime=datetime.combine(return_date or departure, time(hour=21)),
+            airline=fare.airline or "Multiple airlines",
+            price=0.0,  # part of the round-trip bundle; total is on the trip
+            currency=fare.currency,
+            bookingUrl=fare.bookingUrl,
+            deepLink=fare.bookingUrl,
+            affiliateUrl=fare.affiliateUrl,
+            provider="travelpayouts",
+            stops=fare.stops,
+            isLive=False,
+            confidenceLevel="indicative",
+        )
+        trip = TripOption(
+            id=f"rt-{fare.origin}-{destination}-{departure.isoformat()}",
+            tripType="same_city",
+            outboundFlight=outbound,
+            returnFlight=inbound,
+            groundTransfer=None,
+            totalPrice=round(fare.price, 2),
+            tripLengthDays=nights,
+            nights=nights,
+            score=0,
+            fareKind="round_trip_bundle",
+            explanation="",
+            warnings=["Round-trip fare; confirm exact times and baggage on the provider site."],
+            tags=["Round trip"],
+            bookingUrl=fare.bookingUrl,
+            bookingLabel="Check price" if fare.bookingUrl else None,
+            affiliateUrl=fare.affiliateUrl,
+            providerDeepLink=fare.bookingUrl,
+            provider="travelpayouts",
+            linkType="affiliate_referral" if fare.affiliateUrl else ("provider_deeplink" if fare.bookingUrl else "none"),
+        )
+        trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, bundle_scoring)
+        trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(trip, request, bundle_scoring.profile)
+        trip.score = trip.dealScore
+        city = place_city(destination) or destination
+        trip.explanation = (
+            f"A round trip from {place_city(fare.origin) or fare.origin} to {city} for "
+            f"{fare.currency} {round(fare.price)} total — the cheapest we found to {city} in your window."
+        )
+        trip.tags.extend(build_tags(trip))
+        trips.append(trip)
+
+    mark_relative_tags(trips)
+    return sorted(trips, key=lambda t: (-t.dealScore, -(t.fitScore or 0), t.totalPrice))
+
+
+def parse_iso_date(value: str | None):
+    from datetime import date as _date
+
+    if not value:
+        return None
+    try:
+        return _date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+def merge_trip_options(paired: list[TripOption], bundles: list[TripOption]) -> list[TripOption]:
+    """Combine one-way-paired trips with round-trip bundles.
+
+    When both exist for the same origin->destination, keep the cheaper one (a
+    round-trip bundle usually beats two summed one-ways). Re-rank by deal score,
+    then fit, then price, and cap the result.
+    """
+    by_route: dict[tuple[str, str], TripOption] = {}
+    order: list[tuple[str, str]] = []
+    for trip in paired + bundles:
+        key = (trip.outboundFlight.origin, trip.outboundFlight.destination)
+        existing = by_route.get(key)
+        if existing is None:
+            by_route[key] = trip
+            order.append(key)
+        elif trip.totalPrice < existing.totalPrice:
+            by_route[key] = trip
+
+    merged = [by_route[key] for key in order]
+    mark_relative_tags(merged)
+    return sorted(
+        merged,
+        key=lambda trip: (
+            -trip.dealScore,
+            -(trip.fitScore or 0),
+            trip.totalPrice,
+        ),
+    )[:30]

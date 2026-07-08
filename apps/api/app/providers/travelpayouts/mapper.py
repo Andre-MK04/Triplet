@@ -6,7 +6,23 @@ from urllib.parse import urlencode
 from pydantic import BaseModel
 
 from app.config import settings
+from app.data.geography import estimate_duration_minutes
 from app.models import Flight
+
+
+class RoundTripFare(BaseModel):
+    """A cheapest round trip from city-directions: one bundle price, two dates."""
+
+    origin: str
+    destination: str
+    price: float
+    currency: str = "EUR"
+    departureDate: str | None = None
+    returnDate: str | None = None
+    airline: str | None = None
+    stops: int = 0
+    bookingUrl: str | None = None
+    affiliateUrl: str | None = None
 
 
 class TravelpayoutsMappingResult(BaseModel):
@@ -63,7 +79,10 @@ def map_price_row(row: dict[str, Any], currency: str, marker: str | None) -> Fli
     if not origin or not destination or not departure or price is None or price <= 0:
         return None
     if not duration_minutes or duration_minutes <= 0:
-        # Without a duration we cannot state an honest arrival time; skip the row.
+        # The feed sometimes omits duration; estimate it from distance rather than
+        # dropping what may be the cheapest fare. None if we can't estimate.
+        duration_minutes = estimate_duration_minutes(origin, destination)
+    if not duration_minutes or duration_minutes <= 0:
         return None
 
     arrival = departure_plus_minutes(departure, duration_minutes)
@@ -95,6 +114,40 @@ def map_price_row(row: dict[str, Any], currency: str, marker: str | None) -> Fli
         observedAt=observed_at,
         rawProviderRef=stable,
     )
+
+
+def map_city_directions_response(
+    payload: dict[str, Any],
+    origin: str,
+    marker: str | None,
+) -> list[RoundTripFare]:
+    """Cheapest round trip per destination from /v1/city-directions."""
+    data = payload.get("data") or {}
+    currency = str(payload.get("currency") or settings.travelpayouts_currency).upper()
+    fares: list[RoundTripFare] = []
+    for dest_code, row in data.items():
+        destination = code_or_none(row.get("destination") or dest_code)
+        price = parse_float(row.get("price") or row.get("value"))
+        if not destination or price is None or price <= 0:
+            continue
+        link = build_search_link(row.get("link"), marker)
+        departure = parse_datetime(row.get("departure_at"))
+        return_at = parse_datetime(row.get("return_at"))
+        fares.append(
+            RoundTripFare(
+                origin=origin.upper(),
+                destination=destination,
+                price=price,
+                currency=currency,
+                departureDate=departure.date().isoformat() if departure else None,
+                returnDate=return_at.date().isoformat() if return_at else None,
+                airline=(str(row.get("airline")).upper() if row.get("airline") else None),
+                stops=parse_int(row.get("transfers")) or 0,
+                bookingUrl=link,
+                affiliateUrl=link if marker else None,
+            )
+        )
+    return fares
 
 
 def build_search_link(link_path: Any, marker: str | None) -> str | None:

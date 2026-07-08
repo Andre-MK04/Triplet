@@ -66,6 +66,25 @@ class FlightSearchService:
     ) -> list[Flight]:
         return self.provider.search_flights(origin_codes, start_date, end_date, destination_codes)
 
+    def discover_round_trip_fares(self, request: TripSearchRequest):
+        """Cheapest round-trip fares from a provider that supports discovery
+        (Travelpayouts city-directions). Returns [] for providers without it."""
+        provider = self.provider
+        if self.provider_name == "hybrid":
+            if self.db is None:
+                return []
+            try:
+                provider = build_live_provider(self.db)
+            except (UnknownFlightProviderError, ProviderError):
+                return []
+        discover = getattr(provider, "discover_round_trips", None)
+        if not callable(discover):
+            return []
+        try:
+            return discover(request.originAirports)
+        except ProviderError:
+            return []
+
     def _build_provider(self, db: Session | None) -> FlightProvider:
         if self.provider_name == "hybrid":
             if db is None:

@@ -174,6 +174,27 @@ def is_european(code: str) -> bool:
     return code.upper() in PLACES
 
 
+def estimate_duration_minutes(origin: str, destination: str) -> int | None:
+    """Rough flight time from great-circle distance, when a provider omits it.
+
+    Used so we don't discard the cheapest fare just because the feed lacked a
+    duration field. Approximate by design (≈700 km/h cruise + 40 min overhead).
+    """
+    import math
+
+    a = PLACES.get(origin.upper())
+    b = PLACES.get(destination.upper())
+    if not a or not b or a.lat is None or b.lat is None:
+        return None
+    r = 6371.0
+    p1, p2 = math.radians(a.lat), math.radians(b.lat)
+    dphi = math.radians(b.lat - a.lat)
+    dlmb = math.radians(b.lon - a.lon)
+    h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    km = 2 * r * math.asin(min(1.0, math.sqrt(h)))
+    return int(round(km / 700 * 60)) + 40
+
+
 def place_country(code: str) -> str | None:
     place = PLACES.get(code.upper())
     return place.country if place else None

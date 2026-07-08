@@ -16,8 +16,13 @@ from app.providers.flight_provider import (
     SearchConstraints,
     TripLengthRange,
 )
+from app.providers.errors import ProviderError
 from app.providers.travelpayouts.client import TravelpayoutsHttpClient
-from app.providers.travelpayouts.mapper import map_prices_for_dates_response_to_flights
+from app.providers.travelpayouts.mapper import (
+    RoundTripFare,
+    map_city_directions_response,
+    map_prices_for_dates_response_to_flights,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +84,26 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                     flights.extend(self.normalize_response_to_internal_flights(payload))
 
         return self._finalize(flights, date_range)
+
+    def discover_round_trips(self, origins: list[str]) -> list[RoundTripFare]:
+        """Cheapest round trips from each origin to every popular destination.
+
+        Uses /v1/city-directions — the provider discovers destinations, so results
+        are not limited to a hardcoded list. Returns [] (never raises) so discovery
+        can augment a search without being able to break it.
+        """
+        if not settings.travelpayouts_api_enabled:
+            return []
+        fares: list[RoundTripFare] = []
+        for origin in origins:
+            self.requests_attempted += 1
+            try:
+                payload = self.client.city_directions(origin)
+            except ProviderError as exc:
+                self.warnings.append(f"city-directions failed for {origin}: {exc}")
+                continue
+            fares.extend(map_city_directions_response(payload, origin, settings.travelpayouts_marker))
+        return fares
 
     def normalize_response_to_internal_flights(self, raw_response: dict) -> list[Flight]:
         mapping = map_prices_for_dates_response_to_flights(raw_response, marker=settings.travelpayouts_marker)

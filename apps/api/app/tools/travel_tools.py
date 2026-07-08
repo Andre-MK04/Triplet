@@ -10,7 +10,7 @@ from app.db.repositories.transfers_repository import TransfersRepository
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import Flight, TripSearchRequest
 from app.services.flight_search_service import FlightSearchService
-from app.services.trip_builder import build_trips
+from app.services.trip_builder import build_round_trip_options, build_trips, merge_trip_options
 from app.services.trip_scoring import ScoringContext, route_key
 from app.tools.base import Tool, ToolContext
 from app.tools.schemas import (
@@ -59,13 +59,19 @@ class SearchTripsTool(Tool):
         flight_result = flight_search.search_candidate_flights_with_metadata(request)
         transfers = TransfersRepository(context.db).list_transfers()
         scoring = build_scoring_context(context, flight_result.flights)
-        trips = build_trips(
+        paired_trips = build_trips(
             request,
             airports=airports,
             flights=flight_result.flights,
             transfers=transfers,
             scoring=scoring,
         )
+        # Augment with round-trip bundles discovered across Europe (city-directions),
+        # which avoid one-way pairing gaps and give true round-trip prices.
+        bundle_trips = build_round_trip_options(
+            flight_search.discover_round_trip_fares(request), request, scoring
+        )
+        trips = merge_trip_options(paired_trips, bundle_trips)
 
         try:
             TripSuggestionsRepository(context.db).save_trips(

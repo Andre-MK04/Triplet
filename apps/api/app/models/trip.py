@@ -42,6 +42,9 @@ class TripOption(BaseModel):
     dealScoreBreakdown: list[ScoreComponent] = []
     fitScoreBreakdown: list[ScoreComponent] = []
     suggestionId: str | None = None
+    # two_one_ways: total is the sum of two independent one-way fares (pairing).
+    # round_trip_bundle: total is a single round-trip fare; per-leg prices unknown.
+    fareKind: Literal["two_one_ways", "round_trip_bundle"] = "two_one_ways"
     explanation: str
     warnings: list[str]
     tags: list[str]

@@ -89,8 +89,10 @@ def test_travelpayouts_mapper_marks_fares_indicative_and_builds_affiliate_link()
     result = map_prices_for_dates_response_to_flights(prices_payload(), marker="triplet-marker")
 
     assert result.raw_offers_count == 2
-    assert result.mapped_flights_count == 1
-    assert result.skipped_offers_count == 1
+    # Both fares map: the duration-less VIE->ALC row now gets an estimated
+    # duration (both airports are known geography) instead of being dropped.
+    assert result.mapped_flights_count == 2
+    assert result.skipped_offers_count == 0
     flight = result.flights[0]
     assert flight.provider == "travelpayouts"
     assert flight.confidenceLevel == "indicative"
@@ -100,6 +102,20 @@ def test_travelpayouts_mapper_marks_fares_indicative_and_builds_affiliate_link()
     assert flight.stops == 0
     assert flight.deepLink.startswith("https://www.aviasales.com/search/VIE1508ALC1")
     assert "marker=triplet-marker" in flight.affiliateUrl
+
+
+def test_travelpayouts_mapper_still_skips_rows_without_estimable_duration():
+    # Unknown airport codes have no coordinates, so no duration can be estimated.
+    payload = {
+        "success": True,
+        "currency": "eur",
+        "data": [
+            {"origin": "XXX", "destination": "YYY", "departure_at": "2026-08-01T09:00:00+02:00", "price": 50, "airline": "ZZ"},
+        ],
+    }
+    result = map_prices_for_dates_response_to_flights(payload, marker=None)
+    assert result.mapped_flights_count == 0
+    assert result.skipped_offers_count == 1
 
 
 def test_travelpayouts_mapper_without_marker_has_no_affiliate_url():
