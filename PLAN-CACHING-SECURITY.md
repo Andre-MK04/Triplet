@@ -19,11 +19,13 @@ warrants). Owner does dashboard/region steps; sessions do the code.
 Status (2026-07-08): code for all stages built + tested (189 API tests green).
 Done in code: deals cache + refresher (S1), read-through search (S2), refresher
 prune (S3), GDPR erasure + export + account UI (S4), privacy page + retention
-job (S5 code), indexes + SCALING.md (S6). **Owner actions still open**: migrate
-Railway Postgres+API to an EU region (S5 infra); add two Railway cron services —
-`python -m app.deals.refresher` (~every 3h) and `python -m app.privacy.retention`
-(daily). Until the refresher cron runs, "anywhere" searches cold-fetch live on
-first hit then warm the cache — correct, just not pre-warmed.
+job (S5 code), indexes + SCALING.md (S6). EU residency DONE (all Railway
+services + DB in EU West / Amsterdam, verified). All periodic work is unified in
+ONE entry point, `app/scheduled/tick.py` (hourly): warms the deals cache, runs
+due alerts, and runs retention once/day at RETENTION_HOUR_UTC (default 03:00) —
+so there is exactly ONE cron service, not three. **Owner action still open**:
+repoint the existing hourly `triplet-alerts` cron's start command from
+`python -m app.alerts.runner` to `python -m app.scheduled.tick`.
 
 ## Chosen approach, and what was rejected
 

@@ -1,4 +1,4 @@
-"""Scheduled deals refresher.
+"""Deals refresher (invoked by app.scheduled.tick, the single hourly cron).
 
 Fills the cached_round_trips deals cache from Travelpayouts city-directions, one
 call per origin airport, so user searches read from our database instead of
