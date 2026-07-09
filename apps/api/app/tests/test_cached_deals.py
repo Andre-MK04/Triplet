@@ -93,3 +93,26 @@ def test_anywhere_search_calls_provider_and_warms_cache_when_cold(db_session):
     assert any(f.destination == "BCN" for f in fares)
     # Provider result is now cached for the next search.
     assert CachedDealsRepository(db_session).has_fresh(["VIE"]) is True
+
+
+def test_hybrid_search_skips_live_provider_when_deals_cache_is_warm(db_session, monkeypatch):
+    from datetime import date
+    from app.models import TripSearchRequest
+    from app.services import flight_search_service as fss
+    from app.services.flight_search_service import FlightSearchService
+
+    CachedDealsRepository(db_session).upsert_deals([fare("CPH", 120)])
+
+    def no_live(*args, **kwargs):
+        raise AssertionError("live provider must NOT be built when the cache is warm")
+
+    monkeypatch.setattr(fss, "build_live_provider", no_live)
+    svc = FlightSearchService(db=db_session, provider_name="hybrid")
+    req = TripSearchRequest(
+        originAirports=["VIE"], startDate=date(2026, 8, 1), endDate=date(2026, 8, 31),
+        minTripLengthDays=3, maxTripLengthDays=10, maxBudget=300,
+        maxGroundTransferHours=4, tripStyle="surprise me",
+    )
+    result = svc.search_candidate_flights_with_metadata(req)
+    assert result.metadata.providerUsed == "database"
+    assert result.metadata.liveProviderAttempted is False

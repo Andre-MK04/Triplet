@@ -127,6 +127,20 @@ class FlightSearchService:
 
         database_provider = DatabaseFlightProvider(self.db)
         cached_flights = self._search_with_provider(database_provider, request)
+
+        # Read-through fast path: for an "anywhere" search whose origins already
+        # have fresh cached deals, serve from the database and skip the live
+        # provider entirely. The scheduled tick (and cold searches) keep the
+        # cache warm. Specific-destination searches always go live (rarer, and
+        # we want that exact place fresh).
+        if not request.destinationAirports and CachedDealsRepository(self.db).has_fresh(request.originAirports):
+            metadata = ProviderMetadata(
+                providerUsed="database",
+                providerName="database",
+                cachedResultsUsed=True,
+            )
+            return FlightSearchResult(flights=cached_flights, metadata=metadata)
+
         try:
             live_provider = build_live_provider(self.db)
             live_flights = self._search_with_provider(live_provider, request)
