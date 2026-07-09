@@ -35,3 +35,11 @@ class AIProvider(Protocol):
         max_tool_calls: int,
     ) -> AIProviderResult:
         ...
+
+    def complete_json(self, system: str, user: str) -> str:
+        """Single-shot completion that returns a JSON string (no tools).
+
+        Used for structured generation like trip itineraries. Implementations
+        should steer the model toward strict JSON and return the raw text.
+        """
+        ...

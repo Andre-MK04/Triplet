@@ -93,6 +93,22 @@ class AnthropicProvider:
                 )
             working_messages.append({"role": "user", "content": tool_results})
 
+    def complete_json(self, system: str, user: str) -> str:
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=(system + "\n\nRespond with a single valid JSON object and nothing else."),
+                messages=[{"role": "user", "content": user}],
+            )
+            return "".join(block.text for block in response.content if block.type == "text") or "{}"
+        except Exception as exc:  # noqa: BLE001 - normalize for caller fallback
+            logger.warning(
+                "anthropic_complete_failed model=%s error=%s",
+                self.model, safe_anthropic_error_message(exc),
+            )
+            raise AIProviderError("Anthropic request failed.") from exc
+
     def _create_message(
         self,
         system: str,

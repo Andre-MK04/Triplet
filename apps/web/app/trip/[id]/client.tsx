@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "../../../components/AppShell";
 import { useAuth } from "../../../components/AuthContext";
+import { ItineraryPlanner } from "../../../components/ItineraryPlanner";
 import { TripCard } from "../../../components/TripCard";
 import { ButtonLink } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -70,6 +71,8 @@ export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
         <Notice tone="info">{suggestion!.disclaimer}</Notice>
 
         <TripCard trip={{ ...trip, suggestionId: null }} />
+
+        <ItineraryPlanner suggestionId={suggestion!.id} initialPlan={suggestion!.itinerary} />
 
         <Card>
           <h2 className="font-display text-lg font-bold text-cloud">Before you book</h2>

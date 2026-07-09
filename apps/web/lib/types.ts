@@ -212,6 +212,33 @@ export type DashboardResponse = {
   savedSearchSummary: { total: number; active: number };
 };
 
+export type ItineraryItem = {
+  partOfDay: "morning" | "afternoon" | "evening" | "flexible";
+  title: string;
+  description: string;
+  category: string;
+  estimatedCost: string;
+};
+
+export type ItineraryDay = {
+  label: string;
+  items: ItineraryItem[];
+};
+
+export type ItineraryPlan = {
+  summary: string;
+  days: ItineraryDay[];
+  gettingAround?: string | null;
+  extraCostEstimate?: string | null;
+  disclaimers: string[];
+  generatedAt?: string | null;
+};
+
+export type ItineraryResponse = {
+  itinerary: ItineraryPlan;
+  cached: boolean;
+};
+
 export type TripSuggestionResponse = {
   id: string;
   title: string;
@@ -221,6 +248,7 @@ export type TripSuggestionResponse = {
   dealScore: number;
   fitScore?: number | null;
   trip: TripOption;
+  itinerary?: ItineraryPlan | null;
   disclaimer: string;
 };
 

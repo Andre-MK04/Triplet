@@ -97,6 +97,22 @@ class OpenAIProvider:
                     }
                 )
 
+    def complete_json(self, system: str, user: str) -> str:
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                temperature=self.temperature,
+                response_format={"type": "json_object"},
+            )
+            return response.choices[0].message.content or "{}"
+        except Exception as exc:  # noqa: BLE001 - normalize for caller fallback
+            logger.warning(
+                "openai_complete_failed model=%s error=%s",
+                self.model, safe_openai_error_message(exc),
+            )
+            raise AIProviderError("OpenAI request failed.") from exc
+
     def _create_completion(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]):
         kwargs = self._completion_kwargs(messages, tools)
 

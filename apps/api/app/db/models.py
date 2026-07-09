@@ -92,6 +92,7 @@ class TripSuggestionDB(Base):
     deal_score: Mapped[int] = mapped_column(Integer, default=0)
     fit_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON)
+    itinerary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
