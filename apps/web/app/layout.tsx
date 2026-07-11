@@ -1,8 +1,25 @@
 import type { Metadata, Viewport } from "next";
+import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
 import { AuthProvider } from "../components/AuthContext";
+
+const display = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "800"],
+  variable: "--font-display",
+});
+const sans = Hanken_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -24,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans">
+      <body className={`${display.variable} ${sans.variable} ${mono.variable} font-sans`}>
         {/* Travelpayouts Drive: affiliate attribution/verification. beforeInteractive
             renders it into the server-side <head>, as Travelpayouts requires. */}
         <Script id="travelpayouts-drive" strategy="beforeInteractive">

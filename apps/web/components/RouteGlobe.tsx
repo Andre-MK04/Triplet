@@ -1,5 +1,6 @@
 "use client";
 
+import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -7,6 +8,12 @@ import * as THREE from "three";
 import { AIRPORTS } from "../lib/airports";
 
 const GLOBE_RADIUS = 1.9;
+
+/** A destination pin with an optional label (e.g. a live price tag: "MIL €39"). */
+export type GlobeMarker = {
+  code: string;
+  label?: string;
+};
 
 function latLonToVector3(lat: number, lon: number, radius: number): THREE.Vector3 {
   const phi = ((90 - lat) * Math.PI) / 180;
@@ -16,6 +23,12 @@ function latLonToVector3(lat: number, lon: number, radius: number): THREE.Vector
     radius * Math.cos(phi),
     radius * Math.sin(phi) * Math.sin(theta),
   );
+}
+
+function positionFor(code: string): THREE.Vector3 | null {
+  const airport = AIRPORTS.find((a) => a.code === code);
+  if (!airport) return null;
+  return latLonToVector3(airport.lat, airport.lon, GLOBE_RADIUS);
 }
 
 // Deterministic pseudo-random so the dot sphere is stable between renders.
@@ -50,12 +63,12 @@ function DotSphere() {
 
   return (
     <points geometry={geometry}>
-      <pointsMaterial color="#3d5a6e" size={0.022} sizeAttenuation transparent opacity={0.85} />
+      <pointsMaterial color="#3d5a6e" size={0.022} sizeAttenuation transparent opacity={0.9} />
     </points>
   );
 }
 
-const ROUTES: Array<[string, string]> = [
+const DEFAULT_ROUTES: Array<[string, string]> = [
   ["VIE", "ALC"],
   ["ZAG", "LIS"],
   ["VCE", "ATH"],
@@ -67,12 +80,10 @@ const ROUTES: Array<[string, string]> = [
 const ARC_SEGMENTS = 64;
 
 function RouteArc({ from, to, phase }: { from: string; to: string; phase: number }) {
-  const geometryRef = useRef<THREE.BufferGeometry>(null);
-  const { line, glowPoints } = useMemo(() => {
-    const a = AIRPORTS.find((airport) => airport.code === from)!;
-    const b = AIRPORTS.find((airport) => airport.code === to)!;
-    const start = latLonToVector3(a.lat, a.lon, GLOBE_RADIUS);
-    const end = latLonToVector3(b.lat, b.lon, GLOBE_RADIUS);
+  const line = useMemo(() => {
+    const start = positionFor(from);
+    const end = positionFor(to);
+    if (!start || !end) return null;
     const mid = start.clone().add(end).multiplyScalar(0.5);
     mid.setLength(GLOBE_RADIUS * (1.18 + start.distanceTo(end) * 0.08));
     const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
@@ -81,57 +92,91 @@ function RouteArc({ from, to, phase }: { from: string; to: string; phase: number
     const material = new THREE.LineBasicMaterial({
       color: "#7ddfc3",
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.85,
     });
-    const lineObject = new THREE.Line(geometry, material);
-    return { line: lineObject, glowPoints: [start, end] };
+    return new THREE.Line(geometry, material);
   }, [from, to]);
 
   useFrame(({ clock }) => {
+    if (!line) return;
     // Draw the arc from origin to destination on a repeating cycle.
     const cycle = (clock.elapsedTime * 0.35 + phase) % 1.4;
     const progress = Math.min(cycle / 1, 1);
     line.geometry.setDrawRange(0, Math.max(2, Math.floor(progress * (ARC_SEGMENTS + 1))));
-    geometryRef.current = line.geometry;
   });
 
+  if (!line) return null;
+  const start = positionFor(from)!;
+  const end = positionFor(to)!;
   return (
     <group>
       <primitive object={line} />
-      {glowPoints.map((point, index) => (
-        <mesh key={index} position={point}>
-          <sphereGeometry args={[0.032, 12, 12]} />
-          <meshBasicMaterial color={index === 0 ? "#7ddfc3" : "#ff9a78"} />
-        </mesh>
-      ))}
+      <mesh position={start}>
+        <sphereGeometry args={[0.028, 12, 12]} />
+        <meshBasicMaterial color="#7ddfc3" />
+      </mesh>
+      <mesh position={end}>
+        <sphereGeometry args={[0.028, 12, 12]} />
+        <meshBasicMaterial color="#ff9a78" />
+      </mesh>
     </group>
   );
 }
 
-function GlobeScene({ animate }: { animate: boolean }) {
-  const groupRef = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    if (animate && groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.08;
-    }
-  });
-
+function PriceTag({ marker }: { marker: GlobeMarker }) {
+  const position = useMemo(() => positionFor(marker.code), [marker.code]);
+  if (!position || !marker.label) return null;
+  const anchor = position.clone().multiplyScalar(1.06);
   return (
-    <group ref={groupRef} rotation={[0.35, -0.6, 0]}>
+    <Html position={anchor} center zIndexRange={[20, 0]} occlude={false}>
+      <span className="pointer-events-none whitespace-nowrap border border-line bg-ink/90 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.06em] text-cloud">
+        {marker.label}
+      </span>
+    </Html>
+  );
+}
+
+function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
+  return (
+    // Yawed so Europe (and its route arcs) faces the camera on first paint.
+    <group rotation={[0.35, -1.75, 0]}>
+      {/* Solid core so the far side of the wireframe reads as a planet, not a cage. */}
       <mesh>
-        <sphereGeometry args={[GLOBE_RADIUS * 0.995, 48, 48]} />
-        <meshBasicMaterial color="#101a24" transparent opacity={0.92} />
+        <sphereGeometry args={[GLOBE_RADIUS * 0.98, 64, 64]} />
+        <meshPhongMaterial color="#090f15" />
+      </mesh>
+      {/* Wireframe shell: the "wireframe-meets-satellite" instrument look. */}
+      <mesh>
+        <sphereGeometry args={[GLOBE_RADIUS, 48, 48]} />
+        <meshPhongMaterial
+          color="#16202a"
+          emissive="#1d2733"
+          specular="#343a41"
+          shininess={10}
+          wireframe
+          transparent
+          opacity={0.45}
+        />
       </mesh>
       <DotSphere />
-      {ROUTES.map(([from, to], index) => (
+      {DEFAULT_ROUTES.map(([from, to], index) => (
         <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.7} />
+      ))}
+      {markers.map((marker) => (
+        <PriceTag key={marker.code} marker={marker} />
       ))}
     </group>
   );
 }
 
-export default function RouteGlobe({ animate = true }: { animate?: boolean }) {
+type RouteGlobeProps = {
+  animate?: boolean;
+  /** Drag to rotate. Zoom and pan stay disabled so it behaves like an instrument, not a map. */
+  interactive?: boolean;
+  markers?: GlobeMarker[];
+};
+
+export default function RouteGlobe({ animate = true, interactive = true, markers = [] }: RouteGlobeProps) {
   return (
     <Canvas
       camera={{ position: [0, 0, 5.4], fov: 42 }}
@@ -140,7 +185,17 @@ export default function RouteGlobe({ animate = true }: { animate?: boolean }) {
       style={{ background: "transparent" }}
       aria-hidden
     >
-      <GlobeScene animate={animate} />
+      <ambientLight color="#6a7681" intensity={2.4} />
+      <directionalLight color="#7ddfc3" intensity={1.6} position={[5, 3, 5]} />
+      <GlobeScene markers={markers} />
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        enabled={interactive}
+        autoRotate={animate}
+        autoRotateSpeed={0.55}
+        rotateSpeed={0.6}
+      />
     </Canvas>
   );
 }

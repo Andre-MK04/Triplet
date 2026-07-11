@@ -9,8 +9,8 @@ export function Card({ className = "", children, as: Tag = "div", hover = false 
   return (
     <Tag
       className={
-        "glass rounded-card p-5 shadow-deal " +
-        (hover ? "transition duration-300 hover:-translate-y-1 hover:shadow-lift hover:border-mint/30 " : "") +
+        "rounded-none border border-line bg-ink-raised p-5 " +
+        (hover ? "transition-colors duration-200 hover:border-mint/40 hover:bg-panel " : "") +
         className
       }
     >

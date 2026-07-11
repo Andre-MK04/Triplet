@@ -22,7 +22,7 @@ export function Badge({ tone = "neutral", className = "", title, children }: Bad
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-none border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] ${tones[tone]} ${className}`}
     >
       {children}
     </span>
