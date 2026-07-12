@@ -14,6 +14,7 @@ from app.ai.schemas import (
     SearchPreviewResponse,
 )
 from app.auth.dependencies import get_current_user_optional
+from app.billing.entitlements import get_entitlements
 from app.billing.usage import AI_SEARCH, assert_ai_search_allowed, assert_origin_airports_allowed, increment_usage
 from app.config import settings
 from app.database import get_db
@@ -57,10 +58,14 @@ def ai_search(
     if user:
         increment_usage(db, user.id, AI_SEARCH)
     try:
-        response = run_ai_search(request, tool_registry, ToolContext(db=db, user_id=user.id if user else None))
-        if response.parsedRequest:
-            assert_origin_airports_allowed(user, len(response.parsedRequest.originAirports))
-        return response
+        # Engine-chosen origins are clamped to the plan limit inside the search
+        # (see ToolContext.max_origin_airports) rather than rejected after the fact.
+        context = ToolContext(
+            db=db,
+            user_id=user.id if user else None,
+            max_origin_airports=get_entitlements(user)["maxOriginAirports"],
+        )
+        return run_ai_search(request, tool_registry, context)
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc

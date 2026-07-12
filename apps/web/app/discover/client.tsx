@@ -139,6 +139,16 @@ export function DiscoverClient() {
   const [isSavingAlert, setIsSavingAlert] = useState(false);
   const [savedAlert, setSavedAlert] = useState<SavedSearch | null>(null);
 
+  // Landing-page hand-off: /discover?q=… prefills the prompt and searches immediately.
+  const incomingQuery = searchParams.get("q");
+  useEffect(() => {
+    if (!incomingQuery) return;
+    setMode("ai");
+    setAiMessage(incomingQuery);
+    void performAiSearch(incomingQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per incoming query
+  }, [incomingQuery]);
+
   // Prefill from the user's travel profile once they're logged in.
   useEffect(() => {
     if (!user) return;
@@ -203,11 +213,10 @@ export function DiscoverClient() {
     }
   }
 
-  async function runAiSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function performAiSearch(message: string) {
     resetResultState();
     try {
-      const data = await apiPost<AISearchResponse>("/ai/search", { message: aiMessage });
+      const data = await apiPost<AISearchResponse>("/ai/search", { message });
       setTrips(data.trips);
       setAiSummary(data.message);
       setAiMissingFields(data.missingFields ?? []);
@@ -219,6 +228,11 @@ export function DiscoverClient() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function runAiSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void performAiSearch(aiMessage);
   }
 
   async function saveAlert(event: FormEvent<HTMLFormElement>) {
