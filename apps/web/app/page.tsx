@@ -1,150 +1,34 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../components/AppShell";
-import { Hero3D } from "../components/Hero3D";
-import { TripCard } from "../components/TripCard";
-import { Badge } from "../components/ui/Badge";
+import { ScoreDial } from "../components/ScoreDial";
+import type { GlobeMarker } from "../components/RouteGlobe";
 import { ButtonLink } from "../components/ui/Button";
-import { Card } from "../components/ui/Card";
-import { Chip } from "../components/ui/Chip";
-import { SectionHeading } from "../components/ui/Misc";
-import type { TripOption } from "../lib/types";
+import { apiPost } from "../lib/api";
+import { formatPrice } from "../lib/format";
+import type { TripOption, TripSearchResponse } from "../lib/types";
 
-const demoSimpleReturn: TripOption = {
-  id: "demo-simple",
-  tripType: "same_city",
-  outboundFlight: {
-    id: "demo-out",
-    origin: "VIE",
-    destination: "ALC",
-    departureDateTime: "2026-08-14T07:10:00",
-    arrivalDateTime: "2026-08-14T10:05:00",
-    airline: "Demo Air",
-    price: 39,
-    currency: "EUR",
-    stops: 0,
-    durationMinutes: 175,
-    confidenceLevel: "mock",
-  },
-  returnFlight: {
-    id: "demo-ret",
-    origin: "ALC",
-    destination: "VIE",
-    departureDateTime: "2026-08-19T11:30:00",
-    arrivalDateTime: "2026-08-19T14:20:00",
-    airline: "Demo Air",
-    price: 40,
-    currency: "EUR",
-    stops: 0,
-    durationMinutes: 170,
-    confidenceLevel: "mock",
-  },
-  groundTransfer: null,
-  totalPrice: 79,
-  tripLengthDays: 6,
-  nights: 5,
-  score: 86,
-  explanation:
-    "This fare is roughly 45% below the typical price we observe for Vienna–Alicante in August. Direct both ways, sensible departure times, and five full nights of beach weather.",
-  warnings: [],
-  tags: ["Beach", "Direct", "Cheapest"],
-  bookingUrl: null,
-  bookingLabel: null,
-  provider: "mock",
-  linkType: "none",
-};
+const RouteGlobe = dynamic(() => import("../components/RouteGlobe"), { ssr: false });
 
-const demoOpenJaw: TripOption = {
-  id: "demo-openjaw",
-  tripType: "open_jaw",
-  outboundFlight: {
-    id: "demo-oj-out",
-    origin: "VIE",
-    destination: "ALC",
-    departureDateTime: "2026-09-04T06:40:00",
-    arrivalDateTime: "2026-09-04T09:35:00",
-    airline: "Demo Air",
-    price: 29,
-    currency: "EUR",
-    stops: 0,
-    durationMinutes: 175,
-    confidenceLevel: "mock",
-  },
-  returnFlight: {
-    id: "demo-oj-ret",
-    origin: "VLC",
-    destination: "TRS",
-    departureDateTime: "2026-09-10T18:15:00",
-    arrivalDateTime: "2026-09-10T20:35:00",
-    airline: "Demo Wings",
-    price: 35,
-    currency: "EUR",
-    stops: 0,
-    durationMinutes: 140,
-    confidenceLevel: "mock",
-  },
-  groundTransfer: {
-    fromAirport: "ALC",
-    toAirport: "VLC",
-    fromCity: "Alicante",
-    toCity: "Valencia",
-    durationHours: 2,
-    estimatedCost: 18,
-    mode: "train/bus",
-  },
-  totalPrice: 82,
-  tripLengthDays: 7,
-  nights: 6,
-  score: 78,
-  explanation:
-    "Two Spanish cities for the price of one return. Fly into Alicante, take the coastal train to Valencia, and fly home to Trieste from there.",
-  warnings: ["Separate tickets / self-transfer logic. Check final details before booking."],
-  tags: ["Two cities", "Food", "Adventure"],
-  bookingUrl: null,
-  bookingLabel: null,
-  provider: "mock",
-  linkType: "none",
-};
+const HOME_AIRPORTS = ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"];
 
-const howItWorks = [
-  {
-    icon: "📍",
-    title: "Pick your airports",
-    text: "Choose every airport you're realistically willing to leave from — not just the closest one. More airports, more deals.",
-  },
-  {
-    icon: "🧭",
-    title: "Tell Triplet your travel style",
-    text: "Beach or city breaks, budget comfort zone, how spontaneous you are, and your comfort rules like “direct only”.",
-  },
-  {
-    icon: "🔔",
-    title: "Get alerted when a real deal appears",
-    text: "Triplet watches observed fares over time and emails you when something is unusually cheap — as a complete trip idea.",
-  },
-];
+function isoDaysFromNow(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
-const dealSignals = [
-  {
-    title: "Deal score",
-    text: "A transparent 0–100 score comparing the fare against the route's observed price history — not marketing hype.",
-  },
-  {
-    title: "Fit score",
-    text: "How well a trip matches your profile: airports, trip length, style, and comfort rules.",
-  },
-  {
-    title: "Price history",
-    text: "Every observed fare is recorded, so “cheap” means cheap versus reality, not versus an inflated anchor price.",
-  },
-  {
-    title: "Honest freshness",
-    text: "Every price is labeled live, cached, indicative, or demo — with a “last checked” timestamp. Never guaranteed.",
-  },
-];
+function boardDate(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString("en-GB", { month: "short", day: "2-digit" })
+    .toUpperCase();
+}
 
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const reducedMotion = useReducedMotion();
@@ -161,200 +45,302 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
-export default function LandingPage() {
+/** Real cached deals for the departures board + globe price tags. */
+function useLiveDeals() {
+  const [deals, setDeals] = useState<TripOption[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "offline">("loading");
+
+  useEffect(() => {
+    apiPost<TripSearchResponse>("/trips/search", {
+      originAirports: HOME_AIRPORTS,
+      destinationAirports: null,
+      startDate: isoDaysFromNow(7),
+      endDate: isoDaysFromNow(75),
+      minTripLengthDays: 3,
+      maxTripLengthDays: 8,
+      maxBudget: 250,
+      maxGroundTransferHours: 4,
+      tripStyle: "surprise me",
+      directOnly: false,
+    })
+      .then((data) => {
+        setDeals(data.trips.slice(0, 6));
+        setStatus(data.trips.length > 0 ? "ready" : "offline");
+      })
+      .catch(() => setStatus("offline"));
+  }, []);
+
+  const markers = useMemo<GlobeMarker[]>(() => {
+    const seen = new Set<string>();
+    const tags: GlobeMarker[] = [];
+    for (const deal of deals) {
+      const code = deal.outboundFlight.destination;
+      if (seen.has(code)) continue;
+      seen.add(code);
+      tags.push({ code, label: `${code} ${formatPrice(deal.totalPrice)}` });
+      if (tags.length >= 4) break;
+    }
+    return tags;
+  }, [deals]);
+
+  return { deals, status, markers };
+}
+
+function HeroSearch() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/discover?q=${encodeURIComponent(q)}` : "/discover");
+  }
+
   return (
-    <AppShell>
-      {/* Hero */}
-      <section className="grid items-center gap-10 pb-20 pt-8 lg:grid-cols-2 lg:pt-16">
-        <div className="max-w-xl">
-          <Badge tone="mint" className="mb-5">✈ Trip-first flight watching</Badge>
-          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-cloud sm:text-5xl lg:text-6xl">
-            Find cheap <span className="text-gradient">trips</span>, not just cheap flights.
-          </h1>
-          <p className="mt-5 text-lg text-mist">
-            Choose your airports, set your travel style, and Triplet watches for unusually cheap fares
-            that can become real trips.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <ButtonLink href="/signup" size="lg">Create my travel profile</ButtonLink>
-            <a
-              href="#how-it-works"
-              className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-base font-semibold text-mist transition hover:text-cloud"
-            >
-              See how it works ↓
-            </a>
-          </div>
-          <p className="mt-6 text-xs text-mist/70">
-            Prices shown are observed at check time and can change. Triplet never books flights for you.
-          </p>
-        </div>
-        <Reveal delay={0.15}>
-          <Hero3D />
-        </Reveal>
-      </section>
+    <form onSubmit={submit} className="flex items-end gap-3">
+      <label className="flex-1">
+        <span className="sr-only">Describe the trip you want</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="somewhere warm in August, under €150"
+          className="cmd-input w-full py-3 font-mono text-sm text-cloud placeholder:text-mist/50"
+        />
+      </label>
+      <button
+        type="submit"
+        aria-label="Search trips"
+        className="border-b border-line pb-3 font-mono text-xl leading-none text-mint transition-colors hover:text-cloud"
+      >
+        →
+      </button>
+    </form>
+  );
+}
 
-      {/* How it works */}
-      <section id="how-it-works" className="scroll-mt-24 py-16">
-        <SectionHeading eyebrow="How it works" title="Three steps to smarter trips">
-          Triplet turns flight-price noise into complete, explainable trip suggestions.
-        </SectionHeading>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {howItWorks.map((step, index) => (
-            <Reveal key={step.title} delay={index * 0.12}>
-              <Card hover className="h-full">
-                <span className="text-3xl" aria-hidden>{step.icon}</span>
-                <p className="mt-3 flex items-center gap-2 font-display text-lg font-bold text-cloud">
-                  <span className="text-mint">{index + 1}.</span> {step.title}
-                </p>
-                <p className="mt-2 text-sm text-mist">{step.text}</p>
-              </Card>
-            </Reveal>
-          ))}
+function DeparturesBoard({ deals, status }: { deals: TripOption[]; status: "loading" | "ready" | "offline" }) {
+  return (
+    <section className="py-24">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-3">
+        <div>
+          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+            Departures board
+          </h2>
+          <p className="mt-1 font-mono text-sm text-cloud">Live from the cache — optimized for spontaneity</p>
         </div>
-      </section>
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+          Refreshed hourly · indicative
+        </p>
+      </div>
 
-      {/* Example trips */}
-      <section className="py-16">
-        <SectionHeading eyebrow="Example trips" title="What a Triplet alert looks like">
-          These are demo fares from our development dataset — clearly labeled, never presented as live prices.
-        </SectionHeading>
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
-          <Reveal><TripCard trip={demoSimpleReturn} isDemo /></Reveal>
-          <Reveal delay={0.12}><TripCard trip={demoOpenJaw} isDemo /></Reveal>
-        </div>
-      </section>
+      {status === "loading" ? (
+        <p className="border-b border-line py-10 text-center font-mono text-[11px] uppercase tracking-label text-mist">
+          Scanning fares…
+        </p>
+      ) : null}
 
-      {/* Travel profile preview */}
-      <section className="py-16">
-        <div className="grid items-center gap-10 lg:grid-cols-2">
-          <div>
-            <SectionHeading eyebrow="Your travel profile" title="Deals that actually fit you" />
-            <p className="mx-auto mt-3 max-w-xl text-center text-mist lg:text-left">
-              A two-minute quiz teaches Triplet which airports work for you, how long you like to travel,
-              and what a “good deal” means in your budget.
-            </p>
-          </div>
-          <Reveal>
-            <Card className="space-y-5">
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-mist">Your airports</p>
-                <div className="flex flex-wrap gap-2">
-                  {["Vienna VIE", "Zagreb ZAG", "Trieste TRS", "Venice VCE", "Budapest BUD"].map(
-                    (airport, index) => (
-                      <Chip key={airport} selected={index < 3}>{airport}</Chip>
-                    ),
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-mist">
-                  <span>Budget comfort zone</span>
-                  <span className="text-mint">under €200</span>
-                </div>
-                <input type="range" readOnly value={40} min={0} max={100} className="w-full" aria-label="Budget preference preview" />
-              </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-mist">
-                  <span>Trip length</span>
-                  <span className="text-mint">4–8 days</span>
-                </div>
-                <input type="range" readOnly value={55} min={0} max={100} className="w-full" aria-label="Trip length preference preview" />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {["🏖 Beach", "🍜 Food", "🎭 Culture", "⛰ Nature"].map((style, index) => (
-                  <Chip key={style} selected={index < 2}>{style}</Chip>
-                ))}
-              </div>
-            </Card>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Deal intelligence */}
-      <section className="py-16">
-        <SectionHeading eyebrow="Deal intelligence" title="“Cheap” is measured, not claimed">
-          Every suggestion explains itself: what it costs, why it's unusual, and what to watch out for.
-        </SectionHeading>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
-          {dealSignals.map((signal, index) => (
-            <Reveal key={signal.title} delay={index * 0.08}>
-              <Card hover className="h-full">
-                <h3 className="font-display text-base font-bold text-mint">{signal.title}</h3>
-                <p className="mt-2 text-sm text-mist">{signal.text}</p>
-              </Card>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* Security */}
-      <section className="py-16">
-        <Reveal>
-          <Card className="mx-auto max-w-3xl text-center">
-            <span className="text-3xl" aria-hidden>🔒</span>
-            <h2 className="mt-3 font-display text-2xl font-bold text-cloud">Your data, guarded like a passport</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-mist">
-              Passwords are hashed, sessions live in httpOnly cookies, and your profile is only used to rank
-              trips for you. We don't sell your data, and unsubscribing works with one click on every email.
-            </p>
-            <Link href="/security" className="mt-4 inline-block text-sm font-semibold text-sky hover:text-cloud">
-              Read the security &amp; privacy overview →
-            </Link>
-          </Card>
-        </Reveal>
-      </section>
-
-      {/* Pricing teaser */}
-      <section className="py-16">
-        <SectionHeading eyebrow="Pricing" title="Free to watch, Pro to hunt harder" />
-        <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-2">
-          <Reveal>
-            <Card hover className="h-full">
-              <h3 className="font-display text-lg font-bold text-cloud">Free</h3>
-              <p className="mt-1 text-3xl font-bold text-mint">€0</p>
-              <ul className="mt-4 space-y-2 text-sm text-mist">
-                <li>3 saved watches</li>
-                <li>Daily checks</li>
-                <li>Up to 6 origin airports</li>
-              </ul>
-            </Card>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <Card hover className="h-full border-mint/30">
-              <h3 className="font-display text-lg font-bold text-cloud">Pro</h3>
-              <p className="mt-1 text-3xl font-bold text-mint">soon</p>
-              <ul className="mt-4 space-y-2 text-sm text-mist">
-                <li>30 watches &amp; more airports</li>
-                <li>Priority + urgent deal alerts</li>
-                <li>Advanced open-jaw trips</li>
-              </ul>
-            </Card>
-          </Reveal>
-        </div>
-        <p className="mt-6 text-center">
-          <Link href="/pricing" className="text-sm font-semibold text-sky hover:text-cloud">
-            Compare plans →
+      {status === "offline" ? (
+        <p className="border-b border-line py-10 text-center font-mono text-[11px] uppercase tracking-label text-mist">
+          Departures feed offline —{" "}
+          <Link href="/discover" className="text-mint hover:text-cloud">
+            search directly
           </Link>
         </p>
-      </section>
+      ) : null}
 
-      {/* Final CTA */}
-      <section className="py-20">
-        <Reveal>
-          <div className="glass rounded-card relative overflow-hidden px-6 py-14 text-center">
-            <div aria-hidden className="absolute inset-x-0 -top-32 mx-auto h-64 w-64 rounded-full bg-mint/10 blur-3xl" />
-            <h2 className="font-display text-3xl font-bold text-cloud sm:text-4xl">
-              Your next trip is already out there.
-            </h2>
-            <p className="mx-auto mt-3 max-w-md text-mist">
-              Set up your travel profile once — Triplet keeps watching so you don't have to.
+      {status === "ready" ? (
+        <div>
+          {deals.map((deal) => {
+            const href = deal.suggestionId ? `/trip/${deal.suggestionId}` : "/discover";
+            return (
+              <Link
+                key={deal.id}
+                href={href}
+                className="group grid grid-cols-2 items-center gap-x-4 gap-y-3 border-b border-line py-5 transition-colors hover:bg-mint/5 sm:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)]"
+              >
+                <span className="flex items-center gap-2 font-display text-2xl font-bold text-cloud">
+                  {deal.outboundFlight.origin}
+                  <span aria-hidden className="text-base font-normal text-mist">
+                    →
+                  </span>
+                  {deal.outboundFlight.destination}
+                </span>
+                <span className="mono-num text-right font-mono text-sm text-cloud sm:text-left">
+                  {boardDate(deal.outboundFlight.departureDateTime)} — {boardDate(deal.returnFlight.departureDateTime)}
+                </span>
+                <span className="mono-num font-mono text-sm text-mist">
+                  {deal.nights} nights
+                </span>
+                <span className="justify-self-end sm:justify-self-start">
+                  <ScoreDial value={deal.score} tone="gold" label="Deal" />
+                </span>
+                <span className="text-right">
+                  <span className="mono-num block font-display text-3xl font-bold leading-none text-coral">
+                    {formatPrice(deal.totalPrice)}
+                  </span>
+                  <span className="mt-1 block font-mono text-[10px] uppercase tracking-label text-mist/70">
+                    Round trip · indicative
+                  </span>
+                </span>
+              </Link>
+            );
+          })}
+          <div className="flex justify-end pt-4">
+            <Link
+              href="/discover"
+              className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
+            >
+              View full radar ↗
+            </Link>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+const methodology = [
+  {
+    step: "01 / Input",
+    title: "Command your intent.",
+    text: "Forget rigid calendars. Say it in plain language — budget, vibe, rough dates — or fine-tune every knob. Triplet turns it into a real search across your home airports.",
+  },
+  {
+    step: "02 / Monitor",
+    title: "Patient surveillance.",
+    text: "Every hour, Triplet refreshes cached fares from your origin airports and scores each against the route's observed history. Cheap is measured against reality, not an inflated anchor.",
+  },
+  {
+    step: "03 / Execute",
+    title: "Fly when it's worth it.",
+    text: "A quiet email when a fare is unusually good for you — as a complete trip idea with a transparent score, not a countdown timer.",
+  },
+];
+
+export default function LandingPage() {
+  const { deals, status, markers } = useLiveDeals();
+
+  return (
+    <AppShell wide>
+      {/* Hero: editorial left column, globe bleeding off the right edge. */}
+      <section className="relative overflow-hidden border-b border-line">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-16 pt-14 sm:px-6 lg:min-h-[78vh] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:pb-24 lg:pt-10">
+          <div className="relative z-10 max-w-xl">
+            <p className="mb-6 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+              Trip-first flight watching
             </p>
-            <div className="mt-7">
-              <ButtonLink href="/signup" size="lg">Create my travel profile</ButtonLink>
+            <h1 className="font-display text-6xl font-extrabold leading-[1.05] tracking-tight text-cloud sm:text-7xl">
+              Europe,
+              <br />
+              on a whim.
+            </h1>
+            <p className="mt-7 max-w-md font-display text-xl font-medium leading-relaxed text-mist">
+              Tell us roughly what you want. Triplet watches the fares from your airports and tells you
+              when it&apos;s worth flying.
+            </p>
+            <div className="mt-10">
+              <HeroSearch />
+              <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist/60">
+                Fares refreshed hourly · indicative, never guaranteed
+              </p>
+            </div>
+            <p className="mt-8">
+              <Link
+                href="/signup"
+                className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
+              >
+                Or create a travel profile →
+              </Link>
+            </p>
+          </div>
+
+          <div className="relative h-[340px] sm:h-[420px] lg:h-[620px]" aria-hidden>
+            <div className="absolute -right-24 top-1/2 aspect-square h-[115%] -translate-y-1/2 sm:-right-16 lg:-right-56">
+              <RouteGlobe markers={markers} />
             </div>
           </div>
-        </Reveal>
+        </div>
       </section>
+
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <DeparturesBoard deals={deals} status={status} />
+
+        {/* Methodology */}
+        <section className="border-t border-line py-24">
+          <Reveal>
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint">Methodology</p>
+            <h2 className="mt-4 max-w-xl font-display text-4xl font-bold text-cloud sm:text-5xl">
+              Instrumental precision.
+            </h2>
+          </Reveal>
+          <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
+            {methodology.map((item, index) => (
+              <Reveal key={item.step} delay={index * 0.1}>
+                <div className="border-t border-line pt-5">
+                  <p className="mono-num font-mono text-sm font-medium text-mint">{item.step.toUpperCase()}</p>
+                  <h3 className="mt-4 font-display text-2xl font-medium text-cloud">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-mist">{item.text}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* Honesty */}
+        <section className="border-t border-line py-24 text-center">
+          <Reveal>
+            <h2 className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+              Straight with you
+            </h2>
+            <p className="mx-auto mt-8 max-w-2xl font-display text-4xl font-bold leading-tight text-cloud sm:text-5xl">
+              We prioritize <span className="text-mint">data dignity</span> over marketing hype.
+            </p>
+          </Reveal>
+          <div className="mx-auto mt-14 grid max-w-3xl gap-10 text-left sm:grid-cols-2">
+            <Reveal delay={0.05}>
+              <div>
+                <h3 className="border-b border-line pb-2 font-mono text-[11px] font-semibold uppercase tracking-label text-cloud">
+                  Indicative pricing
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-mist">
+                  Fares change constantly. Every price you see is a cached observation with a timestamp —
+                  refreshed hourly, never presented as live, never guaranteed. Always confirm the final
+                  fare with the airline before you pay.
+                </p>
+              </div>
+            </Reveal>
+            <Reveal delay={0.12}>
+              <div>
+                <h3 className="border-b border-line pb-2 font-mono text-[11px] font-semibold uppercase tracking-label text-cloud">
+                  Transparent scores
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-mist">
+                  The DealScore compares a fare against the route&apos;s observed price history; the
+                  FitScore explains how a trip matches your profile. Both show their work — no black
+                  boxes, no fake urgency.
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="border-t border-line py-24 text-center">
+          <Reveal>
+            <h2 className="mx-auto max-w-xl font-display text-4xl font-bold text-cloud sm:text-5xl">
+              Your next trip is already out there.
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-mist">
+              Set up your travel profile once — Triplet keeps watching so you don&apos;t have to.
+            </p>
+            <div className="mt-9 flex justify-center">
+              <ButtonLink href="/signup" size="lg">
+                Create my travel profile
+              </ButtonLink>
+            </div>
+          </Reveal>
+        </section>
+      </div>
     </AppShell>
   );
 }

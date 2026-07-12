@@ -13,42 +13,46 @@ const navLinks = [
   { href: "/pricing", label: "Pricing" },
 ];
 
+function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={
+        "border-b-2 pb-1 font-mono text-[11px] font-semibold uppercase tracking-label transition-colors " +
+        (active ? "border-mint text-mint" : "border-transparent text-mist hover:text-cloud")
+      }
+    >
+      {label}
+    </Link>
+  );
+}
+
 export function Navbar() {
   const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40">
-      <div className="glass mx-auto mt-3 flex max-w-6xl items-center justify-between rounded-2xl px-4 py-2.5 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-line bg-ink/90">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold text-cloud">
           <TripletMark />
           Triplet
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-7 md:flex" aria-label="Main">
           {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={
-                "rounded-full px-4 py-2 text-sm font-medium transition " +
-                (pathname?.startsWith(link.href)
-                  ? "bg-white/10 text-cloud"
-                  : "text-mist hover:bg-white/5 hover:text-cloud")
-              }
-            >
-              {link.label}
-            </Link>
+            <NavLink key={link.href} {...link} active={pathname?.startsWith(link.href) ?? false} />
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-5 md:flex">
           {isLoading ? null : user ? (
             <>
               <Link
                 href="/account"
-                className="max-w-40 truncate rounded-full px-3 py-2 text-sm text-mist transition hover:bg-white/5 hover:text-cloud"
+                className="max-w-40 truncate font-mono text-[11px] uppercase tracking-label text-mist transition-colors hover:text-cloud"
                 title={user.email}
               >
                 {user.displayName || user.email}
@@ -63,7 +67,7 @@ export function Navbar() {
                 Log in
               </ButtonLink>
               <ButtonLink href="/signup" variant="primary" size="sm">
-                Create my travel profile
+                Get started
               </ButtonLink>
             </>
           )}
@@ -74,7 +78,7 @@ export function Navbar() {
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
-          className="rounded-lg p-2 text-cloud md:hidden"
+          className="p-2 text-cloud md:hidden"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -83,22 +87,24 @@ export function Navbar() {
       </div>
 
       {menuOpen ? (
-        <div className="glass mx-auto mt-1 max-w-6xl rounded-2xl p-3 md:hidden">
-          <nav className="flex flex-col gap-1" aria-label="Mobile">
+        <div className="border-t border-line bg-ink px-4 pb-5 pt-3 md:hidden">
+          <nav className="flex flex-col gap-4" aria-label="Mobile">
             {navLinks.map((link) => (
-              <Link
+              <NavLink
                 key={link.href}
-                href={link.href}
+                {...link}
+                active={pathname?.startsWith(link.href) ?? false}
                 onClick={() => setMenuOpen(false)}
-                className="rounded-xl px-4 py-3 text-sm font-medium text-cloud hover:bg-white/5"
-              >
-                {link.label}
-              </Link>
+              />
             ))}
-            <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
+            <div className="mt-2 flex flex-col gap-2 border-t border-line pt-4">
               {user ? (
                 <>
-                  <Link href="/account" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-mist hover:bg-white/5">
+                  <Link
+                    href="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="font-mono text-[11px] uppercase tracking-label text-mist hover:text-cloud"
+                  >
                     Account — {user.email}
                   </Link>
                   <Button variant="secondary" onClick={() => void logout()}>
@@ -110,7 +116,7 @@ export function Navbar() {
                   <ButtonLink href="/login" variant="secondary">
                     Log in
                   </ButtonLink>
-                  <ButtonLink href="/signup">Create my travel profile</ButtonLink>
+                  <ButtonLink href="/signup">Get started</ButtonLink>
                 </>
               )}
             </div>
@@ -124,54 +130,86 @@ export function Navbar() {
 export function TripletMark({ size = 26 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
-      <circle cx="16" cy="16" r="14" stroke="url(#tg)" strokeWidth="2" />
-      <path d="M7 20c4-8 14-11 18-8" stroke="url(#tg)" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
+      <circle cx="16" cy="16" r="14" stroke="#7ddfc3" strokeWidth="2" />
+      <path d="M7 20c4-8 14-11 18-8" stroke="#7ddfc3" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
       <circle cx="8" cy="19" r="2.4" fill="#7ddfc3" />
       <circle cx="24" cy="12" r="2.4" fill="#ff9a78" />
-      <defs>
-        <linearGradient id="tg" x1="0" y1="32" x2="32" y2="0">
-          <stop offset="0%" stopColor="#7ddfc3" />
-          <stop offset="100%" stopColor="#8ec5ff" />
-        </linearGradient>
-      </defs>
     </svg>
   );
 }
 
+const footerGroups = [
+  {
+    label: "Product",
+    links: [
+      { href: "/discover", label: "Discover" },
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/pricing", label: "Pricing" },
+    ],
+  },
+  {
+    label: "Account",
+    links: [
+      { href: "/onboarding", label: "Travel profile" },
+      { href: "/account", label: "Account" },
+    ],
+  },
+  {
+    label: "Protocol",
+    links: [
+      { href: "/privacy", label: "EU privacy" },
+      { href: "/security", label: "Security" },
+    ],
+  },
+];
+
 export function Footer() {
   return (
     <footer className="mt-24 border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
-        <div className="max-w-sm">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[minmax(0,5fr)_repeat(3,minmax(0,2fr))]">
+        <div className="max-w-xs">
           <p className="flex items-center gap-2 font-display text-base font-bold text-cloud">
             <TripletMark size={20} /> Triplet
           </p>
-          <p className="mt-2 text-sm text-mist">
+          <p className="mt-3 text-sm leading-relaxed text-mist">
             Find cheap trips, not just cheap flights. Prices are observed at check time and can change —
             always confirm the final fare with the provider.
           </p>
+          <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist/70">
+            Your data lives in the EU.
+          </p>
         </div>
-        <nav className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm" aria-label="Footer">
-          <Link href="/discover" className="text-mist hover:text-cloud">Discover</Link>
-          <Link href="/pricing" className="text-mist hover:text-cloud">Pricing</Link>
-          <Link href="/dashboard" className="text-mist hover:text-cloud">Dashboard</Link>
-          <Link href="/security" className="text-mist hover:text-cloud">Security & privacy</Link>
-          <Link href="/onboarding" className="text-mist hover:text-cloud">Travel profile</Link>
-          <Link href="/account" className="text-mist hover:text-cloud">Account</Link>
-        </nav>
+        {footerGroups.map((group) => (
+          <nav key={group.label} aria-label={group.label} className="flex flex-col gap-2.5">
+            <span className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-label text-cloud">
+              {group.label}
+            </span>
+            {group.links.map((link) => (
+              <Link key={link.href} href={link.href} className="font-mono text-xs text-mist transition-colors hover:text-mint">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        ))}
       </div>
-      <p className="pb-8 text-center text-xs text-mist/60">
-        © {new Date().getFullYear()} Triplet. Triplet does not sell or book flights.
-      </p>
+      <div className="border-t border-line">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 font-mono text-[10px] uppercase tracking-label text-mist/60 sm:px-6">
+          <span>© {new Date().getFullYear()} Triplet — does not sell or book flights</span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-1.5 w-1.5 bg-mint" aria-hidden />
+            Systems nominal
+          </span>
+        </div>
+      </div>
     </footer>
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="flex min-h-screen flex-col px-3 sm:px-4">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
-      <main className="mx-auto w-full max-w-6xl flex-1 pt-8">{children}</main>
+      <main className={"w-full flex-1 " + (wide ? "" : "mx-auto max-w-6xl px-4 pt-8 sm:px-6")}>{children}</main>
       <Footer />
     </div>
   );

@@ -39,7 +39,9 @@ def build_search_preview(message: str, registry: ToolRegistry, context: ToolCont
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ORIGINS = ["LJU", "ZAG", "VIE", "GRZ", "BUD", "TRS", "VCE", "TSF"]
+# Keep within the free/anonymous plan's 6-origin entitlement, or defaulted
+# searches (no origin city named) 402 for logged-out users.
+DEFAULT_ORIGINS = ["LJU", "ZAG", "VIE", "BUD", "TRS", "VCE"]
 DEFAULT_START_DATE = date(2026, 7, 1)
 DEFAULT_END_DATE = date(2026, 8, 31)
 ALLOWED_AI_TOOLS = {"get_airports", "search_trips", "estimate_ground_transfer"}
@@ -299,6 +301,11 @@ def build_trip_search_request(
 
 def validate_search_request(raw: dict[str, Any], context: ToolContext) -> TripSearchRequest:
     request = TripSearchRequest.model_validate(raw)
+    limit = context.max_origin_airports
+    if limit and len(request.originAirports) > limit:
+        # The engine (LLM or defaults) chose the origins, so trim to the plan's
+        # entitlement instead of failing the whole search.
+        request = request.model_copy(update={"originAirports": request.originAirports[:limit]})
     if request.endDate < request.startDate:
         raise ValueError("endDate must be on or after startDate.")
     if (request.endDate - request.startDate).days > 120:
