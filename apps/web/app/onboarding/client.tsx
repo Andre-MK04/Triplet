@@ -15,14 +15,14 @@ import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import type { ComfortRule, TravelProfile, TripType } from "../../lib/types";
 
 const TRIP_TYPES: Array<{ value: TripType; label: string }> = [
-  { value: "weekend_city_break", label: "🏙 Weekend city breaks" },
-  { value: "beach", label: "🏖 Beach" },
-  { value: "food", label: "🍜 Food" },
-  { value: "culture", label: "🎭 Culture & design" },
-  { value: "nature", label: "⛰ Nature" },
-  { value: "nightlife", label: "🪩 Nightlife" },
-  { value: "cheap_adventure", label: "🎲 Cheap random adventures" },
-  { value: "long_haul_dream", label: "🌏 Long-haul dream trips" },
+  { value: "weekend_city_break", label: "Weekend city breaks" },
+  { value: "beach", label: "Beach" },
+  { value: "food", label: "Food" },
+  { value: "culture", label: "Culture & design" },
+  { value: "nature", label: "Nature & hikes" },
+  { value: "nightlife", label: "Nightlife" },
+  { value: "cheap_adventure", label: "Cheap random adventures" },
+  { value: "long_haul_dream", label: "Long-haul dream trips" },
 ];
 
 const COMFORT_RULES: Array<{ value: ComfortRule; label: string }> = [
@@ -49,7 +49,7 @@ const BUDGETS = [
 ] as const;
 
 const SPONTANEITY = [
-  { value: "tomorrow", label: "🧳 I'd leave tomorrow" },
+  { value: "tomorrow", label: "I'd leave tomorrow" },
   { value: "next_week", label: "Next week works" },
   { value: "next_month", label: "Give me a month" },
   { value: "planning_ahead", label: "I plan ahead" },
@@ -62,13 +62,59 @@ const OPEN_JAW = [
 ] as const;
 
 const NOTIFICATIONS = [
-  { value: "instant_email", label: "📬 Email me deals as they appear" },
-  { value: "weekly_digest", label: "🗞 Weekly digest" },
-  { value: "urgent_only", label: "🚨 Urgent deals only" },
-  { value: "push_later", label: "📱 Push (coming with the app)" },
+  { value: "instant_email", label: "Email me deals as they appear" },
+  { value: "weekly_digest", label: "Weekly digest" },
+  { value: "urgent_only", label: "Urgent deals only" },
+  { value: "push_later", label: "Push (coming with the app)" },
 ] as const;
 
 const TOTAL_STEPS = 9;
+
+const BUDGET_LABEL: Record<TravelProfile["budgetComfortZone"], string> = {
+  under_100: "UNDER €100",
+  under_200: "UNDER €200",
+  under_400: "UNDER €400",
+  flexible: "FLEXIBLE",
+};
+
+/** The pass "prints" as the traveller answers — the quiz assembles a boarding pass. */
+function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
+  const rows: Array<[string, string]> = [
+    ["Home base", profile.homeLocation || "—"],
+    ["Airports", profile.originAirports.length ? profile.originAirports.join(" · ") : "—"],
+    [
+      "Styles",
+      profile.preferredTripTypes.length
+        ? profile.preferredTripTypes.map((type) => type.replaceAll("_", " ")).join(", ")
+        : "—",
+    ],
+    ["Trip length", `${profile.preferredTripLengthMin}–${profile.preferredTripLengthMax} DAYS`],
+    ["Budget", BUDGET_LABEL[profile.budgetComfortZone]],
+    ["Rules", profile.comfortRules.length ? `${profile.comfortRules.length} SET` : "—"],
+  ];
+  return (
+    <aside className="hidden h-fit border border-line bg-ink-raised lg:block" aria-label="Travel profile preview">
+      <div className="border-b border-dashed border-line px-5 py-4">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">
+          Triplet · Travel profile
+        </p>
+      </div>
+      <dl className="px-5 py-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="border-b border-line py-3 last:border-b-0">
+            <dt className="font-mono text-[9px] uppercase tracking-label text-mist/70">{label}</dt>
+            <dd className="mono-num mt-1 font-mono text-xs uppercase text-cloud">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="border-t border-dashed border-line px-5 py-3">
+        <p className="font-mono text-[9px] uppercase tracking-label text-mist/50">
+          Powers alerts &amp; every search
+        </p>
+      </div>
+    </aside>
+  );
+}
 
 export function OnboardingClient() {
   const router = useRouter();
@@ -378,10 +424,10 @@ export function OnboardingClient() {
                 type="button"
                 onClick={() => update("openJawWillingness", option.value)}
                 className={
-                  "block w-full rounded-xl border px-4 py-3 text-left text-sm transition " +
+                  "block w-full rounded-none border px-4 py-3 text-left text-sm transition " +
                   (profile.openJawWillingness === option.value
-                    ? "border-mint/60 bg-mint-soft text-cloud"
-                    : "border-line bg-white/5 text-mist hover:border-mint/40")
+                    ? "border-mint bg-mint-soft text-cloud"
+                    : "border-line bg-transparent text-mist hover:border-mint/40")
                 }
               >
                 <span className="font-semibold">{option.label}</span>
@@ -416,52 +462,57 @@ export function OnboardingClient() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl py-8">
-        <div className="mb-8">
-          <div className="mb-2 flex items-center justify-between text-xs text-mist">
-            <span>Travel profile</span>
-            <span>{step + 1} / {TOTAL_STEPS}</span>
+      <div className="mx-auto grid max-w-4xl gap-10 py-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div>
+          <div className="mb-10">
+            <div className="mb-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-label text-mist">
+              <span>Travel profile</span>
+              <span className="mono-num">{String(step + 1).padStart(2, "0")} / {String(TOTAL_STEPS).padStart(2, "0")}</span>
+            </div>
+            {/* Segmented progress rule: sharp rectangles, active in mint. */}
+            <div className="flex gap-1" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+              {Array.from({ length: TOTAL_STEPS }, (_, index) => (
+                <span
+                  key={index}
+                  className={"h-0.5 flex-1 transition-colors " + (index <= step ? "bg-mint" : "bg-line")}
+                />
+              ))}
+            </div>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-mint to-sky"
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: reducedMotion ? 0 : 0.4 }}
-            />
+              key={step}
+              initial={reducedMotion ? false : { opacity: 0, x: direction * 46 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reducedMotion ? undefined : { opacity: 0, x: direction * -46 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <h1 className="font-display text-3xl font-bold text-cloud">{current.title}</h1>
+              {current.subtitle ? <p className="mt-2 text-sm text-mist">{current.subtitle}</p> : null}
+              <div className="mt-8">{current.content}</div>
+            </motion.div>
+          </AnimatePresence>
+
+          {error ? <div className="mt-4"><Notice tone="error">{error}</Notice></div> : null}
+
+          <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
+            <Button variant="ghost" onClick={() => goTo(step - 1)} disabled={step === 0}>
+              ← Back
+            </Button>
+            {isLast ? (
+              <Button size="lg" onClick={() => void finish()} disabled={isSaving || !current.valid}>
+                {isSaving ? "Saving…" : "Start watching fares"}
+              </Button>
+            ) : (
+              <Button size="lg" onClick={() => goTo(step + 1)} disabled={!current.valid}>
+                Continue →
+              </Button>
+            )}
           </div>
         </div>
 
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={step}
-            initial={reducedMotion ? false : { opacity: 0, x: direction * 46 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reducedMotion ? undefined : { opacity: 0, x: direction * -46 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="glass rounded-card p-7 shadow-deal"
-          >
-            <h1 className="font-display text-2xl font-bold text-cloud">{current.title}</h1>
-            {current.subtitle ? <p className="mt-1.5 text-sm text-mist">{current.subtitle}</p> : null}
-            <div className="mt-6">{current.content}</div>
-          </motion.div>
-        </AnimatePresence>
-
-        {error ? <div className="mt-4"><Notice tone="error">{error}</Notice></div> : null}
-
-        <div className="mt-6 flex items-center justify-between">
-          <Button variant="ghost" onClick={() => goTo(step - 1)} disabled={step === 0}>
-            ← Back
-          </Button>
-          {isLast ? (
-            <Button size="lg" onClick={() => void finish()} disabled={isSaving || !current.valid}>
-              {isSaving ? "Saving…" : "Finish — start discovering ✈"}
-            </Button>
-          ) : (
-            <Button size="lg" onClick={() => goTo(step + 1)} disabled={!current.valid}>
-              Continue →
-            </Button>
-          )}
-        </div>
+        <BoardingPassPreview profile={profile} />
       </div>
     </AppShell>
   );

@@ -1,15 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { apiBaseUrl } from "../lib/api";
 import { useAuth } from "./AuthContext";
-import { TripletMark } from "./AppShell";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Input";
 import { Notice } from "./ui/Misc";
+
+const RouteGlobe = dynamic(() => import("./RouteGlobe"), { ssr: false });
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -40,21 +42,22 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md py-10">
-      <div className="glass rounded-card p-7 shadow-deal">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <TripletMark size={34} />
-          <h1 className="font-display text-2xl font-bold text-cloud">
-            {mode === "signup" ? "Create your travel profile" : "Welcome back"}
-          </h1>
-          <p className="text-sm text-mist">
-            {mode === "signup"
-              ? "One account, all your airports and alerts."
-              : "Log in to see your watches and trip ideas."}
-          </p>
-        </div>
+    // Off-axis: the form takes the left third; a dim, slow globe fills the rest.
+    <div className="relative grid items-center gap-12 py-14 lg:min-h-[70vh] lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="relative z-10 w-full max-w-sm">
+        <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+          {mode === "signup" ? "New account" : "Welcome back"}
+        </p>
+        <h1 className="font-display text-3xl font-bold text-cloud">
+          {mode === "signup" ? "Create your travel profile." : "Log in to Triplet."}
+        </h1>
+        <p className="mt-2 text-sm text-mist">
+          {mode === "signup"
+            ? "One account, all your airports and alerts."
+            : "Your watches and trip ideas are waiting."}
+        </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           {mode === "signup" ? (
             <Field label="Name (optional)">
               <Input
@@ -94,24 +97,45 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </Button>
         </form>
 
-        <div className="my-5 flex items-center gap-3 text-xs text-mist/60">
+        <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-label text-mist/60">
           <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
         </div>
 
         <a
           href={`${apiBaseUrl}/auth/oauth/google/start`}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-line bg-white/5 px-5 py-2.5 text-sm font-semibold text-cloud transition hover:border-mint/50"
+          className="flex w-full items-center justify-center gap-2 border border-line px-5 py-3 font-mono text-[11px] font-semibold uppercase tracking-label text-cloud transition-colors hover:border-mint/60 hover:text-mint"
         >
-          <span aria-hidden>G</span> Continue with Google
+          Continue with Google
         </a>
 
-        <p className="mt-6 text-center text-sm text-mist">
+        <p className="mt-8 text-sm text-mist">
           {mode === "signup" ? (
-            <>Already have an account? <Link href="/login" className="font-semibold text-sky hover:text-cloud">Log in</Link></>
+            <>
+              Already have an account?{" "}
+              <Link href="/login" className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
+                Log in →
+              </Link>
+            </>
           ) : (
-            <>New to Triplet? <Link href="/signup" className="font-semibold text-sky hover:text-cloud">Create an account</Link></>
+            <>
+              New to Triplet?{" "}
+              <Link href="/signup" className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
+                Create an account →
+              </Link>
+              <span className="mt-2 block">
+                <Link href="/reset-password" className="text-xs text-mist/70 underline hover:text-cloud">
+                  Forgot password?
+                </Link>
+              </span>
+            </>
           )}
         </p>
+      </div>
+
+      <div className="pointer-events-none relative hidden h-[540px] opacity-50 lg:block" aria-hidden>
+        <div className="absolute -right-40 top-1/2 aspect-square h-[120%] -translate-y-1/2">
+          <RouteGlobe interactive={false} />
+        </div>
       </div>
     </div>
   );
