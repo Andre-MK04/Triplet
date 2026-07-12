@@ -4,14 +4,24 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "../../../components/AppShell";
 import { useAuth } from "../../../components/AuthContext";
+import { BoardingPass } from "../../../components/BoardingPass";
 import { ItineraryPlanner } from "../../../components/ItineraryPlanner";
-import { TripCard } from "../../../components/TripCard";
+import { ScoreDial } from "../../../components/ScoreDial";
 import { ButtonLink } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
-import { EmptyState, Notice, Spinner } from "../../../components/ui/Misc";
+import { EmptyState, Spinner } from "../../../components/ui/Misc";
 import { ApiError, apiGet } from "../../../lib/api";
+import { airportCity } from "../../../lib/airports";
 import { formatDateLong, timeAgo } from "../../../lib/format";
 import type { TripSuggestionResponse } from "../../../lib/types";
+
+const NIGHT_WORDS = [
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+];
+
+function nightsPhrase(nights: number): string {
+  const word = NIGHT_WORDS[nights] ?? String(nights);
+  return `${word} night${nights === 1 ? "" : "s"}`;
+}
 
 export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
   const { isLoading: authLoading } = useAuth();
@@ -43,7 +53,6 @@ export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
     return (
       <AppShell>
         <EmptyState
-          icon="🕰"
           title="Trip not found"
           action={<ButtonLink href="/discover">Search fresh trips</ButtonLink>}
         >
@@ -55,38 +64,92 @@ export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
 
   const trip = suggestion!.trip;
   const observed = timeAgo(suggestion!.createdAt);
+  const isOpenJaw = trip.tripType === "open_jaw";
+  const destCity = airportCity(trip.outboundFlight.destination);
+  const returnCity = airportCity(trip.returnFlight.origin);
+  const headline = isOpenJaw
+    ? `${destCity} & ${returnCity}, ${nightsPhrase(trip.nights)}.`
+    : `${destCity}, ${nightsPhrase(trip.nights)}.`;
+
+  const beforeYouBook = [
+    trip.fareKind === "round_trip_bundle"
+      ? "This is a single round-trip fare — book it as one ticket with the airline or agent."
+      : "Fares are independent one-ways — you book each leg yourself, directly with the airline.",
+    "Prices were observed when this suggestion was created and can change at checkout — always verify the final fare.",
+    ...(isOpenJaw
+      ? ["This trip includes a ground transfer between cities — check timetables before buying flights."]
+      : []),
+    ...trip.warnings,
+  ];
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl space-y-5 pb-10">
+      <div className="mx-auto max-w-4xl space-y-10 pb-16">
         <header>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint">Trip suggestion</p>
-          <h1 className="mt-1 font-display text-3xl font-bold text-cloud">{suggestion!.title}</h1>
-          <p className="mt-1 text-sm text-mist">
-            Suggested {observed ?? formatDateLong(suggestion!.createdAt)}
+          <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+            Trip suggestion
+          </p>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-cloud sm:text-5xl">{headline}</h1>
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-label text-mist/70">
+            Priced {observed ?? formatDateLong(suggestion!.createdAt)}
             {suggestion!.expiresAt ? ` · link expires ${formatDateLong(suggestion!.expiresAt)}` : ""}
           </p>
         </header>
 
-        <Notice tone="info">{suggestion!.disclaimer}</Notice>
+        <BoardingPass trip={trip} />
 
-        <TripCard trip={{ ...trip, suggestionId: null }} />
+        {/* Scores with plain-English explanations */}
+        <section className="grid gap-8 sm:grid-cols-2">
+          <div className="flex items-start gap-5">
+            <ScoreDial value={suggestion!.dealScore} tone="gold" size={80} />
+            <div>
+              <span className="block font-mono text-[11px] font-semibold uppercase tracking-label text-gold">
+                Deal score
+              </span>
+              <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-mist">
+                {trip.explanation ||
+                  "How this fare compares against the price history we've observed on this route."}
+              </p>
+            </div>
+          </div>
+          {suggestion!.fitScore != null ? (
+            <div className="flex items-start gap-5">
+              <ScoreDial value={suggestion!.fitScore} tone="mint" size={80} />
+              <div>
+                <span className="block font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+                  Fit score
+                </span>
+                <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-mist">
+                  How well this trip matches your travel profile — airports, trip length, style and
+                  comfort rules.
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        {/* Before you book */}
+        <section className="border-t border-line pt-8">
+          <span className="mb-5 block font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+            Before you book
+          </span>
+          <ol className="space-y-3">
+            {beforeYouBook.map((item, index) => (
+              <li key={item} className="flex gap-4">
+                <span className="mono-num pt-0.5 font-mono text-[10px] text-mint">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <p className="font-mono text-[11px] uppercase leading-relaxed tracking-[0.04em] text-mist">
+                  {item}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
         <ItineraryPlanner suggestionId={suggestion!.id} initialPlan={suggestion!.itinerary} />
 
-        <Card>
-          <h2 className="font-display text-lg font-bold text-cloud">Before you book</h2>
-          <ul className="mt-3 space-y-2 text-sm text-mist">
-            <li>• This trip is built from independent one-way fares — book both legs yourself.</li>
-            {trip.tripType === "open_jaw" ? (
-              <li>• It includes a ground transfer between cities; check timetables before buying flights.</li>
-            ) : null}
-            <li>• Fares were observed when this suggestion was created and are not guaranteed.</li>
-            <li>• Always check the final price with the airline or provider before paying.</li>
-          </ul>
-        </Card>
-
-        <div className="flex justify-center">
+        <div className="flex justify-center border-t border-line pt-8">
           <ButtonLink href="/discover" variant="secondary">← Back to Discover</ButtonLink>
         </div>
       </div>
