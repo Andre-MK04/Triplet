@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
-import { TripCard } from "../../components/TripCard";
+import { TripRow } from "../../components/TripRow";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
@@ -98,15 +98,16 @@ function limitAwareError(error: unknown): string {
 
 function ScanningRoutes() {
   return (
-    <div className="glass rounded-card flex flex-col items-center gap-4 px-6 py-16 text-center" role="status">
+    <div className="flex flex-col items-center gap-4 border-y border-line px-6 py-16 text-center" role="status">
       <svg viewBox="0 0 200 60" className="h-14 w-56" aria-hidden>
-        <path d="M10 45 Q 100 -10 190 40" fill="none" stroke="rgba(148,184,210,0.25)" strokeWidth="2" />
+        <path d="M10 45 Q 100 -10 190 40" fill="none" stroke="rgba(232,240,244,0.15)" strokeWidth="2" />
         <path d="M10 45 Q 100 -10 190 40" fill="none" stroke="#7ddfc3" strokeWidth="2" className="route-line" />
         <circle cx="10" cy="45" r="4" fill="#7ddfc3" />
         <circle cx="190" cy="40" r="4" fill="#ff9a78" />
-        <text x="100" y="52" textAnchor="middle" fill="#93a6b4" fontSize="9">scanning routes…</text>
       </svg>
-      <p className="text-sm text-mist">Pairing outbound and return fares from your airports…</p>
+      <p className="font-mono text-[11px] uppercase tracking-label text-mist">
+        Scanning fares · pairing outbound and return legs
+      </p>
     </div>
   );
 }
@@ -300,14 +301,14 @@ export function DiscoverClient() {
         {showWelcome ? (
           <div className="mb-6">
             <Notice tone="success">
-              🎉 Travel profile saved! Your searches are prefilled with your airports and preferences.
+              Travel profile saved — your searches are prefilled with your airports and preferences.
             </Notice>
           </div>
         ) : null}
 
         {/* Search panel */}
-        <section className="glass rounded-card p-5 shadow-deal sm:p-6">
-          <div className="mb-5 flex gap-1 rounded-full bg-ink-soft/80 p-1" role="tablist" aria-label="Search mode">
+        <section className="border-y border-line py-6">
+          <div className="mb-6 flex gap-7 border-b border-line" role="tablist" aria-label="Search mode">
             {(["ai", "advanced"] as const).map((tab) => (
               <button
                 key={tab}
@@ -315,31 +316,37 @@ export function DiscoverClient() {
                 aria-selected={mode === tab}
                 onClick={() => setMode(tab)}
                 className={
-                  "flex-1 rounded-full px-4 py-2 text-sm font-semibold transition " +
-                  (mode === tab ? "bg-mint text-ink" : "text-mist hover:text-cloud")
+                  "-mb-px border-b-2 pb-2.5 font-mono text-[11px] font-semibold uppercase tracking-label transition-colors " +
+                  (mode === tab ? "border-mint text-mint" : "border-transparent text-mist hover:text-cloud")
                 }
               >
-                {tab === "ai" ? "✨ AI search" : "🎛 Advanced"}
+                {tab === "ai" ? "Ask for it" : "Advanced"}
               </button>
             ))}
           </div>
 
           {mode === "ai" ? (
-            <form onSubmit={runAiSearch} className="space-y-4">
-              <Textarea
-                value={aiMessage}
-                onChange={(event) => setAiMessage(event.target.value)}
-                rows={3}
-                aria-label="Describe your trip"
-                placeholder="e.g. Find me a cheap 5–7 day trip in August from Vienna, Venice, or Zagreb. I like food and warm places."
-              />
-              <div className="flex flex-wrap gap-2">
+            <form onSubmit={runAiSearch} className="space-y-5">
+              <div className="flex items-start gap-3">
+                <span aria-hidden className="pt-2.5 font-mono text-lg leading-none text-mint">
+                  →
+                </span>
+                <Textarea
+                  value={aiMessage}
+                  onChange={(event) => setAiMessage(event.target.value)}
+                  rows={2}
+                  aria-label="Describe your trip"
+                  className="min-h-0 font-mono"
+                  placeholder="e.g. a cheap 5–7 day trip in August from Vienna or Zagreb — food and warm places"
+                />
+              </div>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
                 {EXAMPLE_PROMPTS.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
                     onClick={() => setAiMessage(prompt)}
-                    className="rounded-full border border-line bg-white/5 px-3 py-1.5 text-xs text-mist transition hover:border-mint/40 hover:text-cloud"
+                    className="font-mono text-xs text-mist/80 transition-colors hover:text-mint"
                   >
                     {prompt}
                   </button>
@@ -526,16 +533,14 @@ export function DiscoverClient() {
           {!isLoading && error ? <Notice tone="error">{error}</Notice> : null}
 
           {!isLoading && aiSummary ? (
-            <div className="glass rounded-card flex gap-3 p-5">
-              <span className="animate-ai-bounce text-2xl" aria-hidden>🤖</span>
-              <div>
-                <p className="text-sm text-cloud">{aiSummary}</p>
-                {aiMissingFields.length > 0 ? (
-                  <p className="mt-1 text-xs text-gold">
-                    Assumed defaults for: {aiMissingFields.join(", ")}. Switch to Advanced to adjust.
-                  </p>
-                ) : null}
-              </div>
+            <div className="border-l-2 border-mint pl-4">
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">Triplet</p>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-cloud">{aiSummary}</p>
+              {aiMissingFields.length > 0 ? (
+                <p className="mt-1.5 font-mono text-xs text-gold">
+                  Assumed defaults for: {aiMissingFields.join(", ")} — switch to Advanced to adjust.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -543,12 +548,12 @@ export function DiscoverClient() {
 
           {!isLoading && hasSearched && trips.length > 0 ? (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-mist">
-                  {trips.length} trip idea{trips.length === 1 ? "" : "s"}, best first
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+                  Results · {trips.length} trip{trips.length === 1 ? "" : "s"} identified · best first
                 </p>
                 <Button variant="secondary" size="sm" onClick={() => setAlertOpen((open) => !open)}>
-                  🔔 {alertOpen ? "Hide alert form" : "Watch this search"}
+                  {alertOpen ? "Hide alert form" : "Watch this search"}
                 </Button>
               </div>
 
@@ -559,7 +564,7 @@ export function DiscoverClient() {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={reducedMotion ? undefined : { opacity: 0, height: 0 }}
                     onSubmit={saveAlert}
-                    className="glass rounded-card overflow-hidden"
+                    className="overflow-hidden border border-line bg-ink-raised"
                   >
                     <div className="flex flex-wrap items-end gap-4 p-5">
                       <Field label="Alert name">
@@ -615,9 +620,9 @@ export function DiscoverClient() {
                 ) : null}
               </AnimatePresence>
 
-              <div className="grid gap-5 lg:grid-cols-2">
+              <div>
                 {trips.map((trip) => (
-                  <TripCard
+                  <TripRow
                     key={trip.id}
                     trip={trip}
                     onSaveAlert={() => {
@@ -627,8 +632,8 @@ export function DiscoverClient() {
                   />
                 ))}
               </div>
-              <p className="pt-2 text-center text-xs text-mist/60">
-                Prices are observed at check time and may change. Always check the final price with the provider.
+              <p className="pt-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/60">
+                Prices observed at check time and may change · always confirm with the provider
               </p>
             </>
           ) : null}
@@ -642,9 +647,27 @@ export function DiscoverClient() {
           ) : null}
 
           {!isLoading && !hasSearched ? (
-            <EmptyState icon="🗺" title="Where could you go?">
-              Run an AI search or fine-tune the advanced filters — Triplet pairs outbound and return fares
-              into complete trips, including open-jaw two-city routes.
+            <EmptyState title="Where could you go?">
+              <span className="block">
+                Triplet pairs outbound and return fares into complete trips, including open-jaw two-city
+                routes. Try one of these:
+              </span>
+              <span className="mt-4 flex flex-col items-center gap-2">
+                {EXAMPLE_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => {
+                      setMode("ai");
+                      setAiMessage(prompt);
+                      void performAiSearch(prompt);
+                    }}
+                    className="font-mono text-xs text-mint transition-colors hover:text-cloud"
+                  >
+                    → {prompt}
+                  </button>
+                ))}
+              </span>
             </EmptyState>
           ) : null}
         </section>
