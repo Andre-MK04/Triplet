@@ -4,9 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
-import { Badge } from "../../components/ui/Badge";
 import { Button, ButtonLink } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
 import { Field, Input } from "../../components/ui/Input";
 import { EmptyState, Notice, Spinner } from "../../components/ui/Misc";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
@@ -105,38 +103,40 @@ export default function AccountPage() {
     );
   }
 
+  const sectionLabel = "mb-5 block font-mono text-[11px] font-semibold uppercase tracking-label text-mist";
+
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl space-y-5 pb-10">
-        <h1 className="font-display text-3xl font-bold text-cloud">Account</h1>
+      <div className="mx-auto max-w-2xl pb-16">
+        <header className="pb-8">
+          <h1 className="font-display text-4xl font-bold text-cloud">Account</h1>
+          <p className="mono-num mt-3 font-mono text-xs text-mist">
+            {user.email} ·{" "}
+            <span className={billing?.plan === "pro" ? "text-mint" : "text-mist"}>
+              {billing?.plan === "pro" ? "TRIPLET PRO" : "FREE PLAN"}
+            </span>
+          </p>
+        </header>
 
-        {status ? <Notice tone={status.tone}>{status.text}</Notice> : null}
-
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-mist">Email</p>
-              <p className="mt-1 font-semibold text-cloud">{user.email}</p>
-            </div>
-            <Badge tone={billing?.plan === "pro" ? "mint" : "neutral"}>
-              {billing?.plan === "pro" ? "Triplet Pro" : "Free plan"}
-            </Badge>
+        {status ? (
+          <div className="mb-6">
+            <Notice tone={status.tone}>{status.text}</Notice>
           </div>
-        </Card>
+        ) : null}
 
-        <Card>
-          <form onSubmit={updateProfile} className="space-y-4">
-            <h2 className="font-display text-lg font-bold text-cloud">Profile</h2>
+        <section className="border-t border-line py-8">
+          <form onSubmit={updateProfile} className="space-y-5">
+            <span className={sectionLabel}>Profile</span>
             <Field label="Display name">
               <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="How should we greet you?" />
             </Field>
             <Button type="submit">Save profile</Button>
           </form>
-        </Card>
+        </section>
 
-        <Card>
-          <form onSubmit={changePassword} className="space-y-4">
-            <h2 className="font-display text-lg font-bold text-cloud">Password</h2>
+        <section className="border-t border-line py-8">
+          <form onSubmit={changePassword} className="space-y-5">
+            <span className={sectionLabel}>Password</span>
             <Field label="Current password">
               <Input
                 type="password"
@@ -156,34 +156,58 @@ export default function AccountPage() {
             </Field>
             <Button type="submit">Change password</Button>
           </form>
-        </Card>
+        </section>
 
-        <Card>
-          <h2 className="font-display text-lg font-bold text-cloud">Travel profile</h2>
-          <p className="mt-2 text-sm text-mist">Airports, budget, comfort rules — everything that powers your alerts.</p>
-          <ButtonLink href="/onboarding" variant="secondary" className="mt-4">Edit travel profile</ButtonLink>
-        </Card>
-
-        <Card>
-          <h2 className="font-display text-lg font-bold text-cloud">Your data &amp; privacy</h2>
-          <p className="mt-2 text-sm text-mist">
-            Download everything we hold about you, or permanently delete your account and all its data.
-            See our <a href="/privacy" className="text-sky hover:text-cloud underline">privacy policy</a>.
+        <section className="border-t border-line py-8">
+          <span className={sectionLabel}>Travel profile</span>
+          <p className="text-sm leading-relaxed text-mist">
+            Airports, budget, comfort rules — everything that powers your alerts.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button variant="secondary" onClick={() => void downloadData()}>Download my data</Button>
-            <Button variant="danger" onClick={() => void deleteAccount()}>Delete my account</Button>
-          </div>
-        </Card>
+          <ButtonLink href="/onboarding" variant="secondary" className="mt-5">Retake the quiz</ButtonLink>
+        </section>
 
-        <div className="flex flex-wrap gap-3">
-          {billing?.canManageBilling ? (
-            <Button variant="secondary" onClick={() => void manageBilling()}>Manage billing</Button>
-          ) : (
-            <ButtonLink href="/pricing" variant="secondary">View pricing</ButtonLink>
-          )}
+        <section className="border-t border-line py-8">
+          <span className={sectionLabel}>Plan &amp; billing</span>
+          <p className="text-sm leading-relaxed text-mist">
+            {billing?.plan === "pro"
+              ? "Manage your subscription and invoices through the Stripe billing portal."
+              : "You're on the free plan. Pro unlocks more watches, more AI searches, and weekly digests."}
+          </p>
+          <div className="mt-5">
+            {billing?.canManageBilling ? (
+              <Button variant="secondary" onClick={() => void manageBilling()}>Manage billing</Button>
+            ) : (
+              <ButtonLink href="/pricing" variant="secondary">View pricing</ButtonLink>
+            )}
+          </div>
+        </section>
+
+        {/* GDPR rights get real presence: a brand promise, not a legal appendix. */}
+        <section className="border-t border-line py-8">
+          <span className={sectionLabel}>Your data</span>
+          <p className="max-w-lg text-sm leading-relaxed text-mist">
+            Your data lives in the EU and belongs to you. Download everything we hold about you as a
+            single file, or permanently erase your account and all its data — no questions, no retention
+            tricks. Details in the{" "}
+            <a href="/privacy" className="text-mint underline hover:text-cloud">privacy policy</a>.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-6">
+            <Button variant="secondary" onClick={() => void downloadData()}>
+              Download everything we have
+            </Button>
+            <button
+              type="button"
+              onClick={() => void deleteAccount()}
+              className="font-mono text-[11px] font-semibold uppercase tracking-label text-coral/80 transition-colors hover:text-coral"
+            >
+              Delete my account
+            </button>
+          </div>
+        </section>
+
+        <section className="border-t border-line py-8">
           <Button
-            variant="danger"
+            variant="secondary"
             onClick={() => {
               void logout().then(() => {
                 window.location.href = "/";
@@ -192,7 +216,7 @@ export default function AccountPage() {
           >
             Log out
           </Button>
-        </div>
+        </section>
       </div>
     </AppShell>
   );

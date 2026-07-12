@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
-import { Badge } from "../../components/ui/Badge";
 import { Button, ButtonLink } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
 import { Notice } from "../../components/ui/Misc";
 import { apiGet, apiPost } from "../../lib/api";
 
@@ -69,16 +67,19 @@ export default function PricingPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-4xl space-y-8 pb-10">
-        <header className="text-center">
-          <h1 className="font-display text-4xl font-bold text-cloud">Free to watch, Pro to hunt harder</h1>
-          <p className="mx-auto mt-3 max-w-xl text-mist">
+      <div className="mx-auto max-w-4xl space-y-14 pb-16">
+        <header>
+          <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">Pricing</p>
+          <h1 className="max-w-xl font-display text-4xl font-bold text-cloud sm:text-5xl">
+            Free to watch, Pro to hunt harder.
+          </h1>
+          <p className="mt-4 max-w-xl leading-relaxed text-mist">
             Start free and upgrade when you need more watches and AI searches. Triplet finds fare
             opportunities — prices can change and are never guaranteed.
           </p>
         </header>
 
-        <div className="mx-auto flex w-fit rounded-full bg-ink-soft/80 p-1" role="tablist" aria-label="Billing interval">
+        <div className="flex gap-7 border-b border-line" role="tablist" aria-label="Billing interval">
           {(["monthly", "yearly"] as const).map((option) => (
             <button
               key={option}
@@ -87,8 +88,8 @@ export default function PricingPage() {
               aria-selected={interval === option}
               onClick={() => setBillingInterval(option)}
               className={
-                "rounded-full px-5 py-2 text-sm font-semibold transition " +
-                (interval === option ? "bg-mint text-ink" : "text-mist hover:text-cloud")
+                "-mb-px border-b-2 pb-2.5 font-mono text-[11px] font-semibold uppercase tracking-label transition-colors " +
+                (interval === option ? "border-mint text-mint" : "border-transparent text-mist hover:text-cloud")
               }
             >
               {option === "monthly" ? "Monthly" : "Yearly"}
@@ -98,39 +99,44 @@ export default function PricingPage() {
 
         {status ? <Notice tone="info">{status}</Notice> : null}
 
-        <div className="grid gap-5 md:grid-cols-2">
-          {free ? (
-            <Card hover className="flex flex-col">
-              <h2 className="font-display text-xl font-bold text-cloud">{free.name}</h2>
-              <p className="mt-2 font-display text-3xl font-bold text-mint">{free.priceLabel}</p>
-              <ul className="mt-5 flex-1 space-y-2 text-sm text-mist">
-                {free.features.map((feature) => (
-                  <li key={feature} className="flex gap-2"><span className="text-mint" aria-hidden>✓</span>{feature}</li>
-                ))}
-              </ul>
-              <ButtonLink href={user ? "/discover" : "/signup"} variant="secondary" className="mt-6 w-full">
+        {/* Two plans on one shared hairline grid — a typographic comparison, not floating cards. */}
+        <div className="grid border-y border-line sm:grid-cols-2 sm:divide-x sm:divide-line">
+          {[
+            { plan: free, cta: (
+              <ButtonLink href={user ? "/discover" : "/signup"} variant="secondary" className="mt-8 w-full">
                 {user ? "Keep exploring" : "Start free"}
               </ButtonLink>
-            </Card>
-          ) : null}
-          {pro ? (
-            <Card hover className="relative flex flex-col border-mint/40">
-              <Badge tone="mint" className="absolute -top-3 left-5">Most deal-hungry</Badge>
-              <h2 className="font-display text-xl font-bold text-cloud">{pro.name}</h2>
-              <p className="mt-2 font-display text-3xl font-bold text-mint">{pro.priceLabel}</p>
-              <ul className="mt-5 flex-1 space-y-2 text-sm text-mist">
-                {pro.features.map((feature) => (
-                  <li key={feature} className="flex gap-2"><span className="text-mint" aria-hidden>✓</span>{feature}</li>
-                ))}
-              </ul>
-              <Button className="mt-6 w-full" onClick={() => void upgrade()}>Upgrade to Pro</Button>
-            </Card>
-          ) : null}
+            ) },
+            { plan: pro, cta: (
+              <Button className="mt-8 w-full" onClick={() => void upgrade()}>Upgrade to Pro</Button>
+            ) },
+          ].map(({ plan, cta }) =>
+            plan ? (
+              <div key={plan.plan} className="flex flex-col px-0 py-8 sm:px-8 first:sm:pl-0 last:sm:pr-0">
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+                  {plan.name}
+                </span>
+                <span className="mono-num mt-3 font-display text-5xl font-bold leading-none text-coral">
+                  {plan.priceLabel}
+                </span>
+                <ul className="mt-8 flex-1">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="border-t border-line py-2.5 text-sm text-mist">
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                {cta}
+              </div>
+            ) : null,
+          )}
         </div>
 
-        <Card>
-          <h2 className="font-display text-lg font-bold text-cloud">Compare limits</h2>
-          <div className="mt-4 overflow-x-auto">
+        <section>
+          <h2 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+            Compare limits
+          </h2>
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-mist">
@@ -163,19 +169,22 @@ export default function PricingPage() {
               </tbody>
             </table>
           </div>
-        </Card>
+          <p className="mt-5 font-mono text-[10px] uppercase tracking-label text-mist/70">
+            Both plans see the same fares. We never mark prices up.
+          </p>
+        </section>
 
-        <Card>
-          <h2 className="font-display text-lg font-bold text-cloud">FAQ</h2>
-          <div className="mt-4 space-y-4 text-sm">
+        <section className="border-t border-line pt-8">
+          <h2 className="mb-5 font-mono text-[11px] font-semibold uppercase tracking-label text-mist">FAQ</h2>
+          <div className="space-y-5 text-sm">
             {FAQ.map((item) => (
               <div key={item.q}>
                 <p className="font-semibold text-cloud">{item.q}</p>
-                <p className="mt-1 text-mist">{item.a}</p>
+                <p className="mt-1 leading-relaxed text-mist">{item.a}</p>
               </div>
             ))}
           </div>
-        </Card>
+        </section>
       </div>
     </AppShell>
   );

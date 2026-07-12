@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
-import { Badge } from "../../components/ui/Badge";
 import { Button, ButtonLink } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Field, Input, Select } from "../../components/ui/Input";
@@ -51,26 +50,23 @@ type DashboardData = {
   savedSearches: DashboardSavedSearch[];
 };
 
-function UsageCard({ label, value, max, detail }: { label: string; value: number; max: number; detail?: string }) {
-  const percent = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+function WatchAction({ label, onClick, disabled, tone = "default" }: { label: string; onClick: () => void; disabled: boolean; tone?: "default" | "danger" }) {
   return (
-    <Card>
-      <p className="text-xs font-semibold uppercase tracking-wide text-mist">{label}</p>
-      <p className="mt-1 font-display text-2xl font-bold text-cloud">
-        {value} <span className="text-base font-medium text-mist">/ {max}</span>
-      </p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-        <div
-          className={`h-full rounded-full ${percent >= 100 ? "bg-coral" : "bg-gradient-to-r from-mint to-sky"}`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      {detail ? <p className="mt-2 text-xs text-mist/70">{detail}</p> : null}
-    </Card>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        "font-mono text-[11px] font-semibold uppercase tracking-label transition-colors disabled:opacity-50 " +
+        (tone === "danger" ? "text-coral/80 hover:text-coral" : "text-mist hover:text-mint")
+      }
+    >
+      {label}
+    </button>
   );
 }
 
-function SavedWatchCard({
+function SavedWatchRow({
   search,
   busy,
   onPreview,
@@ -88,30 +84,33 @@ function SavedWatchCard({
   const checked = timeAgo(search.lastCheckedAt);
   const notified = timeAgo(search.lastNotifiedAt);
   return (
-    <Card as="article" className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate font-display text-lg font-bold text-cloud">{search.name || "Saved watch"}</h3>
-          <p className="mt-0.5 text-sm text-mist">
-            {search.originAirports.map(airportCity).join(", ")} · {search.startDate} → {search.endDate} ·{" "}
-            {search.minTripLengthDays}–{search.maxTripLengthDays} days · under {formatPrice(search.maxBudget)}
-          </p>
-        </div>
-        <Badge tone={search.isActive ? "mint" : "coral"}>{search.isActive ? "active" : "paused"}</Badge>
+    <article className="border-b border-line py-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-display text-xl font-bold text-cloud">{search.name || "Saved watch"}</h3>
+        <span
+          className={
+            "font-mono text-[10px] font-semibold uppercase tracking-label " +
+            (search.isActive ? "text-mint" : "text-coral")
+          }
+        >
+          {search.isActive ? "● Active" : "○ Paused"}
+        </span>
       </div>
-      <p className="text-xs text-mist/70">
-        {search.frequency} checks · last checked {checked ?? "never"} · last notified {notified ?? "never"} · best
-        price {search.lastBestPrice ? formatPrice(search.lastBestPrice) : "not yet"}
+      <p className="mono-num mt-1.5 font-mono text-xs text-mist">
+        {search.originAirports.map(airportCity).join(", ")} · {search.startDate} → {search.endDate} ·{" "}
+        {search.minTripLengthDays}–{search.maxTripLengthDays} days · under {formatPrice(search.maxBudget)}
       </p>
-      <div className="flex flex-wrap gap-2 border-t border-dashed border-line pt-3">
-        <Button size="sm" onClick={onPreview} disabled={busy}>Preview results</Button>
-        <Button size="sm" variant="secondary" onClick={onEdit} disabled={busy}>Edit</Button>
-        <Button size="sm" variant="secondary" onClick={onToggle} disabled={busy}>
-          {search.isActive ? "Pause" : "Resume"}
-        </Button>
-        <Button size="sm" variant="danger" onClick={onDelete} disabled={busy}>Delete</Button>
+      <p className="mono-num mt-1 font-mono text-[10px] uppercase tracking-[0.06em] text-mist/60">
+        {search.frequency} checks · checked {checked ?? "never"} · notified {notified ?? "never"} · best{" "}
+        {search.lastBestPrice ? formatPrice(search.lastBestPrice) : "not yet"}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-5">
+        <WatchAction label="Preview" onClick={onPreview} disabled={busy} />
+        <WatchAction label="Edit" onClick={onEdit} disabled={busy} />
+        <WatchAction label={search.isActive ? "Pause" : "Resume"} onClick={onToggle} disabled={busy} />
+        <WatchAction label="Delete" onClick={onDelete} disabled={busy} tone="danger" />
       </div>
-    </Card>
+    </article>
   );
 }
 
@@ -227,49 +226,55 @@ export function DashboardClient() {
     <AppShell>
       <div className="space-y-8 pb-10">
         <header>
-          <h1 className="font-display text-3xl font-bold text-cloud">
-            Welcome back{user.displayName ? `, ${user.displayName}` : ""} 👋
+          <h1 className="font-display text-3xl font-bold text-cloud sm:text-4xl">
+            Welcome back{user.displayName ? `, ${user.displayName}` : ""}.
           </h1>
-          <p className="mt-1 text-mist">Triplet keeps watching while you're away.</p>
+          {data ? (
+            <p className="mt-3 leading-relaxed text-mist">
+              Triplet is watching{" "}
+              <span className="text-cloud">
+                {data.billing.usage.activeSavedSearches} of {data.billing.usage.savedSearchLimit}
+              </span>{" "}
+              searches for you
+              {data.savedSearches.some((s) => s.lastBestPrice != null) ? (
+                <>
+                  {" "}
+                  — best find so far{" "}
+                  <span className="mono-num font-mono text-coral">
+                    {formatPrice(Math.min(...data.savedSearches.filter((s) => s.lastBestPrice != null).map((s) => s.lastBestPrice!)))}
+                  </span>
+                </>
+              ) : null}
+              .
+            </p>
+          ) : (
+            <p className="mt-3 text-mist">Triplet keeps watching while you&apos;re away.</p>
+          )}
+          {data ? (
+            <p className="mono-num mt-2 font-mono text-[10px] uppercase tracking-label text-mist/60">
+              {data.billing.plan === "pro" ? "Triplet Pro" : "Free plan"} · {data.billing.subscriptionStatus} · AI
+              searches today {data.billing.usage.aiSearchesToday}/{data.billing.usage.aiSearchesPerDay}
+            </p>
+          ) : null}
         </header>
 
         {status ? <Notice tone={status.tone === "info" ? "info" : status.tone}>{status.text}</Notice> : null}
 
-        {data ? (
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <p className="text-xs font-semibold uppercase tracking-wide text-mist">Plan</p>
-              <p className="mt-1 font-display text-2xl font-bold text-cloud">
-                {data.billing.plan === "pro" ? "Triplet Pro" : "Free"}
-              </p>
-              <p className="mt-1 text-xs text-mint">{data.billing.subscriptionStatus}</p>
-            </Card>
-            <UsageCard
-              label="Saved watches"
-              value={data.billing.usage.activeSavedSearches}
-              max={data.billing.usage.savedSearchLimit}
-            />
-            <UsageCard
-              label="AI searches today"
-              value={data.billing.usage.aiSearchesToday}
-              max={data.billing.usage.aiSearchesPerDay}
-              detail="Resets daily"
-            />
-          </div>
-        ) : (
+        {!data ? (
           <div className="flex justify-center py-10"><Spinner label="Loading dashboard…" /></div>
-        )}
+        ) : null}
 
         {data ? (
           <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold text-cloud">Saved watches</h2>
+            <section>
+              <div className="flex items-center justify-between border-b border-line pb-3">
+                <h2 className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+                  Your watches
+                </h2>
                 <ButtonLink href="/discover" variant="secondary" size="sm">+ New watch</ButtonLink>
               </div>
               {data.savedSearches.length === 0 ? (
                 <EmptyState
-                  icon="🔭"
                   title="No watches yet"
                   action={<ButtonLink href="/discover">Run your first search</ButtonLink>}
                 >
@@ -278,7 +283,7 @@ export function DashboardClient() {
                 </EmptyState>
               ) : (
                 data.savedSearches.map((search) => (
-                  <SavedWatchCard
+                  <SavedWatchRow
                     key={search.id}
                     search={search}
                     busy={busyId === search.id}
@@ -324,8 +329,8 @@ export function DashboardClient() {
       </div>
 
       {editing ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/80 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Edit watch">
-          <form onSubmit={saveEdit} className="glass rounded-card w-full max-w-xl space-y-4 p-6 shadow-lift">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/90 px-4" role="dialog" aria-modal="true" aria-label="Edit watch">
+          <form onSubmit={saveEdit} className="w-full max-w-xl space-y-4 border border-line bg-ink-raised p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl font-bold text-cloud">Edit watch</h2>
               <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}>✕ Close</Button>
