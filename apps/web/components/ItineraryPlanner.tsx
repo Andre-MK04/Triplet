@@ -4,33 +4,55 @@ import { useState } from "react";
 
 import { ApiError, apiPost } from "../lib/api";
 import { Button } from "./ui/Button";
-import { Card } from "./ui/Card";
 import { Notice, Spinner } from "./ui/Misc";
-import type { ItineraryPlan, ItineraryResponse } from "../lib/types";
+import type { ItineraryItem, ItineraryPlan, ItineraryResponse } from "../lib/types";
 
-const PART_OF_DAY_LABEL: Record<string, string> = {
+const PART_ORDER = ["morning", "afternoon", "evening", "flexible"] as const;
+
+const PART_LABEL: Record<string, string> = {
   morning: "Morning",
   afternoon: "Afternoon",
   evening: "Evening",
   flexible: "Anytime",
 };
 
-const CATEGORY_ICON: Record<string, string> = {
-  food: "🍽",
-  nature: "🥾",
-  hike: "🥾",
-  culture: "🏛",
-  museum: "🏛",
-  transfer: "🚆",
-  transport: "🚆",
-  nightlife: "🌙",
-  beach: "🏖",
-  shopping: "🛍",
-  general: "📍",
-};
+function costLabel(cost: string): string {
+  const normalized = cost.trim();
+  if (!normalized) return "";
+  const lower = normalized.toLowerCase();
+  // Costs are never exact or guaranteed — say so unless the model already did,
+  // or the item is free/varies.
+  if (lower === "free" || lower === "varies" || lower.includes("estimate")) return normalized;
+  return `${normalized} · estimate`;
+}
 
-function iconFor(category: string): string {
-  return CATEGORY_ICON[category.toLowerCase()] ?? "📍";
+function DayItems({ items }: { items: ItineraryItem[] }) {
+  return (
+    <div className="grid gap-6 sm:grid-cols-3">
+      {PART_ORDER.filter((part) => items.some((item) => item.partOfDay === part)).map((part) => (
+        <div key={part}>
+          <span className="mb-3 block font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+            {PART_LABEL[part]}
+          </span>
+          <div className="space-y-4">
+            {items
+              .filter((item) => item.partOfDay === part)
+              .map((item, index) => (
+                <div key={index}>
+                  <p className="font-mono text-xs font-medium uppercase text-mist">{item.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-cloud">{item.description}</p>
+                  {item.estimatedCost ? (
+                    <p className="mono-num mt-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-mist/80">
+                      {costLabel(item.estimatedCost)}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function ItineraryPlanner({
@@ -65,82 +87,75 @@ export function ItineraryPlanner({
 
   if (!plan) {
     return (
-      <Card>
-        <h2 className="font-display text-lg font-bold text-cloud">Plan your days</h2>
-        <p className="mt-2 text-sm text-mist">
-          Get a personalised, day-by-day plan tailored to your travel style — what to eat, where to
-          wander, and cost estimates — built around your exact arrival and departure times.
+      <section className="border-t border-line pt-10">
+        <h2 className="font-display text-3xl font-medium text-cloud sm:text-4xl">Plan your days</h2>
+        <p className="mt-3 max-w-xl leading-relaxed text-mist">
+          A day-by-day plan tuned to how you like to travel — what to eat, where to wander, cost
+          estimates — built around your exact arrival and departure times.
         </p>
         {error ? (
-          <div className="mt-3">
+          <div className="mt-4">
             <Notice tone="warning">{error}</Notice>
           </div>
         ) : null}
-        <div className="mt-4">
-          <Button onClick={generate} disabled={loading}>
-            {loading ? <Spinner label="Planning your trip…" /> : "✨ Plan my trip"}
+        <div className="mt-6">
+          <Button onClick={generate} disabled={loading} size="lg">
+            {loading ? <Spinner label="Planning your trip…" /> : "Plan my trip"}
           </Button>
         </div>
-      </Card>
+      </section>
     );
   }
 
   return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <h2 className="font-display text-lg font-bold text-cloud">Your day-by-day plan</h2>
-        <span className="rounded-full bg-mint/10 px-2.5 py-1 text-[11px] font-semibold text-mint">
-          AI-tailored
+    <section className="border-t border-line pt-10">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-3xl font-medium text-cloud sm:text-4xl">Your days, planned.</h2>
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">
+          AI-tailored · suggestions to verify
         </span>
       </div>
-      <p className="mt-2 text-sm text-mist">{plan.summary}</p>
+      <p className="mt-3 max-w-2xl leading-relaxed text-mist">{plan.summary}</p>
 
-      <div className="mt-5 space-y-5">
-        {plan.days.map((day, i) => (
-          <div key={i} className="border-l-2 border-mint/30 pl-4">
-            <h3 className="font-display text-base font-semibold text-cloud">{day.label}</h3>
-            <ul className="mt-2 space-y-3">
-              {day.items.map((item, j) => (
-                <li key={j} className="text-sm">
-                  <div className="flex items-center gap-2">
-                    <span aria-hidden>{iconFor(item.category)}</span>
-                    <span className="font-semibold text-cloud">{item.title}</span>
-                    <span className="text-[11px] uppercase tracking-wide text-mist/70">
-                      {PART_OF_DAY_LABEL[item.partOfDay] ?? item.partOfDay}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-mist">{item.description}</p>
-                  {item.estimatedCost ? (
-                    <p className="mt-1 text-xs text-mist/80">Est. cost: {item.estimatedCost}</p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
+      <div className="mt-10 space-y-10">
+        {plan.days.map((day, index) => (
+          <article key={index} className="border-l-2 border-mint/40 pl-6">
+            <h3 className="font-display text-2xl font-medium text-cloud">{day.label}</h3>
+            <div className="mt-5">
+              <DayItems items={day.items} />
+            </div>
+          </article>
         ))}
       </div>
 
-      {plan.gettingAround ? (
-        <div className="mt-5 rounded-xl bg-white/[0.03] px-4 py-3 text-sm">
-          <p className="font-semibold text-cloud">Getting around</p>
-          <p className="mt-1 text-mist">{plan.gettingAround}</p>
-        </div>
-      ) : null}
-
-      {plan.extraCostEstimate ? (
-        <div className="mt-3 rounded-xl bg-white/[0.03] px-4 py-3 text-sm">
-          <p className="font-semibold text-cloud">Estimated extra spend</p>
-          <p className="mt-1 text-mist">{plan.extraCostEstimate}</p>
-        </div>
-      ) : null}
+      <div className="mt-12 grid gap-8 border-t border-line pt-8 sm:grid-cols-2">
+        {plan.gettingAround ? (
+          <div>
+            <span className="mb-3 block font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+              Getting around
+            </span>
+            <p className="text-sm leading-relaxed text-mist">{plan.gettingAround}</p>
+          </div>
+        ) : null}
+        {plan.extraCostEstimate ? (
+          <div>
+            <span className="mb-3 block font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+              Estimated extra spend
+            </span>
+            <p className="mono-num text-sm leading-relaxed text-mist">{plan.extraCostEstimate}</p>
+          </div>
+        ) : null}
+      </div>
 
       {plan.disclaimers.length ? (
-        <ul className="mt-4 space-y-1 text-xs text-mist/70">
-          {plan.disclaimers.map((d, i) => (
-            <li key={i}>• {d}</li>
+        <ul className="mt-8 space-y-1 border-t border-line pt-5">
+          {plan.disclaimers.map((disclaimer, index) => (
+            <li key={index} className="font-mono text-[10px] uppercase tracking-[0.06em] text-mist/60">
+              {disclaimer}
+            </li>
           ))}
         </ul>
       ) : null}
-    </Card>
+    </section>
   );
 }
