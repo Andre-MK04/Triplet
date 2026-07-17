@@ -1,6 +1,6 @@
 from datetime import datetime, time
 
-from app.data.geography import PLACES, is_european, place_city, scope_matches
+from app.data.geography import PLACES, distance_km, is_european, place_city, scope_matches
 from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
 from app.providers.travelpayouts.mapper import RoundTripFare
 from app.services.trip_explainer import build_explanation, build_tags, build_warnings
@@ -19,6 +19,10 @@ def build_trips(
     origin_codes = {code.upper() for code in request.originAirports}
     destination_codes = (
         {code.upper() for code in request.destinationAirports} if request.destinationAirports else None
+    )
+    # Multi-city: the traveller flies home from these airports, not the outbound city.
+    return_origin_codes = (
+        {code.upper() for code in request.returnOriginAirports} if request.returnOriginAirports else None
     )
     outbound_candidates = [
         flight
@@ -42,6 +46,8 @@ def build_trips(
         for return_flight in flights:
             if not is_valid_return_candidate(outbound, return_flight, origin_codes, airports_by_code):
                 continue
+            if return_origin_codes is not None and not scope_matches(return_flight.origin, return_origin_codes):
+                continue
 
             # Nights follow a simple travel-search convention: calendar days from
             # destination arrival date to return departure date.
@@ -54,7 +60,8 @@ def build_trips(
             trip_type = classify_trip(outbound.destination, return_flight.origin, airports_by_code)
             if trip_type == "same_city" and request.tripStyle == "two nearby cities":
                 continue
-            if trip_type == "open_jaw" and request.tripStyle == "one city":
+            # An explicit fly-home-from city overrides a "one city" style preference.
+            if trip_type == "open_jaw" and request.tripStyle == "one city" and return_origin_codes is None:
                 continue
 
             ground_transfer = None
@@ -65,10 +72,18 @@ def build_trips(
                     transfers,
                     airports_by_code,
                 )
-                if not ground_transfer:
-                    continue
-                if ground_transfer.durationHours > request.maxGroundTransferHours:
-                    continue
+                if return_origin_codes is not None:
+                    # The traveller explicitly asked for this city pair, so a
+                    # missing/long transfer is estimated and flagged, not fatal.
+                    if not ground_transfer:
+                        ground_transfer = synthesize_transfer(outbound.destination, return_flight.origin)
+                    if not ground_transfer:
+                        continue
+                else:
+                    if not ground_transfer:
+                        continue
+                    if ground_transfer.durationHours > request.maxGroundTransferHours:
+                        continue
 
             total_price = round(
                 outbound.price
@@ -92,6 +107,16 @@ def build_trips(
             )
             if over_budget:
                 warnings.insert(0, f"Over your €{request.maxBudget:g} budget at €{total_price:g}.")
+            if (
+                return_origin_codes is not None
+                and ground_transfer
+                and ground_transfer.durationHours > request.maxGroundTransferHours
+            ):
+                warnings.append(
+                    f"The {ground_transfer.fromCity} → {ground_transfer.toCity} leg is roughly "
+                    f"{ground_transfer.durationHours:g}h by {ground_transfer.mode} — plan it as part of the trip "
+                    f"(cost and time are estimates)."
+                )
             trip = TripOption(
                 id=f"{outbound.id}-{return_flight.id}",
                 tripType=trip_type,
@@ -167,6 +192,28 @@ def airport_area(code: str, airports_by_code: dict[str, Airport]) -> str:
     if not airport:
         return code
     return airport.areaSlug or airport.city or code
+
+
+def synthesize_transfer(from_airport: str, to_airport: str) -> GroundTransfer | None:
+    """Rough between-cities journey for explicitly requested multi-city pairs.
+
+    Estimated from great-circle distance (~80 km/h surface pace, ~€0.10/km) —
+    honest ballparks the traveller must verify, never presented as bookable.
+    """
+    km = distance_km(from_airport, to_airport)
+    if km is None:
+        return None
+    hours = round(km / 80 + 0.5, 1)
+    cost = float(round(min(150.0, max(15.0, km * 0.10))))
+    return GroundTransfer(
+        fromAirport=from_airport.upper(),
+        toAirport=to_airport.upper(),
+        fromCity=place_city(from_airport) or from_airport.upper(),
+        toCity=place_city(to_airport) or to_airport.upper(),
+        durationHours=hours,
+        estimatedCost=cost,
+        mode="train/bus",
+    )
 
 
 def find_transfer(

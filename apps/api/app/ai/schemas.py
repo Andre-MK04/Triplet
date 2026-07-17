@@ -24,6 +24,7 @@ class AISearchRequest(BaseModel):
     message: str = Field(min_length=1)
     originAirports: list[str] | None = None
     destinationAirports: list[str] | None = None
+    returnOriginAirports: list[str] | None = None
     startDate: date | None = None
     endDate: date | None = None
     minTripLengthDays: int | None = None

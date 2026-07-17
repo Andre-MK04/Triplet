@@ -41,6 +41,7 @@ const BUDGET_TO_AMOUNT: Record<TravelProfile["budgetComfortZone"], number> = {
 type AdvancedForm = {
   originAirports: string[];
   destinationAirports: string[];
+  returnOriginAirports: string[];
   startDate: string;
   endDate: string;
   minTripLengthDays: number;
@@ -54,6 +55,7 @@ type AdvancedForm = {
 const defaultForm: AdvancedForm = {
   originAirports: ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"],
   destinationAirports: [],
+  returnOriginAirports: [],
   startDate: "2026-07-15",
   endDate: "2026-08-31",
   minTripLengthDays: 4,
@@ -122,6 +124,7 @@ export function DiscoverClient() {
   const [aiMessage, setAiMessage] = useState(EXAMPLE_PROMPTS[0]);
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
   const [customAirport, setCustomAirport] = useState("");
+  const [returnOriginRaw, setReturnOriginRaw] = useState("");
 
   const [trips, setTrips] = useState<TripOption[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -175,6 +178,7 @@ export function DiscoverClient() {
     () => ({
       originAirports: form.originAirports,
       destinationAirports: form.destinationAirports.length > 0 ? form.destinationAirports : null,
+      returnOriginAirports: form.returnOriginAirports.length > 0 ? form.returnOriginAirports : null,
       startDate: form.startDate,
       endDate: form.endDate,
       minTripLengthDays: form.minTripLengthDays,
@@ -421,6 +425,34 @@ export function DiscoverClient() {
                     );
                   })}
                 </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
+                    Fly home from (optional, multi-city)
+                  </p>
+                  <span className="text-xs text-mist/70">
+                    e.g. out to Stockholm, home from Helsinki
+                  </span>
+                </div>
+                <Input
+                  value={returnOriginRaw}
+                  onChange={(event) => {
+                    const raw = event.target.value.toUpperCase();
+                    setReturnOriginRaw(raw);
+                    setForm({
+                      ...form,
+                      returnOriginAirports: raw
+                        .split(",")
+                        .map((code) => code.trim())
+                        .filter((code) => /^[A-Z]{3}$/.test(code)),
+                    });
+                  }}
+                  placeholder="IATA codes, e.g. HEL"
+                  className="max-w-sm font-mono"
+                  aria-label="Airports to fly home from (multi-city)"
+                />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

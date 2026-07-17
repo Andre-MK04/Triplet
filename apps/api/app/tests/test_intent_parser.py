@@ -87,3 +87,27 @@ def test_no_destination_stays_anywhere():
     intent = parse_trip_intent("from Vienna in August under 200 euros for 5 days")
 
     assert intent.destinationAirports is None
+
+
+def test_parses_multi_city_then_from_phrasing():
+    intent = parse_trip_intent(
+        "i want to go from budapest to stockholm and then from helsinki back to budapest in august for 7 days under 300"
+    )
+
+    assert intent.originAirports == ["BUD"]
+    assert set(intent.destinationAirports) == {"ARN", "STO"}
+    assert intent.returnOriginAirports == ["HEL"]
+
+
+def test_parses_multi_city_flying_back_from_phrasing():
+    intent = parse_trip_intent("from vienna to lisbon in august, 5 days under 200, flying back from porto")
+
+    assert intent.originAirports == ["VIE"]
+    assert intent.destinationAirports == ["LIS"]
+    assert intent.returnOriginAirports == ["OPO"]
+
+
+def test_plain_round_trip_has_no_return_origin():
+    intent = parse_trip_intent("from vienna to copenhagen in august for 5 days under 200")
+
+    assert intent.returnOriginAirports is None

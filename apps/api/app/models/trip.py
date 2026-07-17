@@ -11,6 +11,20 @@ class TripSearchRequest(BaseModel):
     originAirports: list[str] = Field(min_length=1)
     # None means "anywhere" — the classic Triplet surprise search.
     destinationAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    # Multi-city: when set, return legs are searched from these airports and the
+    # trip is built as an open-jaw with the between-cities journey estimated,
+    # not filtered out by the ground-transfer limit.
+    returnOriginAirports: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+        description=(
+            "Multi-city only: airports the traveller DEPARTS FROM on the return leg, when they "
+            "name a different city than the outbound destination. Example: 'Budapest to Stockholm, "
+            "then from Helsinki back to Budapest' -> destinationAirports=['STO'], "
+            "returnOriginAirports=['HEL'] (never the home airport, which stays in originAirports)."
+        ),
+    )
     startDate: date
     endDate: date
     minTripLengthDays: int = Field(ge=1)

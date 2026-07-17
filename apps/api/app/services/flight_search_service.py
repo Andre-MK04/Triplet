@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -98,7 +99,7 @@ class FlightSearchService:
                     DateRange(start=request.startDate, end=request.endDate),
                 )
                 if deals_repo and fares:
-                    deals_repo.upsert_deals(fares)
+                    self._cache_deals(deals_repo, fares)
                 return fares
 
             # "Anywhere": serve fresh cached deals; only fetch live on a cold cache.
@@ -109,10 +110,19 @@ class FlightSearchService:
                 return []
             fares = discover(request.originAirports)
             if deals_repo and fares:
-                deals_repo.upsert_deals(fares)
+                self._cache_deals(deals_repo, fares)
             return fares
         except ProviderError:
             return []
+
+    def _cache_deals(self, deals_repo: CachedDealsRepository, fares) -> None:
+        """Best-effort cache write: a cache problem must never fail the search."""
+        try:
+            deals_repo.upsert_deals(fares)
+        except SQLAlchemyError:
+            logger.warning("deals_cache_write_failed", exc_info=True)
+            if self.db is not None:
+                self.db.rollback()
 
     def _build_provider(self, db: Session | None) -> FlightProvider:
         if self.provider_name == "hybrid":
@@ -174,19 +184,22 @@ class FlightSearchService:
 
     def _search_with_provider(self, provider: FlightProvider, request: TripSearchRequest) -> list[Flight]:
         return_window_end = request.endDate + timedelta(days=request.maxTripLengthDays)
-        if request.destinationAirports:
-            # Targeted search: origins → chosen destinations, returns from those
-            # destinations back to the origins. Live providers spend their request
-            # budget on exactly the routes the user asked for.
+        if request.destinationAirports or request.returnOriginAirports:
+            # Targeted search: origins → chosen destinations, returns back to the
+            # origins from the fly-home airports (multi-city) or the destinations
+            # themselves. Live providers spend their request budget on exactly
+            # the routes the user asked for.
+            outbound_scope = request.destinationAirports or request.returnOriginAirports or []
+            return_scope = request.returnOriginAirports or request.destinationAirports or []
             outbound_flights = provider.search_flights(
                 request.originAirports,
                 request.startDate,
                 request.endDate,
-                destination_codes=request.destinationAirports,
+                destination_codes=outbound_scope,
                 direct_only=request.directOnly,
             )
             return_flights = provider.search_flights(
-                request.destinationAirports,
+                return_scope,
                 request.startDate,
                 return_window_end,
                 destination_codes=request.originAirports,

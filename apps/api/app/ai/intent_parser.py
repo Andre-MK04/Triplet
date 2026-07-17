@@ -21,7 +21,10 @@ CITY_TO_AIRPORTS = {
 def parse_trip_intent(message: str) -> ParsedTripIntent:
     text = message.lower()
     origin_airports = parse_origins(text)
-    destination_airports = parse_destinations(text, exclude=set(origin_airports))
+    return_origin_airports = parse_return_origins(text, exclude=set(origin_airports))
+    destination_airports = parse_destinations(
+        text, exclude=set(origin_airports) | set(return_origin_airports or [])
+    )
     start_date, end_date = parse_date_range(text)
     min_days, max_days = parse_trip_length(text)
     max_budget = parse_budget(text)
@@ -46,6 +49,7 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
         parsed_search = TripSearchRequest(
             originAirports=origin_airports,
             destinationAirports=destination_airports,
+            returnOriginAirports=return_origin_airports,
             startDate=start_date,
             endDate=end_date,
             minTripLengthDays=min_days,
@@ -68,6 +72,7 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     return ParsedTripIntent(
         originAirports=origin_airports,
         destinationAirports=destination_airports,
+        returnOriginAirports=return_origin_airports,
         startDate=start_date,
         endDate=end_date,
         minTripLengthDays=min_days,
@@ -93,6 +98,31 @@ def parse_destinations(text: str, exclude: set[str] | None = None) -> list[str] 
     exclude = exclude or set()
     codes = [code for code in resolve_place_names(text) if code not in exclude]
     return codes or None
+
+
+_RETURN_FROM_PATTERN = re.compile(
+    r"(?:then|and then|afterwards?|later)?\s*"
+    r"(?:fly(?:ing)?\s+)?(?:back|home|return(?:ing)?)\s+from\s+([a-zà-ž .-]+?)(?=\s+(?:to|on|in|at|under|by|via)\b|[,.;!?]|$)"
+    r"|then\s+from\s+([a-zà-ž .-]+?)(?=\s+(?:to|back|home)\b|[,.;!?]|$)",
+    re.IGNORECASE,
+)
+
+
+def parse_return_origins(text: str, exclude: set[str] | None = None) -> list[str] | None:
+    """Multi-city: the city the traveller flies home from, if they name one.
+
+    Understands phrasings like "then from Helsinki to Budapest", "back from
+    Helsinki" or "returning home from Helsinki". Returns None when the request
+    is a plain out-and-back.
+    """
+    exclude = exclude or set()
+    codes: list[str] = []
+    for match in _RETURN_FROM_PATTERN.finditer(text):
+        fragment = (match.group(1) or match.group(2) or "").strip()
+        if not fragment:
+            continue
+        codes.extend(code for code in resolve_place_names(fragment) if code not in exclude)
+    return list(dict.fromkeys(codes)) or None
 
 
 def parse_origins(text: str) -> list[str]:

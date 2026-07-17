@@ -21,8 +21,19 @@ class CachedDealsRepository:
         """
         now = datetime.utcnow()
         expires = now + timedelta(hours=ttl_hours)
-        written = 0
+
+        # Dedup the batch first: overlapping query codes (e.g. ARN and the STO metro
+        # code) can return the same route+dates twice, and with autoflush off two
+        # pending inserts for one unique key would blow up at commit.
+        cheapest: dict[tuple[str, str, str | None, str | None], RoundTripFare] = {}
         for fare in fares:
+            key = (fare.origin.upper(), fare.destination.upper(), fare.departureDate, fare.returnDate)
+            current = cheapest.get(key)
+            if current is None or fare.price < current.price:
+                cheapest[key] = fare
+
+        written = 0
+        for fare in cheapest.values():
             departure = _parse_date(fare.departureDate)
             if not departure:
                 continue

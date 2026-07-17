@@ -75,7 +75,79 @@ const DEFAULT_ROUTES: Array<[string, string]> = [
   ["BUD", "BCN"],
   ["LJU", "PMI"],
   ["TRS", "AGP"],
+  ["VIE", "CPH"],
+  ["BUD", "PAR"],
+  ["ZAG", "BER"],
+  ["VCE", "MAD"],
+  ["LJU", "AMS"],
+  ["VIE", "ARN"],
+  ["BUD", "HEL"],
+  ["TRS", "DUB"],
 ];
+
+// Stylised low-poly Europe: coarse outlines as [lat, lon] loops, deliberately
+// abstract (an instrument overlay, not a map projection).
+const EUROPE_OUTLINES: Array<Array<[number, number]>> = [
+  // Continental silhouette (Iberia → Atlantic coast → Scandinavia → east → Med).
+  [
+    [36.0, -5.6], [37.0, -8.9], [38.7, -9.4], [41.1, -8.9], [43.4, -8.5], [43.4, -1.8],
+    [46.0, -1.2], [48.4, -4.8], [49.7, -1.9], [51.0, 2.0], [53.4, 5.0], [55.5, 8.3],
+    [57.7, 10.6], [58.0, 7.0], [60.4, 5.0], [63.4, 9.7], [67.3, 14.0], [71.0, 25.8],
+    [70.0, 28.5], [66.0, 30.0], [61.0, 28.5], [59.9, 30.3], [57.0, 24.1], [54.4, 19.0],
+    [54.1, 13.0], [53.5, 8.5], [52.0, 4.6], [51.0, 3.0], [48.6, -1.5], [46.5, -1.1],
+    [44.0, -1.3], [43.3, -2.0], [41.9, 3.2], [39.5, 0.0], [36.7, -2.5], [36.0, -5.6],
+  ],
+  // Mediterranean arc: south France → Italy → Adriatic → Greece → back across.
+  [
+    [42.5, 3.2], [43.3, 5.4], [43.7, 7.3], [44.4, 8.9], [43.0, 10.0], [41.9, 12.5],
+    [40.6, 14.3], [38.9, 16.6], [37.9, 15.7], [40.0, 18.5], [42.0, 15.0], [44.8, 13.6],
+    [45.6, 13.8], [44.0, 15.2], [42.6, 18.1], [40.5, 19.4], [38.4, 21.5], [36.8, 22.5],
+    [38.0, 23.7], [40.5, 22.9], [41.0, 29.0],
+  ],
+  // Britain.
+  [
+    [50.1, -5.7], [50.8, -0.8], [51.4, 1.4], [52.9, 1.7], [54.5, -0.6], [56.0, -2.6],
+    [57.5, -1.8], [58.6, -5.0], [56.5, -6.0], [54.6, -3.4], [53.3, -4.6], [51.6, -5.1],
+    [50.1, -5.7],
+  ],
+  // Ireland.
+  [
+    [51.8, -10.2], [52.2, -6.4], [53.3, -6.1], [55.2, -7.6], [54.3, -10.0], [51.8, -10.2],
+  ],
+  // Iceland.
+  [
+    [63.4, -18.5], [64.0, -22.6], [65.6, -24.0], [66.3, -18.7], [65.0, -13.8], [63.4, -18.5],
+  ],
+];
+
+function latLonLoopPoints(loop: Array<[number, number]>, radius: number): THREE.Vector3[] {
+  return loop.map(([lat, lon]) => latLonToVector3(lat, lon, radius));
+}
+
+function EuropeOutline() {
+  const lines = useMemo(
+    () =>
+      EUROPE_OUTLINES.map((loop) => {
+        const geometry = new THREE.BufferGeometry().setFromPoints(
+          latLonLoopPoints(loop, GLOBE_RADIUS * 1.004),
+        );
+        const material = new THREE.LineBasicMaterial({
+          color: "#7ddfc3",
+          transparent: true,
+          opacity: 0.4,
+        });
+        return new THREE.Line(geometry, material);
+      }),
+    [],
+  );
+  return (
+    <group>
+      {lines.map((line, index) => (
+        <primitive key={index} object={line} />
+      ))}
+    </group>
+  );
+}
 
 const ARC_SEGMENTS = 64;
 
@@ -138,8 +210,10 @@ function PriceTag({ marker }: { marker: GlobeMarker }) {
 
 function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
   return (
-    // Yawed so Europe (and its route arcs) faces the camera on first paint.
-    <group rotation={[0.35, -1.75, 0]}>
+    // Tilted and yawed so Europe (and its route arcs) faces the camera on first
+    // paint — solved so Vienna lands just left of viewport centre, and the slow
+    // auto-rotate carries the continent through centre.
+    <group rotation={[0.75, -2.3, 0]}>
       {/* Solid core so the far side of the wireframe reads as a planet, not a cage. */}
       <mesh>
         <sphereGeometry args={[GLOBE_RADIUS * 0.98, 64, 64]} />
@@ -159,8 +233,9 @@ function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
         />
       </mesh>
       <DotSphere />
+      <EuropeOutline />
       {DEFAULT_ROUTES.map(([from, to], index) => (
-        <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.7} />
+        <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.45} />
       ))}
       {markers.map((marker) => (
         <PriceTag key={marker.code} marker={marker} />
@@ -179,7 +254,7 @@ type RouteGlobeProps = {
 export default function RouteGlobe({ animate = true, interactive = true, markers = [] }: RouteGlobeProps) {
   return (
     <Canvas
-      camera={{ position: [0, 0, 5.4], fov: 42 }}
+      camera={{ position: [0, 0, 4.6], fov: 42 }}
       dpr={[1, 1.75]}
       gl={{ antialias: true, alpha: true, powerPreference: "low-power" }}
       style={{ background: "transparent" }}
@@ -193,7 +268,7 @@ export default function RouteGlobe({ animate = true, interactive = true, markers
         enablePan={false}
         enabled={interactive}
         autoRotate={animate}
-        autoRotateSpeed={0.55}
+        autoRotateSpeed={0.3}
         rotateSpeed={0.6}
       />
     </Canvas>
