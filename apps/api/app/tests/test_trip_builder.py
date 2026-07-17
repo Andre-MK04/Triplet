@@ -99,3 +99,43 @@ def test_destination_filter_excludes_other_destinations(trip_data):
     )
 
     assert trips == []
+
+
+def test_multi_city_return_origin_builds_open_jaw_with_estimated_transfer(trip_data):
+    # "Budapest to Lisbon, then home from Barcelona" — no seeded LIS→BCN transfer,
+    # so the between-cities journey is synthesized from geography and flagged.
+    trips = build_trips(
+        default_request(
+            originAirports=["BUD", "TRS"],
+            destinationAirports=["LIS"],
+            returnOriginAirports=["BCN"],
+            maxBudget=800,
+        ),
+        **trip_data,
+    )
+
+    assert trips
+    assert all(trip.tripType == "open_jaw" for trip in trips)
+    assert all(trip.outboundFlight.destination == "LIS" for trip in trips)
+    assert all(trip.returnFlight.origin == "BCN" for trip in trips)
+    for trip in trips:
+        assert trip.groundTransfer is not None
+        assert trip.groundTransfer.toCity == "Barcelona"
+        # Far beyond the 4h limit, but explicitly requested: estimated + warned, not dropped.
+        assert trip.groundTransfer.durationHours > 4
+        assert any("plan it as part of the trip" in warning for warning in trip.warnings)
+
+
+def test_return_origin_overrides_one_city_style(trip_data):
+    trips = build_trips(
+        default_request(
+            originAirports=["BUD", "TRS"],
+            destinationAirports=["LIS"],
+            returnOriginAirports=["BCN"],
+            tripStyle="one city",
+            maxBudget=800,
+        ),
+        **trip_data,
+    )
+    assert trips
+    assert all(trip.tripType == "open_jaw" for trip in trips)

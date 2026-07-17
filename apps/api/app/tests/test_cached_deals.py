@@ -36,6 +36,19 @@ def test_upsert_keeps_cheapest_for_same_route_dates(db_session):
     assert rows[0].price == 150
 
 
+def test_upsert_survives_duplicate_keys_within_one_batch(db_session):
+    # Overlapping query codes (ARN + the STO metro code) can yield the same
+    # route+dates twice in a single provider response. This used to raise a
+    # UNIQUE violation at commit and 503 the whole search.
+    repo = CachedDealsRepository(db_session)
+    written = repo.upsert_deals([fare("STO", 200), fare("STO", 184), fare("STO", 310)])
+    assert written == 1
+
+    rows = db_session.query(CachedRoundTripDB).filter_by(destination_code="STO").all()
+    assert len(rows) == 1
+    assert rows[0].price == 184  # cheapest of the batch wins
+
+
 def test_stale_deals_are_not_served_and_get_pruned(db_session):
     repo = CachedDealsRepository(db_session)
     repo.upsert_deals([fare("CPH", 120)])

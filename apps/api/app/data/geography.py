@@ -175,12 +175,8 @@ def is_european(code: str) -> bool:
     return code.upper() in PLACES
 
 
-def estimate_duration_minutes(origin: str, destination: str) -> int | None:
-    """Rough flight time from great-circle distance, when a provider omits it.
-
-    Used so we don't discard the cheapest fare just because the feed lacked a
-    duration field. Approximate by design (≈700 km/h cruise + 40 min overhead).
-    """
+def distance_km(origin: str, destination: str) -> float | None:
+    """Great-circle distance between two known places, in kilometres."""
     import math
 
     a = PLACES.get(origin.upper())
@@ -192,7 +188,18 @@ def estimate_duration_minutes(origin: str, destination: str) -> int | None:
     dphi = math.radians(b.lat - a.lat)
     dlmb = math.radians(b.lon - a.lon)
     h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
-    km = 2 * r * math.asin(min(1.0, math.sqrt(h)))
+    return 2 * r * math.asin(min(1.0, math.sqrt(h)))
+
+
+def estimate_duration_minutes(origin: str, destination: str) -> int | None:
+    """Rough flight time from great-circle distance, when a provider omits it.
+
+    Used so we don't discard the cheapest fare just because the feed lacked a
+    duration field. Approximate by design (≈700 km/h cruise + 40 min overhead).
+    """
+    km = distance_km(origin, destination)
+    if km is None:
+        return None
     return int(round(km / 700 * 60)) + 40
 
 

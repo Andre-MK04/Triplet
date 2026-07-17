@@ -71,6 +71,8 @@ export type TripStyle = "one city" | "two nearby cities" | "surprise me";
 export type TripSearchPayload = {
   originAirports: string[];
   destinationAirports?: string[] | null;
+  /** Multi-city: airports the traveller flies home from, when different from the destination. */
+  returnOriginAirports?: string[] | null;
   startDate: string;
   endDate: string;
   minTripLengthDays: number;

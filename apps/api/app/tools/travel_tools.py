@@ -71,10 +71,14 @@ class SearchTripsTool(Tool):
             enforce_budget=enforce_budget,
         )
         # Augment with round-trip bundles discovered across Europe (city-directions),
-        # which avoid one-way pairing gaps and give true round-trip prices.
-        bundle_trips = build_round_trip_options(
-            flight_search.discover_round_trip_fares(request), request, scoring, enforce_budget=enforce_budget
-        )
+        # which avoid one-way pairing gaps and give true round-trip prices. Bundles
+        # are same-city by nature, so an explicit multi-city request skips them.
+        if request.returnOriginAirports:
+            bundle_trips = []
+        else:
+            bundle_trips = build_round_trip_options(
+                flight_search.discover_round_trip_fares(request), request, scoring, enforce_budget=enforce_budget
+            )
         trips = merge_trip_options(paired_trips, bundle_trips)
 
         try:
