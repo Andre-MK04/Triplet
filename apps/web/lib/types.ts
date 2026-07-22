@@ -187,14 +187,58 @@ export type TravelProfile = {
   preferredTripLengthMin: number;
   preferredTripLengthMax: number;
   budgetComfortZone: "under_100" | "under_200" | "under_400" | "flexible";
-  spontaneity: "tomorrow" | "next_week" | "next_month" | "planning_ahead";
+  spontaneity:
+    | "very_spontaneous"
+    | "soon"
+    | "flexible_monthly"
+    | "planner"
+    | "long_term_planner"
+    | "tomorrow"
+    | "next_week"
+    | "next_month"
+    | "planning_ahead";
   comfortRules: ComfortRule[];
   openJawWillingness: "simple_returns_only" | "nearby_city_open_jaw" | "adventurous_multi_city";
   notificationFrequency: "instant_email" | "weekly_digest" | "urgent_only" | "push_later";
   excludedAirlines: string[];
   preferredMonths: number[];
+  // Profile v2 (all optional; sent back to /me/travel-profile).
+  baseLocationId?: number | null;
+  baseLatitude?: number | null;
+  baseLongitude?: number | null;
+  maxAirportDistanceKm?: number | null;
+  recommendedOriginAirports?: string[];
+  dealSensitivity?: "strict" | "balanced" | "flexible";
+  absoluteMaxBudget?: number | null;
+  alertTriggerMode?: "below_budget" | "route_deal" | "price_drop" | "any";
+  comfortRuleModes?: Record<string, "off" | "prefer" | "require">;
+  themePreference?: "light" | "dark" | "system" | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+};
+
+export type LocationResult = {
+  id: number;
+  name: string;
+  countryCode: string;
+  countryName: string;
+  adminRegion?: string | null;
+  latitude: number;
+  longitude: number;
+  population?: number | null;
+};
+
+export type AirportResult = {
+  iataCode: string;
+  name: string;
+  city?: string | null;
+  countryCode: string;
+  countryName: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+  scheduledService: boolean;
+  distanceKm?: number | null;
 };
 
 export type BillingStatus = {

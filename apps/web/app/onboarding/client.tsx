@@ -2,17 +2,17 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
+import { Autocomplete } from "../../components/Autocomplete";
 import { useAuth } from "../../components/AuthContext";
 import { Button, ButtonLink } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
-import { Field, Input } from "../../components/ui/Input";
+import { Input } from "../../components/ui/Input";
 import { Notice, Spinner } from "../../components/ui/Misc";
 import { apiGet, apiPut } from "../../lib/api";
-import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
-import type { ComfortRule, TravelProfile, TripType } from "../../lib/types";
+import type { AirportResult, ComfortRule, LocationResult, TravelProfile, TripType } from "../../lib/types";
 
 const TRIP_TYPES: Array<{ value: TripType; label: string }> = [
   { value: "weekend_city_break", label: "Weekend city breaks" },
@@ -26,33 +26,41 @@ const TRIP_TYPES: Array<{ value: TripType; label: string }> = [
 ];
 
 const COMFORT_RULES: Array<{ value: ComfortRule; label: string }> = [
-  { value: "direct_only", label: "Direct flights only" },
+  { value: "direct_only", label: "Direct flights" },
   { value: "max_one_stop", label: "Max 1 stop" },
-  { value: "avoid_overnight_layovers", label: "No overnight layovers" },
-  { value: "no_departures_before_6am", label: "No flights before 6am" },
-  { value: "no_returns_after_midnight", label: "No returns after midnight" },
-  { value: "cabin_bag_included", label: "Cabin bag included preferred" },
+  { value: "avoid_overnight_layovers", label: "Overnight layovers" },
+  { value: "no_departures_before_6am", label: "Flights before 6am" },
+  { value: "no_returns_after_midnight", label: "Returns after midnight" },
+  { value: "cabin_bag_included", label: "Cabin bag included" },
 ];
 
-const TRAVEL_TIMES = [
-  { minutes: 30, label: "30 min" },
-  { minutes: 60, label: "1 hour" },
-  { minutes: 120, label: "2 hours" },
-  { minutes: 180, label: "3 hours" },
+const DISTANCES = [
+  { km: 50, label: "≈30 min" },
+  { km: 100, label: "≈1 hour" },
+  { km: 200, label: "≈2 hours" },
+  { km: 300, label: "≈3 hours" },
+  { km: 450, label: "4+ hours" },
 ];
 
-const BUDGETS = [
+const DEAL_SENSITIVITY = [
+  { value: "strict", label: "Only unusually cheap deals" },
+  { value: "balanced", label: "Balanced price and comfort" },
+  { value: "flexible", label: "I'll pay more for the right trip" },
+] as const;
+
+const BUDGET_BANDS = [
   { value: "under_100", label: "Under €100" },
-  { value: "under_200", label: "Under €200" },
-  { value: "under_400", label: "Under €400" },
+  { value: "under_200", label: "€100–€200" },
+  { value: "under_400", label: "€200–€400" },
   { value: "flexible", label: "Flexible" },
 ] as const;
 
 const SPONTANEITY = [
-  { value: "tomorrow", label: "I'd leave tomorrow" },
-  { value: "next_week", label: "Next week works" },
-  { value: "next_month", label: "Give me a month" },
-  { value: "planning_ahead", label: "I plan ahead" },
+  { value: "very_spontaneous", label: "I can leave within days" },
+  { value: "soon", label: "I can travel next week" },
+  { value: "flexible_monthly", label: "I usually need a few weeks" },
+  { value: "planner", label: "I need at least a month" },
+  { value: "long_term_planner", label: "I plan 2+ months ahead" },
 ] as const;
 
 const OPEN_JAW = [
@@ -68,29 +76,17 @@ const NOTIFICATIONS = [
   { value: "push_later", label: "Push (coming with the app)" },
 ] as const;
 
-const TOTAL_STEPS = 9;
+const COMFORT_MODES = ["off", "prefer", "require"] as const;
+type ComfortMode = (typeof COMFORT_MODES)[number];
 
-const BUDGET_LABEL: Record<TravelProfile["budgetComfortZone"], string> = {
-  under_100: "UNDER €100",
-  under_200: "UNDER €200",
-  under_400: "UNDER €400",
-  flexible: "FLEXIBLE",
-};
-
-/** The pass "prints" as the traveller answers — the quiz assembles a boarding pass. */
 function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
   const rows: Array<[string, string]> = [
     ["Home base", profile.homeLocation || "—"],
+    ["Max to airport", profile.maxAirportDistanceKm ? `${profile.maxAirportDistanceKm} KM` : "—"],
     ["Airports", profile.originAirports.length ? profile.originAirports.join(" · ") : "—"],
-    [
-      "Styles",
-      profile.preferredTripTypes.length
-        ? profile.preferredTripTypes.map((type) => type.replaceAll("_", " ")).join(", ")
-        : "—",
-    ],
+    ["Styles", profile.preferredTripTypes.length ? `${profile.preferredTripTypes.length} SELECTED` : "—"],
     ["Trip length", `${profile.preferredTripLengthMin}–${profile.preferredTripLengthMax} DAYS`],
-    ["Budget", BUDGET_LABEL[profile.budgetComfortZone]],
-    ["Rules", profile.comfortRules.length ? `${profile.comfortRules.length} SET` : "—"],
+    ["Deals", (profile.dealSensitivity ?? "balanced").toUpperCase()],
   ];
   return (
     <aside className="hidden h-fit border border-line bg-ink-raised lg:block" aria-label="Travel profile preview">
@@ -108,9 +104,7 @@ function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
         ))}
       </dl>
       <div className="border-t border-dashed border-line px-5 py-3">
-        <p className="font-mono text-[9px] uppercase tracking-label text-mist/50">
-          Powers alerts &amp; every search
-        </p>
+        <p className="font-mono text-[9px] uppercase tracking-label text-mist/50">Powers alerts &amp; every search</p>
       </div>
     </aside>
   );
@@ -123,9 +117,12 @@ export function OnboardingClient() {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [profile, setProfile] = useState<TravelProfile | null>(null);
-  const [customAirport, setCustomAirport] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  const [recommended, setRecommended] = useState<AirportResult[]>([]);
+  const [recStatus, setRecStatus] = useState<"idle" | "loading" | "empty">("idle");
+  const preselectedFor = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -133,8 +130,6 @@ export function OnboardingClient() {
       .then(setProfile)
       .catch(() => setError("Could not load your profile. Is the API running?"));
   }, [user]);
-
-  const progress = useMemo(() => Math.round(((step + 1) / TOTAL_STEPS) * 100), [step]);
 
   function update<K extends keyof TravelProfile>(key: K, value: TravelProfile[K]) {
     setProfile((current) => (current ? { ...current, [key]: value } : current));
@@ -144,9 +139,52 @@ export function OnboardingClient() {
     return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
   }
 
-  function goTo(next: number) {
-    setDirection(next > step ? 1 : -1);
-    setStep(Math.max(0, Math.min(TOTAL_STEPS - 1, next)));
+  // Fetch recommended airports whenever base coords + distance are known.
+  useEffect(() => {
+    if (!profile?.baseLatitude || !profile?.baseLongitude) {
+      setRecommended([]);
+      setRecStatus("idle");
+      return;
+    }
+    const km = profile.maxAirportDistanceKm ?? 200;
+    setRecStatus("loading");
+    apiGet<AirportResult[]>(
+      `/airports/recommended?lat=${profile.baseLatitude}&lon=${profile.baseLongitude}&maxDistanceKm=${km}`,
+    )
+      .then((data) => {
+        setRecommended(data);
+        setRecStatus(data.length ? "idle" : "empty");
+        // Preselect the nearest three once per base location (don't clobber edits).
+        if (profile.baseLocationId && preselectedFor.current !== profile.baseLocationId && data.length) {
+          preselectedFor.current = profile.baseLocationId;
+          const recommendedCodes = data.slice(0, 12).map((a) => a.iataCode);
+          setProfile((cur) =>
+            cur
+              ? {
+                  ...cur,
+                  recommendedOriginAirports: recommendedCodes,
+                  originAirports: cur.originAirports.length === 0 ? recommendedCodes.slice(0, 3) : cur.originAirports,
+                }
+              : cur,
+          );
+        }
+      })
+      .catch(() => setRecStatus("empty"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.baseLatitude, profile?.baseLongitude, profile?.maxAirportDistanceKm]);
+
+  function comfortMode(rule: ComfortRule): ComfortMode {
+    return (profile?.comfortRuleModes?.[rule] as ComfortMode) ?? "off";
+  }
+
+  function setComfortMode(rule: ComfortRule, mode: ComfortMode) {
+    if (!profile) return;
+    const modes = { ...(profile.comfortRuleModes ?? {}) };
+    if (mode === "off") delete modes[rule];
+    else modes[rule] = mode;
+    // Keep the legacy list in sync (anything not "off") for existing scoring.
+    const list = Object.keys(modes) as ComfortRule[];
+    setProfile({ ...profile, comfortRuleModes: modes, comfortRules: list });
   }
 
   async function finish() {
@@ -197,109 +235,154 @@ export function OnboardingClient() {
     );
   }
 
+  const p = profile;
+  const distanceKm = p.maxAirportDistanceKm ?? 200;
+
   const steps: Array<{ title: string; subtitle?: string; content: React.ReactNode; valid: boolean }> = [
     {
       title: "Where are you based?",
-      subtitle: "City and country is enough — it helps us suggest nearby airports.",
-      valid: true,
+      subtitle: "Type your city or town — this powers airport recommendations and distances.",
+      valid: Boolean(p.homeLocation),
       content: (
-        <Field label="Home base">
-          <Input
-            value={profile.homeLocation ?? ""}
-            onChange={(event) => update("homeLocation", event.target.value)}
-            placeholder="e.g. Ljubljana, Slovenia"
-            autoFocus
+        <div className="space-y-3">
+          <Autocomplete<LocationResult>
+            endpoint={(q) => `/locations/search?q=${q}`}
+            placeholder="e.g. Ljubljana, Paris, Maribor…"
+            ariaLabel="Search for your base city or town"
+            value={p.homeLocation ?? ""}
+            optionKey={(loc) => String(loc.id)}
+            renderOption={(loc) => (
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="text-cloud">{loc.name}</span>
+                <span className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+                  {loc.countryName}
+                </span>
+              </span>
+            )}
+            onSelect={(loc) => {
+              preselectedFor.current = null;
+              setProfile({
+                ...p,
+                homeLocation: `${loc.name}, ${loc.countryName}`,
+                baseLocationId: loc.id,
+                baseLatitude: loc.latitude,
+                baseLongitude: loc.longitude,
+                originAirports: [],
+              });
+            }}
           />
-        </Field>
-      ),
-    },
-    {
-      title: "Which airports would you fly from?",
-      subtitle: "Pick every airport you'd realistically use. More airports, more deals.",
-      valid: profile.originAirports.length > 0,
-      content: (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {ORIGIN_AIRPORT_CODES.map((code) => {
-              const info = AIRPORTS_BY_CODE[code];
-              return (
-                <Chip
-                  key={code}
-                  selected={profile.originAirports.includes(code)}
-                  onClick={() => update("originAirports", toggleInList(profile.originAirports, code))}
-                >
-                  {info ? `${info.city} ${code}` : code}
-                </Chip>
-              );
-            })}
-            {profile.originAirports
-              .filter((code) => !ORIGIN_AIRPORT_CODES.includes(code))
-              .map((code) => (
-                <Chip key={code} selected onClick={() => update("originAirports", toggleInList(profile.originAirports, code))}>
-                  {code} ✕
-                </Chip>
-              ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={customAirport}
-              onChange={(event) => setCustomAirport(event.target.value.toUpperCase())}
-              placeholder="Add IATA code, e.g. MUC"
-              maxLength={3}
-              className="max-w-44"
-              aria-label="Add another airport by IATA code"
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                const code = customAirport.trim().toUpperCase();
-                if (/^[A-Z]{3}$/.test(code) && !profile.originAirports.includes(code)) {
-                  update("originAirports", [...profile.originAirports, code]);
-                }
-                setCustomAirport("");
-              }}
-            >
-              Add
-            </Button>
-          </div>
-          <p className="text-xs text-mist/70">Free plans watch up to 6 origin airports.</p>
+          {p.homeLocation && !p.baseLocationId ? (
+            <p className="font-mono text-[10px] uppercase tracking-label text-gold">
+              Using “{p.homeLocation}” as a custom location — airport suggestions need a matched city.
+            </p>
+          ) : p.baseLocationId ? (
+            <p className="font-mono text-[10px] uppercase tracking-label text-mint">Base set · {p.homeLocation}</p>
+          ) : null}
         </div>
       ),
     },
     {
-      title: "How far would you travel to catch a flight?",
+      title: "How far would you travel to an airport?",
+      subtitle: "We'll recommend airports within this range of your base.",
       valid: true,
       content: (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="flex flex-wrap gap-2">
-            {TRAVEL_TIMES.map((option) => (
-              <Chip
-                key={option.minutes}
-                selected={profile.maxAirportTravelTimeMinutes === option.minutes}
-                onClick={() => update("maxAirportTravelTimeMinutes", option.minutes)}
-              >
-                {option.label}
+            {DISTANCES.map((d) => (
+              <Chip key={d.km} selected={distanceKm === d.km} onClick={() => update("maxAirportDistanceKm", d.km)}>
+                {d.km} km · {d.label}
               </Chip>
             ))}
           </div>
           <div>
-            <div className="mb-2 flex justify-between text-xs text-mist">
+            <div className="mb-2 flex justify-between font-mono text-[11px] uppercase tracking-label text-mist">
               <span>Custom</span>
-              <span className="font-semibold text-mint">
-                {Math.floor(profile.maxAirportTravelTimeMinutes / 60)}h {profile.maxAirportTravelTimeMinutes % 60 ? `${profile.maxAirportTravelTimeMinutes % 60}m` : ""}
-              </span>
+              <span className="text-mint">{distanceKm} km</span>
             </div>
             <input
               type="range"
-              min={30}
-              max={360}
-              step={15}
-              value={profile.maxAirportTravelTimeMinutes}
-              onChange={(event) => update("maxAirportTravelTimeMinutes", Number(event.target.value))}
+              min={20}
+              max={600}
+              step={10}
+              value={distanceKm}
+              onChange={(event) => update("maxAirportDistanceKm", Number(event.target.value))}
               className="w-full"
-              aria-label="Maximum travel time to airport in minutes"
+              aria-label="Maximum distance to an airport in km"
             />
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Recommended origin airports",
+      subtitle: "Nearest first, within your range. We preselected a few — add or remove any.",
+      valid: p.originAirports.length > 0,
+      content: (
+        <div className="space-y-3">
+          {recStatus === "loading" ? (
+            <Spinner label="Finding airports near you…" />
+          ) : !p.baseLatitude ? (
+            <Notice tone="info">Set a matched base city first, or add airports manually on the next step.</Notice>
+          ) : recStatus === "empty" ? (
+            <Notice tone="info">No airports within {distanceKm} km — widen the range or add one manually next.</Notice>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {recommended.map((a) => (
+                <Chip
+                  key={a.iataCode}
+                  selected={p.originAirports.includes(a.iataCode)}
+                  onClick={() => update("originAirports", toggleInList(p.originAirports, a.iataCode))}
+                >
+                  {a.city || a.name} · {a.iataCode}
+                  {a.distanceKm != null ? ` · ${Math.round(a.distanceKm)} km` : ""}
+                </Chip>
+              ))}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Add any other airports",
+      subtitle: "Search by city, airport name, or IATA code. More airports, more deals.",
+      valid: p.originAirports.length > 0,
+      content: (
+        <div className="space-y-4">
+          <Autocomplete<AirportResult>
+            endpoint={(q) =>
+              p.baseLatitude
+                ? `/airports/search?q=${q}&lat=${p.baseLatitude}&lon=${p.baseLongitude}`
+                : `/airports/search?q=${q}`
+            }
+            placeholder="e.g. Vienna, CDG, Zagreb…"
+            ariaLabel="Search airports to add"
+            optionKey={(a) => a.iataCode}
+            renderOption={(a) => (
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="text-cloud">
+                  {a.name} · <span className="font-mono">{a.iataCode}</span>
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+                  {a.city || a.countryName}
+                  {a.distanceKm != null ? ` · ${Math.round(a.distanceKm)} km` : ""}
+                </span>
+              </span>
+            )}
+            onSelect={(a) => {
+              if (!p.originAirports.includes(a.iataCode)) {
+                update("originAirports", [...p.originAirports, a.iataCode]);
+              }
+            }}
+          />
+          <div className="flex flex-wrap gap-2">
+            {p.originAirports.map((code) => (
+              <Chip key={code} selected onClick={() => update("originAirports", toggleInList(p.originAirports, code))}>
+                {code} ✕
+              </Chip>
+            ))}
+            {p.originAirports.length === 0 ? (
+              <span className="font-mono text-[11px] uppercase tracking-label text-mist/60">No airports yet</span>
+            ) : null}
           </div>
         </div>
       ),
@@ -313,8 +396,8 @@ export function OnboardingClient() {
           {TRIP_TYPES.map((type) => (
             <Chip
               key={type.value}
-              selected={profile.preferredTripTypes.includes(type.value)}
-              onClick={() => update("preferredTripTypes", toggleInList(profile.preferredTripTypes, type.value))}
+              selected={p.preferredTripTypes.includes(type.value)}
+              onClick={() => update("preferredTripTypes", toggleInList(p.preferredTripTypes, type.value))}
             >
               {type.label}
             </Chip>
@@ -324,75 +407,89 @@ export function OnboardingClient() {
     },
     {
       title: "How long is your ideal trip?",
-      valid: profile.preferredTripLengthMin <= profile.preferredTripLengthMax,
+      valid: p.preferredTripLengthMin <= p.preferredTripLengthMax,
       content: (
         <div className="space-y-6">
-          <div>
-            <div className="mb-2 flex justify-between text-xs text-mist">
-              <span>At least</span>
-              <span className="font-semibold text-mint">{profile.preferredTripLengthMin} days</span>
+          {[
+            ["At least", "preferredTripLengthMin", 1, 21] as const,
+            ["At most", "preferredTripLengthMax", 1, 30] as const,
+          ].map(([label, key, min, max]) => (
+            <div key={key}>
+              <div className="mb-2 flex justify-between font-mono text-[11px] uppercase tracking-label text-mist">
+                <span>{label}</span>
+                <span className="text-mint">{p[key]} days</span>
+              </div>
+              <input
+                type="range"
+                min={min}
+                max={max}
+                value={p[key]}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  if (key === "preferredTripLengthMin") update(key, Math.min(value, p.preferredTripLengthMax));
+                  else update(key, Math.max(value, p.preferredTripLengthMin));
+                }}
+                className="w-full"
+                aria-label={`${label} trip length in days`}
+              />
             </div>
-            <input
-              type="range"
-              min={1}
-              max={21}
-              value={profile.preferredTripLengthMin}
-              onChange={(event) =>
-                update("preferredTripLengthMin", Math.min(Number(event.target.value), profile.preferredTripLengthMax))
-              }
-              className="w-full"
-              aria-label="Minimum trip length in days"
-            />
-          </div>
-          <div>
-            <div className="mb-2 flex justify-between text-xs text-mist">
-              <span>At most</span>
-              <span className="font-semibold text-mint">{profile.preferredTripLengthMax} days</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={30}
-              value={profile.preferredTripLengthMax}
-              onChange={(event) =>
-                update("preferredTripLengthMax", Math.max(Number(event.target.value), profile.preferredTripLengthMin))
-              }
-              className="w-full"
-              aria-label="Maximum trip length in days"
-            />
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "What's your budget comfort zone?",
-      subtitle: "For the whole trip's flights — we'll still show you outliers.",
-      valid: true,
-      content: (
-        <div className="flex flex-wrap gap-2">
-          {BUDGETS.map((budget) => (
-            <Chip
-              key={budget.value}
-              selected={profile.budgetComfortZone === budget.value}
-              onClick={() => update("budgetComfortZone", budget.value)}
-            >
-              {budget.label}
-            </Chip>
           ))}
         </div>
       ),
     },
     {
+      title: "How do you feel about price?",
+      subtitle: "This shapes ranking and when we alert you — not a hard filter.",
+      valid: true,
+      content: (
+        <div className="space-y-6">
+          <div>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-label text-mist">Deal sensitivity</p>
+            <div className="flex flex-wrap gap-2">
+              {DEAL_SENSITIVITY.map((d) => (
+                <Chip key={d.value} selected={(p.dealSensitivity ?? "balanced") === d.value} onClick={() => update("dealSensitivity", d.value)}>
+                  {d.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-label text-mist">Typical flight budget</p>
+            <div className="flex flex-wrap gap-2">
+              {BUDGET_BANDS.map((b) => (
+                <Chip key={b.value} selected={p.budgetComfortZone === b.value} onClick={() => update("budgetComfortZone", b.value)}>
+                  {b.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 font-mono text-[11px] uppercase tracking-label text-mist">
+              Absolute max budget <span className="text-mist/60">(optional)</span>
+            </p>
+            <Input
+              type="number"
+              min={20}
+              placeholder="Leave empty for no hard cap"
+              value={p.absoluteMaxBudget ?? ""}
+              onChange={(event) =>
+                update("absoluteMaxBudget", event.target.value ? Number(event.target.value) : null)
+              }
+              className="max-w-48"
+              aria-label="Absolute maximum budget in euros"
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
       title: "How spontaneous are you?",
+      subtitle: "Sets your default search dates when you don't pick specific ones.",
       valid: true,
       content: (
         <div className="flex flex-wrap gap-2">
           {SPONTANEITY.map((option) => (
-            <Chip
-              key={option.value}
-              selected={profile.spontaneity === option.value}
-              onClick={() => update("spontaneity", option.value)}
-            >
+            <Chip key={option.value} selected={p.spontaneity === option.value} onClick={() => update("spontaneity", option.value)}>
               {option.label}
             </Chip>
           ))}
@@ -401,23 +498,39 @@ export function OnboardingClient() {
     },
     {
       title: "Any comfort rules?",
-      subtitle: "Trips that break these get flagged or filtered.",
+      subtitle: "Require never shows breaking trips; Prefer just lowers their fit score.",
       valid: true,
       content: (
         <div className="space-y-5">
-          <div className="flex flex-wrap gap-2">
-            {COMFORT_RULES.map((rule) => (
-              <Chip
-                key={rule.value}
-                selected={profile.comfortRules.includes(rule.value)}
-                onClick={() => update("comfortRules", toggleInList(profile.comfortRules, rule.value))}
-              >
-                {rule.label}
-              </Chip>
-            ))}
+          <div className="space-y-2">
+            {COMFORT_RULES.map((rule) => {
+              const active = comfortMode(rule.value);
+              return (
+                <div key={rule.value} className="flex items-center justify-between gap-3 border-b border-line py-2.5">
+                  <span className="text-sm text-cloud">{rule.label}</span>
+                  <div className="flex gap-1">
+                    {COMFORT_MODES.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setComfortMode(rule.value, mode)}
+                        className={
+                          "border px-2.5 py-1 font-mono text-[10px] uppercase tracking-label transition-colors " +
+                          (active === mode
+                            ? "border-mint bg-mint text-mint-ink"
+                            : "border-line bg-transparent text-mist hover:border-mint/40")
+                        }
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-mist">Open-jaw &amp; multi-city</p>
+            <p className="font-mono text-[11px] uppercase tracking-label text-mist">Open-jaw &amp; multi-city</p>
             {OPEN_JAW.map((option) => (
               <button
                 key={option.value}
@@ -425,7 +538,7 @@ export function OnboardingClient() {
                 onClick={() => update("openJawWillingness", option.value)}
                 className={
                   "block w-full rounded-none border px-4 py-3 text-left text-sm transition " +
-                  (profile.openJawWillingness === option.value
+                  (p.openJawWillingness === option.value
                     ? "border-mint bg-mint-soft text-cloud"
                     : "border-line bg-transparent text-mist hover:border-mint/40")
                 }
@@ -446,7 +559,7 @@ export function OnboardingClient() {
           {NOTIFICATIONS.map((option) => (
             <Chip
               key={option.value}
-              selected={profile.notificationFrequency === option.value}
+              selected={p.notificationFrequency === option.value}
               onClick={() => update("notificationFrequency", option.value)}
             >
               {option.label}
@@ -457,8 +570,16 @@ export function OnboardingClient() {
     },
   ];
 
+  const totalSteps = steps.length;
+  const progress = Math.round(((step + 1) / totalSteps) * 100);
+
+  function goTo(next: number) {
+    setDirection(next > step ? 1 : -1);
+    setStep(Math.max(0, Math.min(totalSteps - 1, next)));
+  }
+
   const current = steps[step];
-  const isLast = step === TOTAL_STEPS - 1;
+  const isLast = step === totalSteps - 1;
 
   return (
     <AppShell>
@@ -467,15 +588,13 @@ export function OnboardingClient() {
           <div className="mb-10">
             <div className="mb-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-label text-mist">
               <span>Travel profile</span>
-              <span className="mono-num">{String(step + 1).padStart(2, "0")} / {String(TOTAL_STEPS).padStart(2, "0")}</span>
+              <span className="mono-num">
+                {String(step + 1).padStart(2, "0")} / {String(totalSteps).padStart(2, "0")}
+              </span>
             </div>
-            {/* Segmented progress rule: sharp rectangles, active in mint. */}
             <div className="flex gap-1" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-              {Array.from({ length: TOTAL_STEPS }, (_, index) => (
-                <span
-                  key={index}
-                  className={"h-0.5 flex-1 transition-colors " + (index <= step ? "bg-mint" : "bg-line")}
-                />
+              {Array.from({ length: totalSteps }, (_, index) => (
+                <span key={index} className={"h-0.5 flex-1 transition-colors " + (index <= step ? "bg-mint" : "bg-line")} />
               ))}
             </div>
           </div>
@@ -512,7 +631,7 @@ export function OnboardingClient() {
           </div>
         </div>
 
-        <BoardingPassPreview profile={profile} />
+        <BoardingPassPreview profile={p} />
       </div>
     </AppShell>
   );

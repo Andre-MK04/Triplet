@@ -14,7 +14,19 @@ TripType = Literal[
     "long_haul_dream",
 ]
 BudgetComfortZone = Literal["under_100", "under_200", "under_400", "flexible"]
-Spontaneity = Literal["tomorrow", "next_week", "next_month", "planning_ahead"]
+Spontaneity = Literal[
+    # New richer scale (maps to spontaneity date windows):
+    "very_spontaneous",
+    "soon",
+    "flexible_monthly",
+    "planner",
+    "long_term_planner",
+    # Legacy values kept for back-compat with existing saved profiles:
+    "tomorrow",
+    "next_week",
+    "next_month",
+    "planning_ahead",
+]
 ComfortRule = Literal[
     "direct_only",
     "max_one_stop",
