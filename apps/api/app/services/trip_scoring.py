@@ -154,6 +154,10 @@ def calculate_fit_score(
             components.append(ScoreComponent(label=label, points=points))
         score += points
 
+    # Search travel styles override profile styles for THIS search (product rule:
+    # explicit search wins). Falls back to profile styles when the search is silent.
+    search_styles = {s.strip().lower() for s in (request.travelStyles or []) if s.strip()}
+
     if profile is None:
         # Without a profile, fit is relative to the request only.
         middle = (request.minTripLengthDays + request.maxTripLengthDays) / 2
@@ -161,6 +165,7 @@ def calculate_fit_score(
             add("Trip length in your sweet spot", 5)
         if trip.totalPrice <= request.maxBudget * 0.6:
             add("Leaves budget for the trip itself", 5)
+        _score_travel_styles(trip, search_styles, add, source="your search")
         return clamp(score), components
 
     origins = {code.upper() for code in profile.origin_airports or []}
@@ -214,15 +219,30 @@ def calculate_fit_score(
         else:
             add("Above your budget comfort zone", -5)
 
-    preferred_styles = set(profile.preferred_trip_types or [])
-    if preferred_styles:
-        trip_styles = destination_styles(trip.outboundFlight.destination, trip.returnFlight.origin)
-        matched = sorted(preferred_styles & trip_styles)
-        if matched:
-            labels = ", ".join(STYLE_LABELS.get(style, style) for style in matched[:3])
-            add(f"Matches your travel style: {labels}", min(4 + 2 * len(matched), 8))
+    preferred_styles = search_styles or {s.lower() for s in (profile.preferred_trip_types or [])}
+    _score_travel_styles(
+        trip,
+        preferred_styles,
+        add,
+        source="your search" if search_styles else "your travel style",
+    )
 
     return clamp(score), components
+
+
+def _score_travel_styles(trip: TripOption, styles: set[str], add, source: str) -> None:
+    """Boost fit when the destination matches the chosen/profile travel styles.
+
+    Non-matching trips are not filtered — they simply miss this boost, so a very
+    cheap off-style deal still surfaces (with a lower fit score).
+    """
+    if not styles:
+        return
+    trip_styles = destination_styles(trip.outboundFlight.destination, trip.returnFlight.origin)
+    matched = sorted(styles & trip_styles)
+    if matched:
+        labels = ", ".join(STYLE_LABELS.get(style, style) for style in matched[:3])
+        add(f"Matches {source}: {labels}", min(4 + 2 * len(matched), 8))
 
 
 def calculate_trip_score(trip: TripOption, request: TripSearchRequest) -> int:

@@ -274,8 +274,23 @@ class UserTravelProfileDB(Base):
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     home_location: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    # Base location resolved from the locations directory (Stage A).
+    base_location_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    base_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    base_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_airport_distance_km: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recommended_origin_airports: Mapped[list[str]] = mapped_column(JSON, default=list)
     origin_airports: Mapped[list[str]] = mapped_column(JSON, default=list)
     max_airport_travel_time_minutes: Mapped[int] = mapped_column(Integer, default=120)
+    # Smarter budget/deal preferences (Stage C).
+    deal_sensitivity: Mapped[str] = mapped_column(String(20), default="balanced")  # strict|balanced|flexible
+    absolute_max_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
+    alert_trigger_mode: Mapped[str] = mapped_column(String(20), default="any")  # below_budget|route_deal|price_drop|any
+    # Tri-state comfort rules: {rule_key: "off"|"prefer"|"require"}. The legacy
+    # comfort_rules list below is kept in sync for older code paths.
+    comfort_rule_modes: Mapped[dict] = mapped_column(JSON, default=dict)
+    theme_preference: Mapped[str | None] = mapped_column(String(10), nullable=True)  # light|dark|system
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     preferred_trip_types: Mapped[list[str]] = mapped_column(JSON, default=list)
     preferred_trip_length_min: Mapped[int] = mapped_column(Integer, default=2)
     preferred_trip_length_max: Mapped[int] = mapped_column(Integer, default=7)

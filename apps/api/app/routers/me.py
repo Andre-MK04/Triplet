@@ -109,6 +109,21 @@ def upsert_travel_profile(
     row.notification_frequency = request.notificationFrequency
     row.excluded_airlines = request.excludedAirlines
     row.preferred_months = request.preferredMonths
+    # Profile v2 fields.
+    row.base_location_id = request.baseLocationId
+    row.base_latitude = request.baseLatitude
+    row.base_longitude = request.baseLongitude
+    row.max_airport_distance_km = request.maxAirportDistanceKm
+    row.recommended_origin_airports = list(request.recommendedOriginAirports)
+    row.deal_sensitivity = request.dealSensitivity
+    row.absolute_max_budget = request.absoluteMaxBudget
+    row.alert_trigger_mode = request.alertTriggerMode
+    row.comfort_rule_modes = dict(request.comfortRuleModes)
+    row.theme_preference = request.themePreference
+    if row.onboarding_completed_at is None:
+        from datetime import datetime as _dt
+
+        row.onboarding_completed_at = _dt.utcnow()
     try:
         db.commit()
     except SQLAlchemyError as exc:
@@ -136,6 +151,16 @@ def _profile_to_response(row: UserTravelProfileDB) -> TravelProfileResponse:
         notificationFrequency=row.notification_frequency,
         excludedAirlines=row.excluded_airlines,
         preferredMonths=row.preferred_months,
+        baseLocationId=row.base_location_id,
+        baseLatitude=row.base_latitude,
+        baseLongitude=row.base_longitude,
+        maxAirportDistanceKm=row.max_airport_distance_km,
+        recommendedOriginAirports=row.recommended_origin_airports or [],
+        dealSensitivity=row.deal_sensitivity or "balanced",
+        absoluteMaxBudget=row.absolute_max_budget,
+        alertTriggerMode=row.alert_trigger_mode or "any",
+        comfortRuleModes=row.comfort_rule_modes or {},
+        themePreference=row.theme_preference,
         createdAt=row.created_at,
         updatedAt=row.updated_at,
     )
