@@ -2,10 +2,22 @@
 
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
 import { AIRPORTS } from "../lib/airports";
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(query.matches);
+    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
 
 const GLOBE_RADIUS = 1.9;
 
@@ -151,7 +163,7 @@ function EuropeOutline() {
 
 const ARC_SEGMENTS = 64;
 
-function RouteArc({ from, to, phase }: { from: string; to: string; phase: number }) {
+function RouteArc({ from, to, phase, animate }: { from: string; to: string; phase: number; animate: boolean }) {
   const line = useMemo(() => {
     const start = positionFor(from);
     const end = positionFor(to);
@@ -171,6 +183,11 @@ function RouteArc({ from, to, phase }: { from: string; to: string; phase: number
 
   useFrame(({ clock }) => {
     if (!line) return;
+    if (!animate) {
+      // Reduced motion: show the full route, no draw cycle.
+      line.geometry.setDrawRange(0, ARC_SEGMENTS + 1);
+      return;
+    }
     // Draw the arc from origin to destination on a repeating cycle.
     const cycle = (clock.elapsedTime * 0.35 + phase) % 1.4;
     const progress = Math.min(cycle / 1, 1);
@@ -208,7 +225,7 @@ function PriceTag({ marker }: { marker: GlobeMarker }) {
   );
 }
 
-function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
+function GlobeScene({ markers, animate }: { markers: GlobeMarker[]; animate: boolean }) {
   return (
     // Tilted and yawed so Europe (and its route arcs) faces the camera on first
     // paint — solved so Vienna lands just left of viewport centre, and the slow
@@ -235,7 +252,7 @@ function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
       <DotSphere />
       <EuropeOutline />
       {DEFAULT_ROUTES.map(([from, to], index) => (
-        <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.45} />
+        <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.45} animate={animate} />
       ))}
       {markers.map((marker) => (
         <PriceTag key={marker.code} marker={marker} />
@@ -252,6 +269,8 @@ type RouteGlobeProps = {
 };
 
 export default function RouteGlobe({ animate = true, interactive = true, markers = [] }: RouteGlobeProps) {
+  const reducedMotion = usePrefersReducedMotion();
+  const shouldAnimate = animate && !reducedMotion;
   return (
     <Canvas
       camera={{ position: [0, 0, 4.6], fov: 42 }}
@@ -262,12 +281,12 @@ export default function RouteGlobe({ animate = true, interactive = true, markers
     >
       <ambientLight color="#6a7681" intensity={2.4} />
       <directionalLight color="#7ddfc3" intensity={1.6} position={[5, 3, 5]} />
-      <GlobeScene markers={markers} />
+      <GlobeScene markers={markers} animate={shouldAnimate} />
       <OrbitControls
         enableZoom={false}
         enablePan={false}
         enabled={interactive}
-        autoRotate={animate}
+        autoRotate={shouldAnimate}
         autoRotateSpeed={0.3}
         rotateSpeed={0.6}
       />
