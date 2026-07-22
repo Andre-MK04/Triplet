@@ -2,8 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* Theme tokens. Dark is the default (:root); light overrides on
+   [data-theme="light"]. Alpha-capable tokens are stored as space-separated RGB
+   channels so Tailwind's `/opacity` modifiers keep working in both themes;
+   baked-alpha tokens (line, *-soft) are stored as full rgba(). The theme is set
+   pre-hydration by an inline script in layout.tsx, so there's no flash. */
+:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
+  --ink: 11 17 23;
+  --ink-soft: 14 20 26;
+  --ink-raised: 22 28 34;
+  --panel: 26 32 39;
+  --lifted: 37 43 49;
+  --deep: 9 15 21;
+  --cloud: 232 240 244;
+  --mist: 147 166 180;
+  --mint: 125 223 195;
+  --mint-ink: 0 56 44;
+  --sky: 142 197 255;
+  --coral: 255 154 120;
+  --gold: 255 208 138;
+  --line: rgba(232, 240, 244, 0.15);
+  --mint-soft: rgba(125, 223, 195, 0.12);
+  --sky-soft: rgba(142, 197, 255, 0.12);
+  --coral-soft: rgba(255, 154, 120, 0.14);
+  --grain-opacity: 0.025;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ink: 247 249 251;
+  --ink-soft: 238 242 246;
+  --ink-raised: 255 255 255;
+  --panel: 255 255 255;
+  --lifted: 240 243 247;
+  --deep: 230 235 240;
+  --cloud: 15 23 32;
+  --mist: 90 107 120;
+  /* Darker teal so mint reads as text on light and stays a valid button fill. */
+  --mint: 15 138 111;
+  --mint-ink: 255 255 255;
+  --sky: 37 99 176;
+  --coral: 199 74 42;
+  --gold: 146 100 0;
+  --line: rgba(11, 17, 23, 0.14);
+  --mint-soft: rgba(15, 138, 111, 0.1);
+  --sky-soft: rgba(37, 99, 176, 0.1);
+  --coral-soft: rgba(199, 74, 42, 0.1);
+  --grain-opacity: 0.02;
 }
 
 * {
@@ -31,8 +78,8 @@ body {
   margin: 0;
   min-height: 100vh;
   /* Flat ink base: depth comes from surface steps + hairlines, not gradients. */
-  background: #0b1117;
-  color: #e8f0f4;
+  background: rgb(var(--ink));
+  color: rgb(var(--cloud));
   -webkit-font-smoothing: antialiased;
 }
 
@@ -44,7 +91,7 @@ body::after {
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: var(--grain-opacity);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -56,14 +103,14 @@ textarea {
 }
 
 ::selection {
-  background: rgba(125, 223, 195, 0.35);
+  background: rgb(var(--mint) / 0.3);
 }
 
 /* Flat instrument panel (the old glass class, kept for existing markup):
    solid surface + hairline, no blur — the design system rejects backdrops. */
 .glass {
-  background: #161c22;
-  border: 1px solid rgba(232, 240, 244, 0.15);
+  background: rgb(var(--ink-raised));
+  border: 1px solid var(--line);
 }
 
 .text-gradient {
@@ -81,7 +128,7 @@ textarea {
 /* Command-line input: no box, just a hairline that turns mint on focus. */
 .cmd-input {
   border: 0;
-  border-bottom: 1px solid rgba(232, 240, 244, 0.15);
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
   padding-left: 0;
@@ -92,7 +139,7 @@ textarea {
 .cmd-input:focus {
   outline: none;
   box-shadow: none;
-  border-bottom-color: #7ddfc3;
+  border-bottom-color: rgb(var(--mint));
 }
 
 /* Dashed animated route line for SVG paths */
@@ -127,7 +174,7 @@ input[type="range"] {
   -webkit-appearance: none;
   height: 2px;
   border-radius: 0;
-  background: rgba(232, 240, 244, 0.15);
+  background: var(--line);
   outline: none;
 }
 
@@ -137,7 +184,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 10px;
   height: 22px;
   border-radius: 0;
-  background: #7ddfc3;
+  background: rgb(var(--mint));
   cursor: pointer;
 }
 
@@ -146,6 +193,6 @@ input[type="range"]::-moz-range-thumb {
   height: 22px;
   border-radius: 0;
   border: 0;
-  background: #7ddfc3;
+  background: rgb(var(--mint));
   cursor: pointer;
 }

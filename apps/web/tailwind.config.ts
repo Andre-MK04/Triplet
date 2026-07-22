@@ -5,33 +5,34 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // "Triplet Editorial Instrument" palette (Stitch design system).
-        // Depth comes from the surface scale + hairlines, not shadows/blur.
+        // "Triplet Editorial Instrument" palette, now theme-aware. Tokens resolve
+        // to CSS variables defined in globals.css (dark default, light override).
+        // Alpha-capable tokens use the RGB-channel form so `/opacity` still works.
         ink: {
-          DEFAULT: "#0b1117", // page base
-          soft: "#0e141a", // surface
-          raised: "#161c22", // surface-container-low
-          deep: "#090f15", // surface-container-lowest
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)", // page base
+          soft: "rgb(var(--ink-soft) / <alpha-value>)", // surface
+          raised: "rgb(var(--ink-raised) / <alpha-value>)", // card surface
+          deep: "rgb(var(--deep) / <alpha-value>)",
         },
-        panel: "#1a2027", // surface-container
-        lifted: "#252b31", // surface-container-high
-        line: "rgba(232, 240, 244, 0.15)", // hairline rule
-        mist: "#93a6b4", // muted steel: secondary text
-        cloud: "#e8f0f4", // paper white: primary text
+        panel: "rgb(var(--panel) / <alpha-value>)",
+        lifted: "rgb(var(--lifted) / <alpha-value>)",
+        line: "var(--line)", // hairline rule (baked alpha)
+        mist: "rgb(var(--mist) / <alpha-value>)", // muted / secondary text
+        cloud: "rgb(var(--cloud) / <alpha-value>)", // primary text
         mint: {
-          DEFAULT: "#7ddfc3", // actions, FitScore
-          soft: "rgba(125, 223, 195, 0.12)",
-          ink: "#00382c", // text on solid mint
+          DEFAULT: "rgb(var(--mint) / <alpha-value>)", // actions, FitScore
+          soft: "var(--mint-soft)",
+          ink: "rgb(var(--mint-ink) / <alpha-value>)", // text on solid mint
         },
         sky: {
-          DEFAULT: "#8ec5ff",
-          soft: "rgba(142, 197, 255, 0.12)",
+          DEFAULT: "rgb(var(--sky) / <alpha-value>)",
+          soft: "var(--sky-soft)",
         },
         coral: {
-          DEFAULT: "#ff9a78", // prices only
-          soft: "rgba(255, 154, 120, 0.14)",
+          DEFAULT: "rgb(var(--coral) / <alpha-value>)", // prices only
+          soft: "var(--coral-soft)",
         },
-        gold: "#ffd08a", // DealScore only
+        gold: "rgb(var(--gold) / <alpha-value>)", // DealScore only
       },
       fontFamily: {
         sans: ["var(--font-sans)", "Hanken Grotesk", "-apple-system", "Segoe UI", "sans-serif"],
