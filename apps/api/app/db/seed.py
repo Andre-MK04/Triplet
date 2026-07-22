@@ -226,10 +226,21 @@ if __name__ == "__main__":
         action="store_true",
         help="Delete previously seeded mock fares, then exit.",
     )
+    parser.add_argument(
+        "--directories",
+        action="store_true",
+        help="Import GeoNames locations + OurAirports directory (downloads ~13 MB). Run once on setup.",
+    )
     args = parser.parse_args()
 
     if args.remove_demo_flights:
         remove_demo_flights()
+    elif args.directories:
+        from app.data_import.import_airports import run_import as import_airports
+        from app.data_import.import_locations import run_import as import_locations
+
+        print(f"Imported/updated {import_locations()} locations.")
+        print(f"Imported/updated {import_airports()} airports.")
     else:
         seed_database(include_demo_flights=not args.no_demo_flights)
         print("Seeded Triplet database" + (" (reference data only)." if args.no_demo_flights else "."))
