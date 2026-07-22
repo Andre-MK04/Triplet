@@ -25,6 +25,10 @@ ComfortRule = Literal[
 ]
 OpenJawWillingness = Literal["simple_returns_only", "nearby_city_open_jaw", "adventurous_multi_city"]
 NotificationFrequency = Literal["instant_email", "weekly_digest", "urgent_only", "push_later"]
+DealSensitivity = Literal["strict", "balanced", "flexible"]
+AlertTriggerMode = Literal["below_budget", "route_deal", "price_drop", "any"]
+ComfortRuleMode = Literal["off", "prefer", "require"]
+ThemePreference = Literal["light", "dark", "system"]
 
 
 class TravelProfileUpdateRequest(BaseModel):
@@ -41,6 +45,17 @@ class TravelProfileUpdateRequest(BaseModel):
     notificationFrequency: NotificationFrequency = "weekly_digest"
     excludedAirlines: list[str] = Field(default_factory=list, max_length=20)
     preferredMonths: list[int] = Field(default_factory=list, max_length=12)
+    # Profile v2 fields (all optional so existing onboarding payloads keep working).
+    baseLocationId: int | None = None
+    baseLatitude: float | None = Field(default=None, ge=-90, le=90)
+    baseLongitude: float | None = Field(default=None, ge=-180, le=180)
+    maxAirportDistanceKm: int | None = Field(default=None, ge=10, le=1500)
+    recommendedOriginAirports: list[str] = Field(default_factory=list, max_length=30)
+    dealSensitivity: DealSensitivity = "balanced"
+    absoluteMaxBudget: float | None = Field(default=None, gt=0, le=100000)
+    alertTriggerMode: AlertTriggerMode = "any"
+    comfortRuleModes: dict[str, ComfortRuleMode] = Field(default_factory=dict)
+    themePreference: ThemePreference | None = None
 
     @field_validator("originAirports", "excludedAirlines")
     @classmethod

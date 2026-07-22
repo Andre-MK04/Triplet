@@ -23,6 +23,7 @@ from app.ai.schemas import (
 )
 from app.config import settings
 from app.models import TripSearchRequest
+from app.preferences.resolution import DEFAULT_SPONTANEITY, spontaneity_window
 from app.tools.base import ToolContext
 from app.tools.registry import ToolNotFoundError, ToolRegistry, ToolValidationError
 from app.tools.schemas import ParsedTripIntent, SearchTripsOutput
@@ -274,8 +275,11 @@ def build_trip_search_request(
     origin_airports = request.originAirports or intent.originAirports or (DEFAULT_ORIGINS if use_defaults else [])
     destination_airports = request.destinationAirports or intent.destinationAirports
     return_origin_airports = request.returnOriginAirports or intent.returnOriginAirports
-    start_date = request.startDate or intent.startDate or (DEFAULT_START_DATE if use_defaults else None)
-    end_date = request.endDate or intent.endDate or (DEFAULT_END_DATE if use_defaults else None)
+    # No explicit/parsed dates → a rolling spontaneity window from today (never
+    # a hardcoded calendar year, which silently goes stale).
+    default_start, default_end = spontaneity_window(DEFAULT_SPONTANEITY)
+    start_date = request.startDate or intent.startDate or (default_start if use_defaults else None)
+    end_date = request.endDate or intent.endDate or (default_end if use_defaults else None)
     min_days = request.minTripLengthDays or intent.minTripLengthDays or (4 if use_defaults else None)
     max_days = request.maxTripLengthDays or intent.maxTripLengthDays or (8 if use_defaults else None)
     max_budget = request.maxBudget or intent.maxBudget or (180 if use_defaults else None)

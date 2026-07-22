@@ -34,6 +34,10 @@ class TripSearchRequest(BaseModel):
     tripStyle: Literal["one city", "two nearby cities", "surprise me"]
     directOnly: bool = True
     includeBaggage: bool = False
+    # Optional per-search travel styles (destination-style keys like "beach",
+    # "food"). When set, they override the profile's styles for this search and
+    # boost the fit score of matching destinations.
+    travelStyles: list[str] = Field(default_factory=list, max_length=9)
 
 
 class ScoreComponent(BaseModel):
