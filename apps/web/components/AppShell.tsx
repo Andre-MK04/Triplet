@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { useAuth } from "./AuthContext";
+import { ThemeToggle } from "./ThemeToggle";
 import { Button, ButtonLink } from "./ui/Button";
 
 const navLinks = [
@@ -48,6 +49,7 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-5 md:flex">
+          <ThemeToggle />
           {isLoading ? null : user ? (
             <>
               <Link
@@ -73,17 +75,20 @@ export function Navbar() {
           )}
         </div>
 
-        <button
-          type="button"
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-          className="p-2 text-cloud md:hidden"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-          </svg>
-        </button>
+        <div className="flex items-center gap-3 md:hidden">
+          <ThemeToggle />
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="p-2 text-cloud"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {menuOpen ? (
