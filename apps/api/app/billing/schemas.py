@@ -8,6 +8,7 @@ class PlanInfo(BaseModel):
     plan: str
     name: str
     priceLabel: str
+    priceYearlyLabel: str | None = None
     features: list[str]
     limits: dict
     stripeMonthlyPriceId: str | None = None
@@ -31,8 +32,11 @@ class BillingStatusResponse(BaseModel):
     subscriptionStatus: str
     currentPeriodEnd: datetime | None = None
     cancelAtPeriodEnd: bool = False
+    trialEndsAt: datetime | None = None
+    trialDaysRemaining: int = 0
     limits: dict
     usage: dict
+    canStartTrial: bool = False
     canUpgrade: bool
     canManageBilling: bool
 

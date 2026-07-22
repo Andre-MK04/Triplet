@@ -39,7 +39,7 @@ def saved_search_payload(**overrides):
         "tripStyle": "two nearby cities",
         "directOnly": False,
         "includeBaggage": False,
-        "frequency": "daily",
+        "frequency": "weekly",
     }
     payload.update(overrides)
     return payload

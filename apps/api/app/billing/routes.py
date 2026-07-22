@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.audit import record_audit_event
 from app.auth.dependencies import get_current_user_required
 from app.billing.schemas import (
     BillingStatusResponse,
@@ -11,7 +12,7 @@ from app.billing.schemas import (
     PlanInfo,
     WebhookResponse,
 )
-from app.billing.service import available_plans, billing_status
+from app.billing.service import TrialError, available_plans, billing_status, start_trial
 from app.billing.stripe_client import (
     BillingConfigError,
     create_billing_portal_session,
@@ -36,6 +37,23 @@ def get_billing_status(
     user: UserDB = Depends(get_current_user_required),
 ) -> BillingStatusResponse:
     return BillingStatusResponse(**billing_status(db, user))
+
+
+@router.post("/start-trial", response_model=BillingStatusResponse)
+def start_pro_trial(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> BillingStatusResponse:
+    try:
+        status = start_trial(db, user)
+    except TrialError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database is not ready.") from exc
+    record_audit_event(db, "billing.trial_started", user_id=user.id, request=request, commit=True)
+    return BillingStatusResponse(**status)
 
 
 @router.post("/create-checkout-session", response_model=CreateCheckoutSessionResponse)

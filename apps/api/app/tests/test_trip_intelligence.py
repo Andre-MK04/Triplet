@@ -172,7 +172,8 @@ def override_db(db_session):
 
 def search_payload():
     return {
-        "originAirports": ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"],
+        # 3 airports keeps a signed-up Free user within the origin-airport cap.
+        "originAirports": ["VIE", "ZAG", "TRS"],
         "startDate": "2026-07-01",
         "endDate": "2026-08-31",
         "minTripLengthDays": 4,

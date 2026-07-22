@@ -119,14 +119,28 @@ class Settings:
     billing_success_url: str = os.getenv("BILLING_SUCCESS_URL", "http://localhost:3000/billing/success")
     billing_cancel_url: str = os.getenv("BILLING_CANCEL_URL", "http://localhost:3000/pricing")
     billing_portal_return_url: str = os.getenv("BILLING_PORTAL_RETURN_URL", "http://localhost:3000/dashboard")
-    triplet_free_saved_search_limit: int = int(os.getenv("TRIPLET_FREE_SAVED_SEARCH_LIMIT", "3"))
-    triplet_free_ai_searches_per_day: int = int(os.getenv("TRIPLET_FREE_AI_SEARCHES_PER_DAY", "5"))
-    triplet_free_max_origin_airports: int = int(os.getenv("TRIPLET_FREE_MAX_ORIGIN_AIRPORTS", "6"))
-    triplet_free_alert_frequencies: str = os.getenv("TRIPLET_FREE_ALERT_FREQUENCIES", "daily")
-    triplet_pro_saved_search_limit: int = int(os.getenv("TRIPLET_PRO_SAVED_SEARCH_LIMIT", "30"))
-    triplet_pro_ai_searches_per_day: int = int(os.getenv("TRIPLET_PRO_AI_SEARCHES_PER_DAY", "100"))
-    triplet_pro_max_origin_airports: int = int(os.getenv("TRIPLET_PRO_MAX_ORIGIN_AIRPORTS", "12"))
+    # Anonymous/public visitors aren't on a plan; the public landing + discover
+    # demo searches the Vienna region (6 airports), so cap them there rather than
+    # at the logged-in Free limit.
+    triplet_public_max_origin_airports: int = int(os.getenv("TRIPLET_PUBLIC_MAX_ORIGIN_AIRPORTS", "6"))
+    # Free plan: for trying Triplet casually.
+    triplet_free_saved_search_limit: int = int(os.getenv("TRIPLET_FREE_SAVED_SEARCH_LIMIT", "1"))
+    triplet_free_ai_searches_per_month: int = int(os.getenv("TRIPLET_FREE_AI_SEARCHES_PER_MONTH", "3"))
+    triplet_free_max_origin_airports: int = int(os.getenv("TRIPLET_FREE_MAX_ORIGIN_AIRPORTS", "3"))
+    triplet_free_alert_frequencies: str = os.getenv("TRIPLET_FREE_ALERT_FREQUENCIES", "weekly")
+    # Pro plan: for flexible travelers who want ongoing alerts.
+    triplet_pro_saved_search_limit: int = int(os.getenv("TRIPLET_PRO_SAVED_SEARCH_LIMIT", "10"))
+    triplet_pro_ai_searches_per_month: int = int(os.getenv("TRIPLET_PRO_AI_SEARCHES_PER_MONTH", "100"))
+    triplet_pro_max_origin_airports: int = int(os.getenv("TRIPLET_PRO_MAX_ORIGIN_AIRPORTS", "8"))
     triplet_pro_alert_frequencies: str = os.getenv("TRIPLET_PRO_ALERT_FREQUENCIES", "daily,weekly")
+    triplet_pro_price_monthly_label: str = os.getenv("TRIPLET_PRO_PRICE_MONTHLY_LABEL", "€6.99/month")
+    triplet_pro_price_yearly_label: str = os.getenv("TRIPLET_PRO_PRICE_YEARLY_LABEL", "€49/year")
+    # 7-day trial: enough to experience Pro, capped so it isn't a free summer.
+    triplet_trial_duration_days: int = int(os.getenv("TRIPLET_TRIAL_DURATION_DAYS", "7"))
+    triplet_trial_ai_searches_total: int = int(os.getenv("TRIPLET_TRIAL_AI_SEARCHES_TOTAL", "15"))
+    triplet_trial_saved_search_limit: int = int(os.getenv("TRIPLET_TRIAL_SAVED_SEARCH_LIMIT", "3"))
+    triplet_trial_max_origin_airports: int = int(os.getenv("TRIPLET_TRIAL_MAX_ORIGIN_AIRPORTS", "6"))
+    triplet_trial_alert_frequencies: str = os.getenv("TRIPLET_TRIAL_ALERT_FREQUENCIES", "daily,weekly")
     alerts_enabled: bool = os.getenv("ALERTS_ENABLED", "false").lower() == "true"
     alerts_default_frequency: str = os.getenv("ALERTS_DEFAULT_FREQUENCY", "daily")
     alerts_max_results_per_email: int = int(os.getenv("ALERTS_MAX_RESULTS_PER_EMAIL", "5"))

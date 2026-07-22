@@ -1,10 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.billing.entitlements import get_entitlements, get_user_plan
+from app.billing.entitlements import (
+    can_start_trial,
+    csv_values,
+    get_entitlements,
+    get_user_plan,
+    trial_days_remaining,
+)
 from app.billing.schemas import PlanInfo
 from app.billing.usage import billing_usage_summary
 from app.config import settings
@@ -13,28 +19,50 @@ from app.db.models import BillingSubscriptionDB, UserDB
 PRO_STATUSES = {"active", "trialing", "past_due"}
 
 
+def _pro_limits() -> dict:
+    return {
+        "savedSearchLimit": settings.triplet_pro_saved_search_limit,
+        "aiSearchesPerMonth": settings.triplet_pro_ai_searches_per_month,
+        "maxOriginAirports": settings.triplet_pro_max_origin_airports,
+        "allowedAlertFrequencies": csv_values(settings.triplet_pro_alert_frequencies),
+        "liveProviderAccess": True,
+        "priorityAlerts": True,
+    }
+
+
 def available_plans() -> list[PlanInfo]:
     return [
         PlanInfo(
             plan="free",
             name="Free",
             priceLabel="€0",
-            features=["Basic trip search", "3 saved alerts", "5 AI searches/day", "Daily alerts"],
+            features=[
+                "Basic trip search",
+                "3 AI searches/month",
+                "1 saved watch",
+                "3 origin airports",
+                "Weekly fare checks",
+                "Email alerts",
+            ],
             limits=get_entitlements(None),
         ),
         PlanInfo(
             plan="pro",
             name="Triplet Pro",
-            priceLabel="Monthly or yearly",
-            features=["30 saved alerts", "100 AI searches/day", "More origin airports", "Weekly alerts"],
-            limits={
-                "savedSearchLimit": settings.triplet_pro_saved_search_limit,
-                "aiSearchesPerDay": settings.triplet_pro_ai_searches_per_day,
-                "maxOriginAirports": settings.triplet_pro_max_origin_airports,
-                "allowedAlertFrequencies": [x.strip() for x in settings.triplet_pro_alert_frequencies.split(",")],
-                "liveProviderAccess": True,
-                "priorityAlerts": True,
-            },
+            priceLabel=settings.triplet_pro_price_monthly_label,
+            priceYearlyLabel=settings.triplet_pro_price_yearly_label,
+            features=[
+                "100 AI searches/month",
+                "10 saved watches",
+                "8 origin airports",
+                "Daily fare checks",
+                "Open-jaw trip suggestions",
+                "Deal and fit scores",
+                "Travel profile",
+                "Email alerts",
+                "Dashboard",
+            ],
+            limits=_pro_limits(),
             stripeMonthlyPriceId=settings.stripe_price_pro_monthly,
             stripeYearlyPriceId=settings.stripe_price_pro_yearly,
         ),
@@ -45,16 +73,41 @@ def billing_status(db: Session, user: UserDB) -> dict:
     subscription = latest_subscription(db, user)
     current_period_end = subscription.current_period_end if subscription else None
     cancel_at_period_end = subscription.cancel_at_period_end if subscription else False
+    plan = get_user_plan(user)
     return {
-        "plan": get_user_plan(user),
+        "plan": plan,
         "subscriptionStatus": user.subscription_status,
         "currentPeriodEnd": current_period_end,
         "cancelAtPeriodEnd": cancel_at_period_end,
+        "trialEndsAt": user.trial_ends_at if plan == "trial" else None,
+        "trialDaysRemaining": trial_days_remaining(user),
         "limits": get_entitlements(user),
         "usage": billing_usage_summary(db, user),
-        "canUpgrade": get_user_plan(user) == "free",
+        "canStartTrial": can_start_trial(user),
+        "canUpgrade": plan in {"free", "trial"},
         "canManageBilling": bool(user.stripe_customer_id),
     }
+
+
+class TrialError(ValueError):
+    """Trial cannot be started (already used, or user already on Pro)."""
+
+
+def start_trial(db: Session, user: UserDB) -> dict:
+    """Start the one-time, no-card 7-day Pro trial for this user."""
+    if get_user_plan(user) == "pro" and user.subscription_status in {"active", "past_due"}:
+        raise TrialError("You already have Triplet Pro.")
+    if not can_start_trial(user):
+        raise TrialError("You've already used your free trial.")
+    now = datetime.utcnow()
+    user.trial_started_at = now
+    user.trial_ends_at = now + timedelta(days=settings.triplet_trial_duration_days)
+    user.trial_used = True
+    user.plan = "trial"
+    user.subscription_status = "trialing"
+    user.updated_at = now
+    db.commit()
+    return billing_status(db, user)
 
 
 def latest_subscription(db: Session, user: UserDB) -> BillingSubscriptionDB | None:
