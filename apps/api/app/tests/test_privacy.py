@@ -42,7 +42,7 @@ def seed_user_data(client):
             "email": "ignored@example.com", "name": "Watch",
             "originAirports": ["VIE"], "startDate": "2026-08-01", "endDate": "2026-08-31",
             "minTripLengthDays": 5, "maxTripLengthDays": 7, "maxBudget": 220,
-            "maxGroundTransferHours": 4, "tripStyle": "one city", "frequency": "daily",
+            "maxGroundTransferHours": 4, "tripStyle": "one city", "frequency": "weekly",
         },
     )
 

@@ -91,7 +91,8 @@ function providerNotice(metadata?: ProviderMetadata | null, tripCount = 0): { te
 
 function limitAwareError(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 402) return `${error.message} — upgrade to Pro for higher limits.`;
+    // 402 details are already specific and actionable (mention trial/Pro).
+    if (error.status === 402) return error.message;
     if (error.status === 429) return "You're searching fast! Give it a few seconds and try again.";
     return error.message;
   }

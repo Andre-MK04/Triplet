@@ -32,23 +32,81 @@ type DashboardSavedSearch = {
 };
 
 type DashboardBilling = {
-  plan: string;
+  plan: "free" | "trial" | "pro";
   subscriptionStatus: string;
+  trialDaysRemaining: number;
   usage: {
-    aiSearchesToday: number;
-    aiSearchesPerDay: number;
+    aiSearchesThisMonth: number;
+    aiSearchesPerMonth: number;
     activeSavedSearches: number;
     savedSearchLimit: number;
+    maxOriginAirports: number;
+    dailyWatchChecks: boolean;
   };
+  canStartTrial: boolean;
   canUpgrade: boolean;
   canManageBilling: boolean;
 };
+
+const PLAN_LABEL: Record<string, string> = { free: "Free", trial: "Triplet Pro trial", pro: "Triplet Pro" };
 
 type DashboardData = {
   user: { email: string; displayName?: string | null };
   billing: DashboardBilling;
   savedSearches: DashboardSavedSearch[];
 };
+
+function UsageMeter({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  return (
+    <div className="bg-ink-raised px-5 py-4">
+      <p className="font-mono text-[10px] uppercase tracking-label text-mist">{label}</p>
+      <p className="mono-num mt-1 font-display text-2xl font-bold text-cloud">
+        {used}
+        <span className="text-base font-normal text-mist"> / {limit}</span>
+      </p>
+      <div className="mt-3 h-0.5 w-full bg-line">
+        <div className={"h-full " + (pct >= 100 ? "bg-coral" : "bg-mint")} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function PlanTile({ billing, onManage }: { billing: DashboardBilling; onManage: () => void }) {
+  return (
+    <div className="flex flex-col justify-between bg-ink-raised px-5 py-4">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist">Plan</p>
+        <p className="mt-1 font-display text-2xl font-bold text-cloud">{PLAN_LABEL[billing.plan] ?? "Free"}</p>
+      </div>
+      <div className="mt-3">
+        {billing.plan === "pro" ? (
+          <button
+            type="button"
+            onClick={onManage}
+            className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
+          >
+            Manage billing →
+          </button>
+        ) : billing.plan === "trial" ? (
+          <a
+            href="/pricing"
+            className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint transition-colors hover:text-cloud"
+          >
+            {billing.trialDaysRemaining} days left — keep Pro →
+          </a>
+        ) : (
+          <a
+            href="/pricing"
+            className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint transition-colors hover:text-cloud"
+          >
+            Upgrade for daily checks →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function WatchAction({ label, onClick, disabled, tone = "default" }: { label: string; onClick: () => void; disabled: boolean; tone?: "default" | "danger" }) {
   return (
@@ -256,11 +314,29 @@ export function DashboardClient() {
           )}
           {data ? (
             <p className="mono-num mt-2 font-mono text-[10px] uppercase tracking-label text-mist/60">
-              {data.billing.plan === "pro" ? "Triplet Pro" : "Free plan"} · {data.billing.subscriptionStatus} · AI
-              searches today {data.billing.usage.aiSearchesToday}/{data.billing.usage.aiSearchesPerDay}
+              {PLAN_LABEL[data.billing.plan] ?? "Free plan"}
+              {data.billing.plan === "trial" ? ` · ${data.billing.trialDaysRemaining} days left` : ""} · AI searches
+              this month {data.billing.usage.aiSearchesThisMonth}/{data.billing.usage.aiSearchesPerMonth} ·{" "}
+              {data.billing.usage.dailyWatchChecks ? "daily" : "weekly"} checks
             </p>
           ) : null}
         </header>
+
+        {data ? (
+          <div className="grid gap-px border border-line bg-line sm:grid-cols-3">
+            <UsageMeter
+              label="AI searches / month"
+              used={data.billing.usage.aiSearchesThisMonth}
+              limit={data.billing.usage.aiSearchesPerMonth}
+            />
+            <UsageMeter
+              label="Saved watches"
+              used={data.billing.usage.activeSavedSearches}
+              limit={data.billing.usage.savedSearchLimit}
+            />
+            <PlanTile billing={data.billing} onManage={() => void manageBilling()} />
+          </div>
+        ) : null}
 
         {status ? <Notice tone={status.tone === "info" ? "info" : status.tone}>{status.text}</Notice> : null}
 

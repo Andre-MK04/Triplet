@@ -15,7 +15,7 @@ from app.ai.schemas import (
 )
 from app.auth.dependencies import get_current_user_optional
 from app.billing.entitlements import get_entitlements
-from app.billing.usage import AI_SEARCH, assert_ai_search_allowed, assert_origin_airports_allowed, increment_usage
+from app.billing.usage import assert_ai_search_allowed, assert_origin_airports_allowed, record_ai_search
 from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
@@ -56,7 +56,7 @@ def ai_search(
         assert_origin_airports_allowed(user, len(request.originAirports))
     assert_ai_search_allowed(db, user)
     if user:
-        increment_usage(db, user.id, AI_SEARCH)
+        record_ai_search(db, user)
     try:
         # Engine-chosen origins are clamped to the plan limit inside the search
         # (see ToolContext.max_origin_airports) rather than rejected after the fact.

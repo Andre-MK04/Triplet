@@ -251,8 +251,11 @@ class UserDB(Base):
     password_hash: Mapped[str] = mapped_column(String(300), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     stripe_customer_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
-    plan: Mapped[str] = mapped_column(String(40), default="free")
-    subscription_status: Mapped[str] = mapped_column(String(40), default="none")
+    plan: Mapped[str] = mapped_column(String(40), default="free")  # free | trial | pro
+    subscription_status: Mapped[str] = mapped_column(String(40), default="none")  # none|trialing|active|canceled|past_due
+    trial_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    trial_used: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -85,7 +85,7 @@ def test_watch_and_profile_changes_are_audited(db_session):
             "maxBudget": 220,
             "maxGroundTransferHours": 4,
             "tripStyle": "two nearby cities",
-            "frequency": "daily",
+            "frequency": "weekly",
         },
     )
     watch_id = created.json()["id"]

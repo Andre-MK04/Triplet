@@ -185,14 +185,19 @@ STRIPE_PRICE_PRO_YEARLY=
 BILLING_SUCCESS_URL=http://localhost:3000/billing/success
 BILLING_CANCEL_URL=http://localhost:3000/pricing
 BILLING_PORTAL_RETURN_URL=http://localhost:3000/dashboard
-TRIPLET_FREE_SAVED_SEARCH_LIMIT=3
-TRIPLET_FREE_AI_SEARCHES_PER_DAY=5
-TRIPLET_FREE_MAX_ORIGIN_AIRPORTS=6
-TRIPLET_FREE_ALERT_FREQUENCIES=daily
-TRIPLET_PRO_SAVED_SEARCH_LIMIT=30
-TRIPLET_PRO_AI_SEARCHES_PER_DAY=100
-TRIPLET_PRO_MAX_ORIGIN_AIRPORTS=12
+TRIPLET_FREE_SAVED_SEARCH_LIMIT=1
+TRIPLET_FREE_AI_SEARCHES_PER_MONTH=3
+TRIPLET_FREE_MAX_ORIGIN_AIRPORTS=3
+TRIPLET_FREE_ALERT_FREQUENCIES=weekly
+TRIPLET_PRO_SAVED_SEARCH_LIMIT=10
+TRIPLET_PRO_AI_SEARCHES_PER_MONTH=100
+TRIPLET_PRO_MAX_ORIGIN_AIRPORTS=8
 TRIPLET_PRO_ALERT_FREQUENCIES=daily,weekly
+TRIPLET_TRIAL_DURATION_DAYS=7
+TRIPLET_TRIAL_AI_SEARCHES_TOTAL=15
+TRIPLET_TRIAL_SAVED_SEARCH_LIMIT=3
+TRIPLET_TRIAL_MAX_ORIGIN_AIRPORTS=6
+TRIPLET_PUBLIC_MAX_ORIGIN_AIRPORTS=6
 ```
 
 Google redirect URI:
@@ -221,12 +226,39 @@ The original token-based alert routes under `/alerts` still work for logged-out 
 
 ## Step 9 Billing + Subscriptions
 
-Triplet supports web subscriptions through Stripe for Triplet Pro. Billing is disabled by default in local development, so no Stripe calls are made unless `BILLING_ENABLED=true`.
+Triplet launches with a simple **Free + Pro** model plus a no-card **7-day Pro trial**. Billing is disabled by default in local development, so no Stripe calls are made unless `BILLING_ENABLED=true`.
+
+### Plans
+
+**Free — €0** (for trying Triplet)
+
+- 3 AI searches / month
+- 1 saved watch
+- 3 origin airports
+- Weekly fare checks
+- Email alerts, basic trip cards, demo/cached/indicative fares
+
+**7-day trial** (no card required, one-time per user)
+
+- 15 AI searches total during the trial
+- 3 saved watches
+- 6 origin airports
+- Daily fare checks, open-jaw suggestions, deal & fit scores, travel profile
+
+**Pro — €6.99/month or €49/year** (for flexible travelers)
+
+- 100 AI searches / month
+- 10 saved watches
+- 8 origin airports
+- Daily fare checks, open-jaw suggestions, deal & fit scores, travel profile, dashboard
+
+> The trial is intentionally capped so users can experience the product without creating unsustainable API costs. AI and flight-provider calls are limited server-side — the frontend only displays limits; the backend enforces them (AI usage is counted per calendar month for Free/Pro and as a total across the window for the trial).
 
 Billing routes:
 
 - `GET /billing/plans`
-- `GET /billing/status`
+- `GET /billing/status` (returns plan, trial days remaining, usage, `canStartTrial`)
+- `POST /billing/start-trial` (one-time, no card)
 - `POST /billing/create-checkout-session`
 - `POST /billing/create-portal-session`
 - `POST /billing/webhook`
@@ -255,14 +287,19 @@ STRIPE_PRICE_PRO_YEARLY=
 BILLING_SUCCESS_URL=http://localhost:3000/billing/success
 BILLING_CANCEL_URL=http://localhost:3000/pricing
 BILLING_PORTAL_RETURN_URL=http://localhost:3000/dashboard
-TRIPLET_FREE_SAVED_SEARCH_LIMIT=3
-TRIPLET_FREE_AI_SEARCHES_PER_DAY=5
-TRIPLET_FREE_MAX_ORIGIN_AIRPORTS=6
-TRIPLET_FREE_ALERT_FREQUENCIES=daily
-TRIPLET_PRO_SAVED_SEARCH_LIMIT=30
-TRIPLET_PRO_AI_SEARCHES_PER_DAY=100
-TRIPLET_PRO_MAX_ORIGIN_AIRPORTS=12
+TRIPLET_FREE_SAVED_SEARCH_LIMIT=1
+TRIPLET_FREE_AI_SEARCHES_PER_MONTH=3
+TRIPLET_FREE_MAX_ORIGIN_AIRPORTS=3
+TRIPLET_FREE_ALERT_FREQUENCIES=weekly
+TRIPLET_PRO_SAVED_SEARCH_LIMIT=10
+TRIPLET_PRO_AI_SEARCHES_PER_MONTH=100
+TRIPLET_PRO_MAX_ORIGIN_AIRPORTS=8
 TRIPLET_PRO_ALERT_FREQUENCIES=daily,weekly
+TRIPLET_TRIAL_DURATION_DAYS=7
+TRIPLET_TRIAL_AI_SEARCHES_TOTAL=15
+TRIPLET_TRIAL_SAVED_SEARCH_LIMIT=3
+TRIPLET_TRIAL_MAX_ORIGIN_AIRPORTS=6
+TRIPLET_PUBLIC_MAX_ORIGIN_AIRPORTS=6
 ```
 
 Local modes:
