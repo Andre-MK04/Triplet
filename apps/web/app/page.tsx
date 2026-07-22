@@ -126,7 +126,7 @@ function DeparturesBoard({ deals, status }: { deals: TripOption[]; status: "load
           <h2 className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
             Departures board
           </h2>
-          <p className="mt-1 font-mono text-sm text-cloud">Live from the cache — optimized for spontaneity</p>
+          <p className="mt-1 font-mono text-sm text-cloud">Fresh finds from your home airports</p>
         </div>
         <p className="font-mono text-[10px] uppercase tracking-label text-mist/70">
           Refreshed hourly · indicative
@@ -201,19 +201,19 @@ function DeparturesBoard({ deals, status }: { deals: TripOption[]; status: "load
 
 const methodology = [
   {
-    step: "01 / Input",
-    title: "Command your intent.",
-    text: "Forget rigid calendars. Say it in plain language — budget, vibe, rough dates — or fine-tune every knob. Triplet turns it into a real search across your home airports.",
+    step: "01 / Describe",
+    title: "Tell us your kind of trip.",
+    text: "Rough budget, rough dates, your airports, your travel mood — in plain language or with every knob. Triplet turns it into a real search across your home airports.",
   },
   {
-    step: "02 / Monitor",
-    title: "Patient surveillance.",
-    text: "Every hour, Triplet refreshes cached fares from your origin airports and scores each against the route's observed history. Cheap is measured against reality, not an inflated anchor.",
+    step: "02 / Watch",
+    title: "We keep an eye on the fares.",
+    text: "Every hour, Triplet refreshes fare observations from your origin airports and compares each against the route's history. Cheap is measured against reality, not an inflated anchor.",
   },
   {
-    step: "03 / Execute",
-    title: "Fly when it's worth it.",
-    text: "A quiet email when a fare is unusually good for you — as a complete trip idea with a transparent score, not a countdown timer.",
+    step: "03 / Go",
+    title: "Fly when it's genuinely good.",
+    text: "When something stands out, Triplet turns it into a clear trip idea with a transparent score and sends you a quiet alert — no countdown timers, no pressure.",
   },
 ];
 
@@ -254,8 +254,10 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="relative h-[340px] sm:h-[420px] lg:h-[620px]" aria-hidden>
-            <div className="absolute -right-24 top-1/2 aspect-square h-[115%] -translate-y-1/2 sm:-right-16 lg:-right-56">
+          {/* Responsive, never clipped: the globe scales with the viewport and
+              stays fully inside its column at every width. */}
+          <div className="relative flex min-h-[clamp(320px,44vw,620px)] items-center justify-center" aria-hidden>
+            <div className="mx-auto aspect-square w-[min(88vw,420px)] max-w-full lg:w-[min(46vw,640px)]">
               <RouteGlobe markers={markers} />
             </div>
           </div>
@@ -270,7 +272,7 @@ export default function LandingPage() {
           <Reveal>
             <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint">Methodology</p>
             <h2 className="mt-4 max-w-xl font-display text-4xl font-bold text-cloud sm:text-5xl">
-              Instrumental precision.
+              Quietly methodical.
             </h2>
           </Reveal>
           <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">

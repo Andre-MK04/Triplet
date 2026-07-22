@@ -37,7 +37,7 @@ const SECTIONS = [
     icon: "💳",
     title: "Payments",
     points: [
-      "Subscription payments are processed by Stripe; card numbers never touch Triplet's servers.",
+      "When paid plans are enabled, subscription payments are processed by Stripe; card numbers never touch Triplet's servers.",
       "Triplet never charges you for flights — we don't sell or book them.",
     ],
   },

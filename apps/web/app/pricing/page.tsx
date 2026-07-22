@@ -36,9 +36,15 @@ const FAQ = [
   },
 ];
 
+type BillingStatus = {
+  plan: string;
+  canManageBilling: boolean;
+};
+
 export default function PricingPage() {
   const { user } = useAuth();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [interval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [status, setStatus] = useState("");
 
@@ -48,9 +54,17 @@ export default function PricingPage() {
       .catch(() => setStatus("Could not load plans. Is the API running?"));
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      setBilling(null);
+      return;
+    }
+    apiGet<BillingStatus>("/billing/status").then(setBilling).catch(() => setBilling(null));
+  }, [user]);
+
   async function upgrade() {
     if (!user) {
-      window.location.href = "/signup";
+      window.location.href = "/login";
       return;
     }
     setStatus("");
@@ -59,6 +73,16 @@ export default function PricingPage() {
       window.location.href = data.checkoutUrl;
     } catch {
       setStatus("Billing is not enabled in this environment yet.");
+    }
+  }
+
+  async function manageBilling() {
+    setStatus("");
+    try {
+      const data = await apiPost<{ portalUrl: string }>("/billing/create-portal-session");
+      window.location.href = data.portalUrl;
+    } catch {
+      setStatus("Could not open the billing portal.");
     }
   }
 
@@ -103,11 +127,19 @@ export default function PricingPage() {
         <div className="grid border-y border-line sm:grid-cols-2 sm:divide-x sm:divide-line">
           {[
             { plan: free, cta: (
-              <ButtonLink href={user ? "/discover" : "/signup"} variant="secondary" className="mt-8 w-full">
-                {user ? "Keep exploring" : "Start free"}
+              <ButtonLink href="/discover" variant="secondary" className="mt-8 w-full">
+                Start searching
               </ButtonLink>
             ) },
-            { plan: pro, cta: (
+            { plan: pro, cta: !user ? (
+              <ButtonLink href="/login" className="mt-8 w-full">
+                Log in to upgrade
+              </ButtonLink>
+            ) : billing?.plan === "pro" ? (
+              <Button variant="secondary" className="mt-8 w-full" onClick={() => void manageBilling()}>
+                Manage billing
+              </Button>
+            ) : (
               <Button className="mt-8 w-full" onClick={() => void upgrade()}>Upgrade to Pro</Button>
             ) },
           ].map(({ plan, cta }) =>
@@ -131,6 +163,11 @@ export default function PricingPage() {
             ) : null,
           )}
         </div>
+
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+          Triplet finds and monitors fare opportunities. It does not sell flights, and prices are
+          never guaranteed.
+        </p>
 
         <section>
           <h2 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-label text-mist">

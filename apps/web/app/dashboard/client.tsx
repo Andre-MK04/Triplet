@@ -117,6 +117,7 @@ function SavedWatchRow({
 export function DashboardClient() {
   const { user, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [status, setStatus] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [editing, setEditing] = useState<DashboardSavedSearch | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -124,8 +125,11 @@ export function DashboardClient() {
   const load = useCallback(async () => {
     try {
       setData(await apiGet<DashboardData>("/me/dashboard"));
+      setLoadFailed(false);
     } catch {
+      // Never leave the page on an endless spinner — surface the failure.
       setData(null);
+      setLoadFailed(true);
     }
   }, []);
 
@@ -260,8 +264,21 @@ export function DashboardClient() {
 
         {status ? <Notice tone={status.tone === "info" ? "info" : status.tone}>{status.text}</Notice> : null}
 
-        {!data ? (
+        {!data && !loadFailed ? (
           <div className="flex justify-center py-10"><Spinner label="Loading dashboard…" /></div>
+        ) : null}
+
+        {!data && loadFailed ? (
+          <EmptyState
+            title="Couldn't load your dashboard"
+            action={
+              <Button variant="secondary" onClick={() => void load()}>
+                Try again
+              </Button>
+            }
+          >
+            The API didn&apos;t respond. Your watches are safe — this is just a loading problem.
+          </EmptyState>
         ) : null}
 
         {data ? (

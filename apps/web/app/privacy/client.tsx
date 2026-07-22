@@ -31,9 +31,9 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     title: "Where your data lives",
     body: (
       <p>
-        Your data is stored in a PostgreSQL database hosted in the EU/EEA, encrypted at rest,
-        reachable only by our backend over a private network — never exposed publicly. Passwords
-        and tokens are stored only as one-way hashes.
+        Your data is stored in a PostgreSQL database hosted in the EU/EEA (Amsterdam) on
+        infrastructure that encrypts data at rest. Access requires credentials held only by our
+        backend services. Passwords and tokens are stored only as one-way hashes.
       </p>
     ),
   },
@@ -43,9 +43,9 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
       <p>
         Flight prices come from <strong className="text-cloud">Travelpayouts / Aviasales</strong>. When you open a
         deal, we pass an affiliate marker so Triplet may earn a commission; their site sets its own
-        cookies under its policy. Subscription payments (if you upgrade) are handled by
+        cookies under its policy. When paid plans are enabled, subscription payments are handled by
         <strong className="text-cloud"> Stripe</strong> — card details never touch our servers. We use no advertising
-        or analytics trackers.
+        or analytics trackers; the only third-party script is Travelpayouts&apos; affiliate attribution.
       </p>
     ),
   },

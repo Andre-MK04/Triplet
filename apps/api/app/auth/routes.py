@@ -122,17 +122,17 @@ async def oauth_callback(
             ip_address=request.client.host if request.client else None,
         )
     except (OAuthConfigError, OAuthProviderError, AuthError):
-        response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}?auth=oauth_failed", status_code=302)
+        response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}/auth/callback?auth=oauth_failed", status_code=302)
         response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/", domain=cookie_settings().get("domain"))
         return response
     except SQLAlchemyError:
         db.rollback()
-        response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}?auth=database_unavailable", status_code=302)
+        response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}/auth/callback?auth=database_unavailable", status_code=302)
         response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/", domain=cookie_settings().get("domain"))
         return response
 
     record_audit_event(db, "auth.oauth_login", user_id=user.id, request=request, commit=True, provider=normalized_provider)
-    response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}?auth=oauth_success", status_code=302)
+    response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}/auth/callback?auth=oauth_success", status_code=302)
     set_auth_cookies(response, access_token, refresh_token)
     response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/", domain=cookie_settings().get("domain"))
     return response
