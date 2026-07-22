@@ -392,3 +392,49 @@ class UsageCounterDB(Base):
     count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class LocationDB(Base):
+    """European cities/towns for the travel-profile base location (GeoNames)."""
+
+    __tablename__ = "locations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # geonameid
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    ascii_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    country_code: Mapped[str] = mapped_column(String(2), index=True)
+    country_name: Mapped[str] = mapped_column(String(80))
+    admin_region: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    population: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    source: Mapped[str] = mapped_column(String(40), default="geonames")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AirportDirectoryDB(Base):
+    """Scheduled-service airport directory for origin selection (OurAirports).
+
+    Separate from the curated `airports` table, which holds trip-builder
+    metadata (areas, transfer wiring) for a small set of codes.
+    """
+
+    __tablename__ = "airport_directory"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # OurAirports id
+    iata_code: Mapped[str] = mapped_column(String(3), unique=True, index=True)
+    icao_code: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    city: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    country_code: Mapped[str] = mapped_column(String(2), index=True)
+    country_name: Mapped[str] = mapped_column(String(80))
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    type: Mapped[str] = mapped_column(String(40))  # large_airport | medium_airport | small_airport
+    scheduled_service: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    source: Mapped[str] = mapped_column(String(40), default="ourairports")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
