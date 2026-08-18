@@ -20,12 +20,14 @@ from app.db.models import (
     AlertRunDB,
     AuditEventDB,
     BillingSubscriptionDB,
+    CountryVisitDB,
     EmailVerificationTokenDB,
     PasswordResetTokenDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
     TripSuggestionDB,
     UsageCounterDB,
+    UserCountryDB,
     UserDB,
     UserOAuthAccountDB,
     UserTravelProfileDB,
@@ -38,6 +40,12 @@ def export_user_data(db: Session, user: UserDB) -> dict:
     oauth = db.scalars(select(UserOAuthAccountDB).where(UserOAuthAccountDB.user_id == user.id)).all()
     suggestions = db.scalars(select(TripSuggestionDB).where(TripSuggestionDB.user_id == user.id)).all()
     usage = db.scalars(select(UsageCounterDB).where(UsageCounterDB.user_id == user.id)).all()
+    country_relationships = db.scalars(
+        select(UserCountryDB).where(UserCountryDB.user_id == user.id)
+    ).all()
+    country_visits = db.scalars(
+        select(CountryVisitDB).where(CountryVisitDB.user_id == user.id)
+    ).all()
 
     return {
         "exportedAt": _now_iso(),
@@ -69,6 +77,35 @@ def export_user_data(db: Session, user: UserDB) -> dict:
             {"title": t.title, "totalPrice": t.total_price, "createdAt": _iso(t.created_at)}
             for t in suggestions
         ],
+        "travelMap": {
+            "countries": [
+                {
+                    "countryCode": country.country_code,
+                    "visited": country.visited,
+                    "lived": country.lived,
+                    "wishlist": country.wishlist,
+                    "createdAt": _iso(country.created_at),
+                    "updatedAt": _iso(country.updated_at),
+                }
+                for country in country_relationships
+            ],
+            "visits": [
+                {
+                    "id": visit.id,
+                    "countryCode": visit.country_code,
+                    "kind": visit.kind,
+                    "startDate": _iso(visit.start_date),
+                    "startPrecision": visit.start_precision,
+                    "endDate": _iso(visit.end_date),
+                    "endPrecision": visit.end_precision,
+                    "note": visit.note,
+                    "tripId": visit.trip_suggestion_id,
+                    "createdAt": _iso(visit.created_at),
+                    "updatedAt": _iso(visit.updated_at),
+                }
+                for visit in country_visits
+            ],
+        },
         "usage": [
             {"feature": u.feature, "periodStart": _iso(u.period_start), "count": u.count}
             for u in usage
@@ -91,6 +128,8 @@ def erase_user(db: Session, user: UserDB, request=None) -> None:
         db.execute(delete(AlertRunDB).where(AlertRunDB.saved_search_id.in_(saved_ids)))
 
     for model in (
+        CountryVisitDB,
+        UserCountryDB,
         SavedSearchDB,
         TripSuggestionDB,
         UserTravelProfileDB,

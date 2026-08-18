@@ -125,6 +125,52 @@ python -m app.db.seed
 
 The seed script is idempotent and inserts airport areas, airports, mock flights, and ground transfers.
 
+## My World travel map
+
+Authenticated users can open `/world` to keep a private, persistent map of
+countries they have visited, lived in, or want to visit. The page extends the
+existing React Three Fiber globe with a lazy-loaded Natural Earth 110m country
+overlay. A searchable country list provides the same actions for keyboard users
+and for small countries that are difficult to tap on low-detail geometry.
+
+Country identity and totals come from one canonical catalog:
+
+- `apps/api/app/data/country_catalog.json` contains ISO alpha-2, alpha-3,
+  numeric geometry ID, display name, aliases, continent, and whether the entry
+  counts toward the world total.
+- Triplet currently defines the world as 193 UN members plus Vatican City and
+  Palestine: 195 countries. The seven-continent classification and all totals
+  are derived from this catalog, not duplicated in UI components.
+- Globe polygons are matched by Natural Earth numeric ISO ID, never by display
+  name. The catalog can be regenerated with the documented command in
+  `apps/api/scripts/build_country_catalog.cjs`.
+
+Persistence uses two normalized tables created by migration
+`20260818_0019_travel_map.py`:
+
+- `user_countries` stores durable visited, lived, and wishlist facts per user
+  and ISO alpha-2 country. Display precedence is lived > visited > wishlist >
+  unvisited; lived always counts as visited.
+- `country_visits` stores repeated visit or residence records with optional
+  exact, month, year, or unknown dates, private notes, and an optional owned
+  trip-suggestion reference.
+
+Protected routes never accept a client-supplied user ID:
+
+- `GET /me/travel-map`
+- `PATCH /me/travel-map/countries/{country_code}`
+- `POST /me/travel-map/countries/bulk`
+- `POST /me/travel-map/countries/{country_code}/visits`
+- `PATCH /me/travel-map/visits/{visit_id}`
+- `DELETE /me/travel-map/visits/{visit_id}`
+
+`GET /countries` and `GET /countries/{country_code}` expose only the public
+catalog. Travel history is included in GDPR account export and erasure. For AI
+requests that explicitly refer to visited, unvisited, or wishlist places, the
+orchestrator may include compact ISO-code sets; it never sends visit dates or
+notes, and ordinary searches receive no travel-map context. Wishlist “Plan a
+trip” actions hand the country to the existing `/discover` AI-search flow.
+
 ## Accounts And Authentication
 
 Triplet includes backend-managed email/password accounts for the MVP. Passwords are hashed before storage, access tokens and refresh tokens are stored in `httpOnly` cookies, and saved searches can belong to a logged-in user.
@@ -438,16 +484,23 @@ Webhook events handled:
 
 Free limits:
 
-- 3 saved alerts
-- 5 AI searches per day
+- 1 saved watch
+- 3 AI searches per month
+- 3 origin airports
+- Weekly checks
+
+Trial limits (7 days, no card required):
+
+- 3 saved watches
+- 15 AI searches total
 - 6 origin airports
-- Daily alerts
+- Daily or weekly checks
 
 Pro limits:
 
-- 30 saved alerts
-- 100 AI searches per day
-- 12 origin airports
+- 10 saved watches
+- 100 AI searches per month
+- 8 origin airports
 - Daily and weekly alerts
 
 iOS note: this step implements web Stripe subscriptions only. A future iOS app may require StoreKit / Apple in-app purchases for digital premium features. Do not add Stripe Checkout inside the iOS app without reviewing App Store rules.
@@ -463,6 +516,7 @@ Pages:
 - `/login` and `/signup` dedicated auth pages (email/password + Google OAuth start).
 - `/onboarding` animated multi-step travel-profile quiz backed by `/me/travel-profile`.
 - `/dashboard` account dashboard with plan summary, usage meters, saved watches (preview, edit, pause, resume, delete), billing, and travel-profile shortcuts.
+- `/world` private personal globe with visited/lived/wishlist states, repeated visits, partial dates, continent progress, and wishlist discovery handoff.
 - `/pricing` Free/Pro pricing with monthly/yearly toggle, limit comparison, and FAQ.
 - `/security` plain-language security & privacy overview.
 - `/dev/providers` development-only provider status + smoke-test page (hidden when dev tool endpoints are disabled).
@@ -968,7 +1022,7 @@ Results are sorted by deal score, fit score, price, and shorter ground transfer.
 
 ## Known Limitations
 
-- All flights and transfers are mock data.
+- Database-backed mock flights and transfers remain the local fallback; Travelpayouts provides indicative observed fares when configured, not guaranteed live inventory.
 - `directOnly` is accepted in the request model, but every mock flight is currently treated as direct.
 - Ground transfers are static city/airport pairs, not live train or bus schedules.
 - Repository tests use SQLite in memory; local development uses PostgreSQL.
@@ -981,8 +1035,10 @@ Results are sorted by deal score, fit score, price, and shorter ground transfer.
 - Alert emails are console/log output by default.
 - MCP is documentation and a stub only; no production MCP server is exposed.
 - No booking, scraping, or production email provider integration is included yet.
+- The 110m globe geometry intentionally prioritizes performance and does not draw every microstate clearly. All 195 countries remain available through the searchable list.
+- Antarctica is represented in the seven-continent denominator but has no sovereign-country entry in the 195-country definition, so it currently shows 0 / 0 in continent progress.
 
 ## Next Step
 
-Obtain Duffel and/or Travelpayouts credentials and run the provider smoke tests, then build the
-frontend shell (landing, onboarding quiz, discover/results/detail pages) on top of the existing API.
+Deploy migration `20260818_0019`, verify `/world` against the production EU PostgreSQL database,
+and then continue provider coverage without presenting indicative fares as guaranteed live inventory.

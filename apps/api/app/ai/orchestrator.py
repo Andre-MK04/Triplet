@@ -22,11 +22,13 @@ from app.ai.schemas import (
     SearchPreviewResponse,
 )
 from app.config import settings
+from app.db.models import UserDB
 from app.models import TripSearchRequest
 from app.preferences.resolution import DEFAULT_SPONTANEITY, spontaneity_window
 from app.tools.base import ToolContext
 from app.tools.registry import ToolNotFoundError, ToolRegistry, ToolValidationError
 from app.tools.schemas import ParsedTripIntent, SearchTripsOutput
+from app.travel_map.service import TravelMapService
 
 
 def build_search_preview(message: str, registry: ToolRegistry, context: ToolContext) -> SearchPreviewResponse:
@@ -68,6 +70,14 @@ FALLBACK_KNOWN_AIRPORTS = {
     "PMI",
 }
 
+TRAVEL_MAP_CONTEXT_PATTERNS = (
+    r"\b(?:haven't|have not|never)\s+(?:been|visited|lived)",
+    r"\b(?:unvisited|wishlist|been before|visited before|somewhere new)\b",
+    r"\b(?:countries|places)\s+i(?:'ve| have)\s+(?:already\s+)?(?:been|visited|lived)",
+    r"\b(?:new|another)\s+continent\b",
+    r"\b(?:my|from my)\s+(?:travel map|wishlist)\b",
+)
+
 
 def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: ToolContext) -> AISearchResponse:
     if not settings.ai_enabled:
@@ -106,10 +116,11 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
 
     try:
         provider = build_ai_provider()
+        travel_map_context = build_travel_map_context(request.message, context)
         result = provider.run_chat_with_tools(
             messages=[
                 {"role": "system", "content": TRIPLET_SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_message(request)},
+                {"role": "user", "content": build_user_message(request, travel_map_context)},
             ],
             tools=openai_tool_schemas(registry),
             tool_executor=execute_tool,
@@ -411,13 +422,37 @@ def compact_route(trip: dict[str, Any]) -> str:
     )
 
 
-def build_user_message(request: AISearchRequest) -> str:
+def build_travel_map_context(message: str, context: ToolContext) -> dict[str, list[str]] | None:
+    """Return private, compact country status only when the request needs it.
+
+    Visit dates and notes are deliberately excluded from AI context. Ordinary
+    searches do not query or send a user's map at all.
+    """
+    if not context.user_id or not any(re.search(pattern, message, re.IGNORECASE) for pattern in TRAVEL_MAP_CONTEXT_PATTERNS):
+        return None
+    user = context.db.get(UserDB, context.user_id)
+    if not user:
+        return None
+    return TravelMapService(context.db, user).compact_ai_context()
+
+
+def build_user_message(
+    request: AISearchRequest,
+    travel_map_context: dict[str, list[str]] | None = None,
+) -> str:
     structured = request.model_dump(mode="json", exclude_none=True)
+    map_section = ""
+    if travel_map_context is not None:
+        map_section = (
+            "\n\nPrivate travel-map context (ISO country codes only; use only to satisfy the request):\n"
+            f"{travel_map_context}"
+        )
     return (
         "User travel request:\n"
         f"{request.message}\n\n"
         "Structured fields supplied by frontend, if any:\n"
-        f"{structured}\n\n"
+        f"{structured}"
+        f"{map_section}\n\n"
         "Call search_trips with validated arguments before discussing actual trip options."
     )
 

@@ -1,14 +1,19 @@
 from fastapi.testclient import TestClient
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from threading import Barrier
+
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import sessionmaker
 
 from app.billing.entitlements import get_entitlements, get_user_plan
 from app.billing.service import start_trial
 from app.billing.usage import assert_ai_search_allowed, record_ai_search
 from app.billing.webhooks import process_stripe_event
 from app.config import settings
-from app.database import get_db
-from app.db.models import BillingEventDB, UserDB
+from app.database import Base, get_db
+from app.db.models import BillingEventDB, UsageCounterDB, UserDB
 from app.main import app
 
 
@@ -168,6 +173,36 @@ def test_ai_usage_limit_blocks_after_free_monthly_limit(db_session, monkeypatch)
         assert "this month" in str(exc.detail)
     else:
         raise AssertionError("Expected AI usage limit to block")
+
+
+def test_ai_usage_increment_is_atomic_for_concurrent_requests(tmp_path):
+    engine = create_engine(
+        f"sqlite+pysqlite:///{tmp_path / 'usage.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    with SessionLocal() as setup:
+        make_user(setup, id="concurrent-user", email="concurrent@example.com")
+
+    barrier = Barrier(2)
+
+    def increment_once() -> int:
+        with SessionLocal() as session:
+            user = session.get(UserDB, "concurrent-user")
+            barrier.wait()
+            return record_ai_search(session, user)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: increment_once(), range(2)))
+
+    with SessionLocal() as check:
+        rows = check.scalar(select(func.count(UsageCounterDB.id)))
+        count = check.scalar(select(UsageCounterDB.count))
+    assert sorted(results) == [1, 2]
+    assert rows == 1
+    assert count == 2
+    engine.dispose()
 
 
 def test_saved_search_limit_blocks_free_user(db_session, monkeypatch):

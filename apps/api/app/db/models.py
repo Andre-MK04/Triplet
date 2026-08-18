@@ -267,6 +267,8 @@ class UserDB(Base):
     oauth_accounts: Mapped[list["UserOAuthAccountDB"]] = relationship(back_populates="user")
     billing_subscriptions: Mapped[list["BillingSubscriptionDB"]] = relationship(back_populates="user")
     travel_profile: Mapped["UserTravelProfileDB | None"] = relationship(back_populates="user")
+    country_relationships: Mapped[list["UserCountryDB"]] = relationship(back_populates="user")
+    country_visits: Mapped[list["CountryVisitDB"]] = relationship(back_populates="user")
 
 
 class UserTravelProfileDB(Base):
@@ -305,6 +307,59 @@ class UserTravelProfileDB(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user: Mapped[UserDB] = relationship(back_populates="travel_profile")
+
+
+class UserCountryDB(Base):
+    """A user's durable relationship with one ISO country.
+
+    The booleans intentionally remain independent: display precedence is a
+    presentation rule, not a destructive rewrite of the underlying facts.
+    `lived` always implies `visited` in the travel-map service.
+    """
+
+    __tablename__ = "user_countries"
+    __table_args__ = (
+        UniqueConstraint("user_id", "country_code", name="uq_user_country"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    country_code: Mapped[str] = mapped_column(String(2), index=True)
+    visited: Mapped[bool] = mapped_column(Boolean, default=False)
+    lived: Mapped[bool] = mapped_column(Boolean, default=False)
+    wishlist: Mapped[bool] = mapped_column(Boolean, default=False)
+    relationship_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user: Mapped[UserDB] = relationship(back_populates="country_relationships")
+    visits: Mapped[list["CountryVisitDB"]] = relationship(
+        back_populates="country_relationship",
+        cascade="all, delete-orphan",
+    )
+
+
+class CountryVisitDB(Base):
+    """One visit or residence period, with partial-date precision preserved."""
+
+    __tablename__ = "country_visits"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    user_country_id: Mapped[str] = mapped_column(ForeignKey("user_countries.id"), index=True)
+    country_code: Mapped[str] = mapped_column(String(2), index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="visit")  # visit | lived
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    start_precision: Mapped[str] = mapped_column(String(16), default="unknown")  # exact | month | year | unknown
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_precision: Mapped[str] = mapped_column(String(16), default="unknown")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trip_suggestion_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user: Mapped[UserDB] = relationship(back_populates="country_visits")
+    country_relationship: Mapped[UserCountryDB] = relationship(back_populates="visits")
 
 
 class UserOAuthAccountDB(Base):

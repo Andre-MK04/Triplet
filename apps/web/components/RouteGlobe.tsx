@@ -2,10 +2,11 @@
 
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
 import { AIRPORTS } from "../lib/airports";
+import { useResolvedTheme } from "./useResolvedTheme";
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -54,7 +55,7 @@ function mulberry32(seed: number) {
   };
 }
 
-function DotSphere() {
+function DotSphere({ light }: { light: boolean }) {
   const geometry = useMemo(() => {
     const random = mulberry32(42);
     const count = 700;
@@ -75,7 +76,7 @@ function DotSphere() {
 
   return (
     <points geometry={geometry}>
-      <pointsMaterial color="#3d5a6e" size={0.022} sizeAttenuation transparent opacity={0.9} />
+      <pointsMaterial color={light ? "#526b78" : "#3d5a6e"} size={0.022} sizeAttenuation transparent opacity={light ? 0.72 : 0.9} />
     </points>
   );
 }
@@ -136,7 +137,7 @@ function latLonLoopPoints(loop: Array<[number, number]>, radius: number): THREE.
   return loop.map(([lat, lon]) => latLonToVector3(lat, lon, radius));
 }
 
-function EuropeOutline() {
+function EuropeOutline({ light }: { light: boolean }) {
   const lines = useMemo(
     () =>
       EUROPE_OUTLINES.map((loop) => {
@@ -144,13 +145,13 @@ function EuropeOutline() {
           latLonLoopPoints(loop, GLOBE_RADIUS * 1.004),
         );
         const material = new THREE.LineBasicMaterial({
-          color: "#7ddfc3",
+          color: light ? "#16836f" : "#7ddfc3",
           transparent: true,
           opacity: 0.4,
         });
         return new THREE.Line(geometry, material);
       }),
-    [],
+    [light],
   );
   return (
     <group>
@@ -163,7 +164,7 @@ function EuropeOutline() {
 
 const ARC_SEGMENTS = 64;
 
-function RouteArc({ from, to, phase, animate }: { from: string; to: string; phase: number; animate: boolean }) {
+function RouteArc({ from, to, phase, animate, light }: { from: string; to: string; phase: number; animate: boolean; light: boolean }) {
   const line = useMemo(() => {
     const start = positionFor(from);
     const end = positionFor(to);
@@ -174,12 +175,12 @@ function RouteArc({ from, to, phase, animate }: { from: string; to: string; phas
     const points = curve.getPoints(ARC_SEGMENTS);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const material = new THREE.LineBasicMaterial({
-      color: "#7ddfc3",
+      color: light ? "#16836f" : "#7ddfc3",
       transparent: true,
       opacity: 0.85,
     });
     return new THREE.Line(geometry, material);
-  }, [from, to]);
+  }, [from, to, light]);
 
   useFrame(({ clock }) => {
     if (!line) return;
@@ -202,7 +203,7 @@ function RouteArc({ from, to, phase, animate }: { from: string; to: string; phas
       <primitive object={line} />
       <mesh position={start}>
         <sphereGeometry args={[0.028, 12, 12]} />
-        <meshBasicMaterial color="#7ddfc3" />
+        <meshBasicMaterial color={light ? "#16836f" : "#7ddfc3"} />
       </mesh>
       <mesh position={end}>
         <sphereGeometry args={[0.028, 12, 12]} />
@@ -225,7 +226,21 @@ function PriceTag({ marker }: { marker: GlobeMarker }) {
   );
 }
 
-function GlobeScene({ markers, animate }: { markers: GlobeMarker[]; animate: boolean }) {
+function GlobeScene({
+  markers,
+  animate,
+  overlay,
+  light,
+  showRoutes,
+  showEuropeOutline,
+}: {
+  markers: GlobeMarker[];
+  animate: boolean;
+  overlay?: ReactNode;
+  light: boolean;
+  showRoutes: boolean;
+  showEuropeOutline: boolean;
+}) {
   return (
     // Tilted and yawed so Europe (and its route arcs) faces the camera on first
     // paint — solved so Vienna lands just left of viewport centre, and the slow
@@ -234,26 +249,27 @@ function GlobeScene({ markers, animate }: { markers: GlobeMarker[]; animate: boo
       {/* Solid core so the far side of the wireframe reads as a planet, not a cage. */}
       <mesh>
         <sphereGeometry args={[GLOBE_RADIUS * 0.98, 64, 64]} />
-        <meshPhongMaterial color="#090f15" />
+        <meshPhongMaterial color={light ? "#dce6ea" : "#090f15"} />
       </mesh>
       {/* Wireframe shell: the "wireframe-meets-satellite" instrument look. */}
       <mesh>
         <sphereGeometry args={[GLOBE_RADIUS, 48, 48]} />
         <meshPhongMaterial
-          color="#16202a"
-          emissive="#1d2733"
-          specular="#343a41"
+          color={light ? "#8299a4" : "#16202a"}
+          emissive={light ? "#aebfc7" : "#1d2733"}
+          specular={light ? "#ffffff" : "#343a41"}
           shininess={10}
           wireframe
           transparent
-          opacity={0.45}
+          opacity={light ? 0.44 : 0.45}
         />
       </mesh>
-      <DotSphere />
-      <EuropeOutline />
-      {DEFAULT_ROUTES.map(([from, to], index) => (
-        <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.45} animate={animate} />
-      ))}
+      <DotSphere light={light} />
+      {showEuropeOutline ? <EuropeOutline light={light} /> : null}
+      {overlay}
+      {showRoutes ? DEFAULT_ROUTES.map(([from, to], index) => (
+        <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.45} animate={animate} light={light} />
+      )) : null}
       {markers.map((marker) => (
         <PriceTag key={marker.code} marker={marker} />
       ))}
@@ -266,22 +282,77 @@ type RouteGlobeProps = {
   /** Drag to rotate. Zoom and pan stay disabled so it behaves like an instrument, not a map. */
   interactive?: boolean;
   markers?: GlobeMarker[];
+  /** Optional geometry rendered in the same rotated world space as the globe. */
+  overlay?: ReactNode;
+  /** Homepage visuals are decorative; the Travel Map supplies an accessible label. */
+  ariaHidden?: boolean;
+  ariaLabel?: string;
+  showRoutes?: boolean;
+  showEuropeOutline?: boolean;
 };
 
-export default function RouteGlobe({ animate = true, interactive = true, markers = [] }: RouteGlobeProps) {
+export default function RouteGlobe({
+  animate = true,
+  interactive = true,
+  markers = [],
+  overlay,
+  ariaHidden = true,
+  ariaLabel,
+  showRoutes = true,
+  showEuropeOutline = true,
+}: RouteGlobeProps) {
   const reducedMotion = usePrefersReducedMotion();
+  const light = useResolvedTheme() === "light";
+  const [webGlAvailable, setWebGlAvailable] = useState<boolean | null>(null);
   const shouldAnimate = animate && !reducedMotion;
+
+  useEffect(() => {
+    try {
+      const canvas = document.createElement("canvas");
+      setWebGlAvailable(Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl")));
+    } catch {
+      setWebGlAvailable(false);
+    }
+  }, []);
+
+  if (webGlAvailable === false) {
+    return (
+      <div
+        className="flex h-full min-h-64 items-center justify-center rounded-full border border-line bg-ink-soft"
+        role="img"
+        aria-label={ariaLabel ?? "Triplet globe"}
+      >
+        <div className="relative h-48 w-48 rounded-full border border-mint/40 bg-ink-raised shadow-[inset_-24px_-18px_45px_rgba(0,0,0,0.18)]">
+          <span className="absolute left-[28%] top-[30%] h-2 w-2 rounded-full bg-mint" />
+          <span className="absolute right-[24%] top-[44%] h-2 w-2 rounded-full bg-coral" />
+          <span className="absolute bottom-[28%] left-[45%] font-mono text-[10px] uppercase tracking-label text-mist">
+            Map view
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Canvas
       camera={{ position: [0, 0, 4.6], fov: 42 }}
       dpr={[1, 1.75]}
       gl={{ antialias: true, alpha: true, powerPreference: "low-power" }}
       style={{ background: "transparent" }}
-      aria-hidden
+      aria-hidden={ariaHidden || undefined}
+      aria-label={!ariaHidden ? ariaLabel : undefined}
+      role={!ariaHidden ? "img" : undefined}
     >
-      <ambientLight color="#6a7681" intensity={2.4} />
-      <directionalLight color="#7ddfc3" intensity={1.6} position={[5, 3, 5]} />
-      <GlobeScene markers={markers} animate={shouldAnimate} />
+      <ambientLight color={light ? "#b8c8cf" : "#6a7681"} intensity={light ? 2.9 : 2.4} />
+      <directionalLight color={light ? "#16836f" : "#7ddfc3"} intensity={1.6} position={[5, 3, 5]} />
+      <GlobeScene
+        markers={markers}
+        animate={shouldAnimate}
+        overlay={overlay}
+        light={light}
+        showRoutes={showRoutes}
+        showEuropeOutline={showEuropeOutline}
+      />
       <OrbitControls
         enableZoom={false}
         enablePan={false}

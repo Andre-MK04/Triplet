@@ -4,9 +4,11 @@ from sqlalchemy import func, select
 from app.database import get_db
 from app.db.models import (
     AuditEventDB,
+    CountryVisitDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
     UserDB,
+    UserCountryDB,
     UserTravelProfileDB,
 )
 from app.main import app
@@ -45,6 +47,11 @@ def seed_user_data(client):
             "maxGroundTransferHours": 4, "tripStyle": "one city", "frequency": "weekly",
         },
     )
+    client.patch("/me/travel-map/countries/IS", json={"wishlist": True})
+    client.post(
+        "/me/travel-map/countries/IT/visits",
+        json={"startDate": "2024-08", "note": "Summer trip"},
+    )
 
 
 def test_export_returns_users_data_without_secrets(db_session):
@@ -56,6 +63,8 @@ def test_export_returns_users_data_without_secrets(db_session):
     assert body["account"]["email"] == "privacy@example.com"
     assert body["travelProfile"]["originAirports"] == ["VIE", "ZAG"]
     assert len(body["savedSearches"]) == 1
+    assert {country["countryCode"] for country in body["travelMap"]["countries"]} == {"IS", "IT"}
+    assert body["travelMap"]["visits"][0]["startPrecision"] == "month"
     # No secret material in the actual data (ignore the human-readable note).
     body.pop("note", None)
     dumped = str(body).lower()
@@ -82,7 +91,14 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
     assert response.status_code == 200
 
     # No personal rows remain for this user in any linked table.
-    for model in (UserDB, UserTravelProfileDB, SavedSearchDB, RefreshTokenSessionDB):
+    for model in (
+        UserDB,
+        UserTravelProfileDB,
+        SavedSearchDB,
+        RefreshTokenSessionDB,
+        UserCountryDB,
+        CountryVisitDB,
+    ):
         remaining = db_session.scalar(
             select(func.count()).select_from(model).where(model.user_id == user_id)
             if model is not UserDB

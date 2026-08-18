@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
@@ -120,6 +120,7 @@ export function DiscoverClient() {
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
   const showWelcome = searchParams.get("welcome") === "1";
+  const autoSearchedQuery = useRef<string | null>(null);
 
   const [mode, setMode] = useState<"ai" | "advanced">("ai");
   const [aiMessage, setAiMessage] = useState(EXAMPLE_PROMPTS[0]);
@@ -147,7 +148,8 @@ export function DiscoverClient() {
   // Landing-page hand-off: /discover?q=… prefills the prompt and searches immediately.
   const incomingQuery = searchParams.get("q");
   useEffect(() => {
-    if (!incomingQuery) return;
+    if (!incomingQuery || autoSearchedQuery.current === incomingQuery) return;
+    autoSearchedQuery.current = incomingQuery;
     setMode("ai");
     setAiMessage(incomingQuery);
     void performAiSearch(incomingQuery);

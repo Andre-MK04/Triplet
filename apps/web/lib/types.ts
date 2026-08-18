@@ -258,6 +258,71 @@ export type DashboardResponse = {
   savedSearchSummary: { total: number; active: number };
 };
 
+export type CountryCatalogEntry = {
+  code: string;
+  alpha3: string;
+  numericCode: string;
+  name: string;
+  continent: string;
+  countsTowardWorldTotal: boolean;
+};
+
+export type CountryCatalogResponse = {
+  definition: string;
+  worldTotal: number;
+  continentTotal: number;
+  continents: string[];
+  countries: CountryCatalogEntry[];
+};
+
+export type TravelMapStatus = "visited" | "lived" | "wishlist" | "unvisited";
+export type TravelDatePrecision = "exact" | "month" | "year" | "unknown";
+
+export type CountryVisit = {
+  id: string;
+  countryCode: string;
+  kind: "visit" | "lived";
+  startDate: string | null;
+  endDate: string | null;
+  startPrecision: TravelDatePrecision;
+  endPrecision: TravelDatePrecision;
+  note: string | null;
+  tripId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TravelMapCountry = {
+  code: string;
+  name: string;
+  continent: string;
+  visited: boolean;
+  lived: boolean;
+  wishlist: boolean;
+  primaryStatus: TravelMapStatus;
+  visitCount: number;
+  residenceCount: number;
+  visits: CountryVisit[];
+  updatedAt: string;
+};
+
+export type ContinentProgress = { name: string; visited: number; total: number };
+
+export type TravelMapResponse = {
+  countries: TravelMapCountry[];
+  stats: {
+    countriesVisited: number;
+    countriesLivedIn: number;
+    wishlistCountries: number;
+    worldTotal: number;
+    worldExploredPercentage: number;
+    continentsVisited: number;
+    continentTotal: number;
+    continentProgress: ContinentProgress[];
+  };
+  updatedAt: string | null;
+};
+
 export type ItineraryItem = {
   partOfDay: "morning" | "afternoon" | "evening" | "flexible";
   title: string;

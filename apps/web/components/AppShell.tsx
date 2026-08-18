@@ -33,6 +33,9 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const visibleNavLinks = user
+    ? [navLinks[0], { href: "/world", label: "My World" }, ...navLinks.slice(1)]
+    : navLinks;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ink/90">
@@ -43,7 +46,7 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Main">
-          {navLinks.map((link) => (
+          {visibleNavLinks.map((link) => (
             <NavLink key={link.href} {...link} active={pathname?.startsWith(link.href) ?? false} />
           ))}
         </nav>
@@ -94,7 +97,7 @@ export function Navbar() {
       {menuOpen ? (
         <div className="border-t border-line bg-ink px-4 pb-5 pt-3 md:hidden">
           <nav className="flex flex-col gap-4" aria-label="Mobile">
-            {navLinks.map((link) => (
+            {visibleNavLinks.map((link) => (
               <NavLink
                 key={link.href}
                 {...link}
@@ -156,6 +159,7 @@ const footerGroups = [
     label: "Account",
     links: [
       { href: "/onboarding", label: "Travel profile" },
+      { href: "/world", label: "My World" },
       { href: "/account", label: "Account" },
     ],
   },

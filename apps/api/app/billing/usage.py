@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.billing.entitlements import get_entitlements, get_user_plan, trial_is_active
@@ -46,13 +48,46 @@ def _usage_count(db: Session, user_id: str, feature: str, period: tuple[date, da
 
 
 def _increment(db: Session, user_id: str, feature: str, period: tuple[date, date]) -> int:
+    dialect_name = db.get_bind().dialect.name
+    if dialect_name in {"postgresql", "sqlite"}:
+        insert = postgresql_insert if dialect_name == "postgresql" else sqlite_insert
+        statement = (
+            insert(UsageCounterDB)
+            .values(
+                id=str(uuid4()),
+                user_id=user_id,
+                feature=feature,
+                period_start=period[0],
+                period_end=period[1],
+                count=1,
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    UsageCounterDB.user_id,
+                    UsageCounterDB.feature,
+                    UsageCounterDB.period_start,
+                    UsageCounterDB.period_end,
+                ],
+                set_={
+                    "count": UsageCounterDB.count + 1,
+                    "updated_at": func.now(),
+                },
+            )
+            .returning(UsageCounterDB.count)
+        )
+        count = db.scalar(statement)
+        db.commit()
+        return int(count or 0)
+
+    # Portable fallback for unsupported development databases. Production
+    # PostgreSQL and test SQLite use the atomic upsert above.
     row = db.scalar(
         select(UsageCounterDB).where(
             UsageCounterDB.user_id == user_id,
             UsageCounterDB.feature == feature,
             UsageCounterDB.period_start == period[0],
             UsageCounterDB.period_end == period[1],
-        )
+        ).with_for_update()
     )
     if not row:
         row = UsageCounterDB(

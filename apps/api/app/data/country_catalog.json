@@ -1,0 +1,1814 @@
+{
+  "definition": "193 UN member states plus Vatican City and Palestine",
+  "source": "countries-list 3.4.1 and i18n-iso-countries 7.14.0 (MIT)",
+  "continents": [
+    "Africa",
+    "Antarctica",
+    "Asia",
+    "Europe",
+    "North America",
+    "South America",
+    "Oceania"
+  ],
+  "countries": [
+    {
+      "code": "AF",
+      "alpha3": "AFG",
+      "numericCode": "004",
+      "name": "Afghanistan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AL",
+      "alpha3": "ALB",
+      "numericCode": "008",
+      "name": "Albania",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "DZ",
+      "alpha3": "DZA",
+      "numericCode": "012",
+      "name": "Algeria",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AD",
+      "alpha3": "AND",
+      "numericCode": "020",
+      "name": "Andorra",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AO",
+      "alpha3": "AGO",
+      "numericCode": "024",
+      "name": "Angola",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AG",
+      "alpha3": "ATG",
+      "numericCode": "028",
+      "name": "Antigua and Barbuda",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AR",
+      "alpha3": "ARG",
+      "numericCode": "032",
+      "name": "Argentina",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AM",
+      "alpha3": "ARM",
+      "numericCode": "051",
+      "name": "Armenia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AU",
+      "alpha3": "AUS",
+      "numericCode": "036",
+      "name": "Australia",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AT",
+      "alpha3": "AUT",
+      "numericCode": "040",
+      "name": "Austria",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AZ",
+      "alpha3": "AZE",
+      "numericCode": "031",
+      "name": "Azerbaijan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BS",
+      "alpha3": "BHS",
+      "numericCode": "044",
+      "name": "Bahamas",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BH",
+      "alpha3": "BHR",
+      "numericCode": "048",
+      "name": "Bahrain",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BD",
+      "alpha3": "BGD",
+      "numericCode": "050",
+      "name": "Bangladesh",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BB",
+      "alpha3": "BRB",
+      "numericCode": "052",
+      "name": "Barbados",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BY",
+      "alpha3": "BLR",
+      "numericCode": "112",
+      "name": "Belarus",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BE",
+      "alpha3": "BEL",
+      "numericCode": "056",
+      "name": "Belgium",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BZ",
+      "alpha3": "BLZ",
+      "numericCode": "084",
+      "name": "Belize",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BJ",
+      "alpha3": "BEN",
+      "numericCode": "204",
+      "name": "Benin",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BT",
+      "alpha3": "BTN",
+      "numericCode": "064",
+      "name": "Bhutan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BO",
+      "alpha3": "BOL",
+      "numericCode": "068",
+      "name": "Bolivia",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Bolivia"
+      ]
+    },
+    {
+      "code": "BA",
+      "alpha3": "BIH",
+      "numericCode": "070",
+      "name": "Bosnia and Herzegovina",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BW",
+      "alpha3": "BWA",
+      "numericCode": "072",
+      "name": "Botswana",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BR",
+      "alpha3": "BRA",
+      "numericCode": "076",
+      "name": "Brazil",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BN",
+      "alpha3": "BRN",
+      "numericCode": "096",
+      "name": "Brunei",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Brunei"
+      ]
+    },
+    {
+      "code": "BG",
+      "alpha3": "BGR",
+      "numericCode": "100",
+      "name": "Bulgaria",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BF",
+      "alpha3": "BFA",
+      "numericCode": "854",
+      "name": "Burkina Faso",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "BI",
+      "alpha3": "BDI",
+      "numericCode": "108",
+      "name": "Burundi",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CV",
+      "alpha3": "CPV",
+      "numericCode": "132",
+      "name": "Cabo Verde",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KH",
+      "alpha3": "KHM",
+      "numericCode": "116",
+      "name": "Cambodia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CM",
+      "alpha3": "CMR",
+      "numericCode": "120",
+      "name": "Cameroon",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CA",
+      "alpha3": "CAN",
+      "numericCode": "124",
+      "name": "Canada",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CF",
+      "alpha3": "CAF",
+      "numericCode": "140",
+      "name": "Central African Republic",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TD",
+      "alpha3": "TCD",
+      "numericCode": "148",
+      "name": "Chad",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CL",
+      "alpha3": "CHL",
+      "numericCode": "152",
+      "name": "Chile",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CN",
+      "alpha3": "CHN",
+      "numericCode": "156",
+      "name": "China",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CO",
+      "alpha3": "COL",
+      "numericCode": "170",
+      "name": "Colombia",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KM",
+      "alpha3": "COM",
+      "numericCode": "174",
+      "name": "Comoros",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CR",
+      "alpha3": "CRI",
+      "numericCode": "188",
+      "name": "Costa Rica",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "HR",
+      "alpha3": "HRV",
+      "numericCode": "191",
+      "name": "Croatia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CU",
+      "alpha3": "CUB",
+      "numericCode": "192",
+      "name": "Cuba",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CY",
+      "alpha3": "CYP",
+      "numericCode": "196",
+      "name": "Cyprus",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CZ",
+      "alpha3": "CZE",
+      "numericCode": "203",
+      "name": "Czechia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Czech Republic"
+      ]
+    },
+    {
+      "code": "CD",
+      "alpha3": "COD",
+      "numericCode": "180",
+      "name": "Democratic Republic of the Congo",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Democratic Republic of the Congo",
+        "DR Congo"
+      ]
+    },
+    {
+      "code": "DK",
+      "alpha3": "DNK",
+      "numericCode": "208",
+      "name": "Denmark",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "DJ",
+      "alpha3": "DJI",
+      "numericCode": "262",
+      "name": "Djibouti",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "DM",
+      "alpha3": "DMA",
+      "numericCode": "212",
+      "name": "Dominica",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "DO",
+      "alpha3": "DOM",
+      "numericCode": "214",
+      "name": "Dominican Republic",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TL",
+      "alpha3": "TLS",
+      "numericCode": "626",
+      "name": "East Timor",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "EC",
+      "alpha3": "ECU",
+      "numericCode": "218",
+      "name": "Ecuador",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "EG",
+      "alpha3": "EGY",
+      "numericCode": "818",
+      "name": "Egypt",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SV",
+      "alpha3": "SLV",
+      "numericCode": "222",
+      "name": "El Salvador",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GQ",
+      "alpha3": "GNQ",
+      "numericCode": "226",
+      "name": "Equatorial Guinea",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ER",
+      "alpha3": "ERI",
+      "numericCode": "232",
+      "name": "Eritrea",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "EE",
+      "alpha3": "EST",
+      "numericCode": "233",
+      "name": "Estonia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SZ",
+      "alpha3": "SWZ",
+      "numericCode": "748",
+      "name": "Eswatini",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ET",
+      "alpha3": "ETH",
+      "numericCode": "231",
+      "name": "Ethiopia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "FJ",
+      "alpha3": "FJI",
+      "numericCode": "242",
+      "name": "Fiji",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "FI",
+      "alpha3": "FIN",
+      "numericCode": "246",
+      "name": "Finland",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "FR",
+      "alpha3": "FRA",
+      "numericCode": "250",
+      "name": "France",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GA",
+      "alpha3": "GAB",
+      "numericCode": "266",
+      "name": "Gabon",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GM",
+      "alpha3": "GMB",
+      "numericCode": "270",
+      "name": "Gambia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GE",
+      "alpha3": "GEO",
+      "numericCode": "268",
+      "name": "Georgia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "DE",
+      "alpha3": "DEU",
+      "numericCode": "276",
+      "name": "Germany",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GH",
+      "alpha3": "GHA",
+      "numericCode": "288",
+      "name": "Ghana",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GR",
+      "alpha3": "GRC",
+      "numericCode": "300",
+      "name": "Greece",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GD",
+      "alpha3": "GRD",
+      "numericCode": "308",
+      "name": "Grenada",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GT",
+      "alpha3": "GTM",
+      "numericCode": "320",
+      "name": "Guatemala",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GN",
+      "alpha3": "GIN",
+      "numericCode": "324",
+      "name": "Guinea",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GW",
+      "alpha3": "GNB",
+      "numericCode": "624",
+      "name": "Guinea-Bissau",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GY",
+      "alpha3": "GUY",
+      "numericCode": "328",
+      "name": "Guyana",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "HT",
+      "alpha3": "HTI",
+      "numericCode": "332",
+      "name": "Haiti",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "HN",
+      "alpha3": "HND",
+      "numericCode": "340",
+      "name": "Honduras",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "HU",
+      "alpha3": "HUN",
+      "numericCode": "348",
+      "name": "Hungary",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "IS",
+      "alpha3": "ISL",
+      "numericCode": "352",
+      "name": "Iceland",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "IN",
+      "alpha3": "IND",
+      "numericCode": "356",
+      "name": "India",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ID",
+      "alpha3": "IDN",
+      "numericCode": "360",
+      "name": "Indonesia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "IR",
+      "alpha3": "IRN",
+      "numericCode": "364",
+      "name": "Iran",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Iran"
+      ]
+    },
+    {
+      "code": "IQ",
+      "alpha3": "IRQ",
+      "numericCode": "368",
+      "name": "Iraq",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "IE",
+      "alpha3": "IRL",
+      "numericCode": "372",
+      "name": "Ireland",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "IL",
+      "alpha3": "ISR",
+      "numericCode": "376",
+      "name": "Israel",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "IT",
+      "alpha3": "ITA",
+      "numericCode": "380",
+      "name": "Italy",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CI",
+      "alpha3": "CIV",
+      "numericCode": "384",
+      "name": "Ivory Coast",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Ivory Coast"
+      ]
+    },
+    {
+      "code": "JM",
+      "alpha3": "JAM",
+      "numericCode": "388",
+      "name": "Jamaica",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "JP",
+      "alpha3": "JPN",
+      "numericCode": "392",
+      "name": "Japan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "JO",
+      "alpha3": "JOR",
+      "numericCode": "400",
+      "name": "Jordan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KZ",
+      "alpha3": "KAZ",
+      "numericCode": "398",
+      "name": "Kazakhstan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KE",
+      "alpha3": "KEN",
+      "numericCode": "404",
+      "name": "Kenya",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KI",
+      "alpha3": "KIR",
+      "numericCode": "296",
+      "name": "Kiribati",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KW",
+      "alpha3": "KWT",
+      "numericCode": "414",
+      "name": "Kuwait",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KG",
+      "alpha3": "KGZ",
+      "numericCode": "417",
+      "name": "Kyrgyzstan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LA",
+      "alpha3": "LAO",
+      "numericCode": "418",
+      "name": "Laos",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Laos"
+      ]
+    },
+    {
+      "code": "LV",
+      "alpha3": "LVA",
+      "numericCode": "428",
+      "name": "Latvia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LB",
+      "alpha3": "LBN",
+      "numericCode": "422",
+      "name": "Lebanon",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LS",
+      "alpha3": "LSO",
+      "numericCode": "426",
+      "name": "Lesotho",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LR",
+      "alpha3": "LBR",
+      "numericCode": "430",
+      "name": "Liberia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LY",
+      "alpha3": "LBY",
+      "numericCode": "434",
+      "name": "Libya",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LI",
+      "alpha3": "LIE",
+      "numericCode": "438",
+      "name": "Liechtenstein",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LT",
+      "alpha3": "LTU",
+      "numericCode": "440",
+      "name": "Lithuania",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LU",
+      "alpha3": "LUX",
+      "numericCode": "442",
+      "name": "Luxembourg",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MG",
+      "alpha3": "MDG",
+      "numericCode": "450",
+      "name": "Madagascar",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MW",
+      "alpha3": "MWI",
+      "numericCode": "454",
+      "name": "Malawi",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MY",
+      "alpha3": "MYS",
+      "numericCode": "458",
+      "name": "Malaysia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MV",
+      "alpha3": "MDV",
+      "numericCode": "462",
+      "name": "Maldives",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ML",
+      "alpha3": "MLI",
+      "numericCode": "466",
+      "name": "Mali",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MT",
+      "alpha3": "MLT",
+      "numericCode": "470",
+      "name": "Malta",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MH",
+      "alpha3": "MHL",
+      "numericCode": "584",
+      "name": "Marshall Islands",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MR",
+      "alpha3": "MRT",
+      "numericCode": "478",
+      "name": "Mauritania",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MU",
+      "alpha3": "MUS",
+      "numericCode": "480",
+      "name": "Mauritius",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MX",
+      "alpha3": "MEX",
+      "numericCode": "484",
+      "name": "Mexico",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "FM",
+      "alpha3": "FSM",
+      "numericCode": "583",
+      "name": "Micronesia",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MD",
+      "alpha3": "MDA",
+      "numericCode": "498",
+      "name": "Moldova",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Moldova"
+      ]
+    },
+    {
+      "code": "MC",
+      "alpha3": "MCO",
+      "numericCode": "492",
+      "name": "Monaco",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MN",
+      "alpha3": "MNG",
+      "numericCode": "496",
+      "name": "Mongolia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ME",
+      "alpha3": "MNE",
+      "numericCode": "499",
+      "name": "Montenegro",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MA",
+      "alpha3": "MAR",
+      "numericCode": "504",
+      "name": "Morocco",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MZ",
+      "alpha3": "MOZ",
+      "numericCode": "508",
+      "name": "Mozambique",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MM",
+      "alpha3": "MMR",
+      "numericCode": "104",
+      "name": "Myanmar",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NA",
+      "alpha3": "NAM",
+      "numericCode": "516",
+      "name": "Namibia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NR",
+      "alpha3": "NRU",
+      "numericCode": "520",
+      "name": "Nauru",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NP",
+      "alpha3": "NPL",
+      "numericCode": "524",
+      "name": "Nepal",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NL",
+      "alpha3": "NLD",
+      "numericCode": "528",
+      "name": "Netherlands",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NZ",
+      "alpha3": "NZL",
+      "numericCode": "554",
+      "name": "New Zealand",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NI",
+      "alpha3": "NIC",
+      "numericCode": "558",
+      "name": "Nicaragua",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NE",
+      "alpha3": "NER",
+      "numericCode": "562",
+      "name": "Niger",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "NG",
+      "alpha3": "NGA",
+      "numericCode": "566",
+      "name": "Nigeria",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KP",
+      "alpha3": "PRK",
+      "numericCode": "408",
+      "name": "North Korea",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "MK",
+      "alpha3": "MKD",
+      "numericCode": "807",
+      "name": "North Macedonia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Macedonia"
+      ]
+    },
+    {
+      "code": "NO",
+      "alpha3": "NOR",
+      "numericCode": "578",
+      "name": "Norway",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "OM",
+      "alpha3": "OMN",
+      "numericCode": "512",
+      "name": "Oman",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PK",
+      "alpha3": "PAK",
+      "numericCode": "586",
+      "name": "Pakistan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PW",
+      "alpha3": "PLW",
+      "numericCode": "585",
+      "name": "Palau",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PS",
+      "alpha3": "PSE",
+      "numericCode": "275",
+      "name": "Palestine",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Palestine"
+      ]
+    },
+    {
+      "code": "PA",
+      "alpha3": "PAN",
+      "numericCode": "591",
+      "name": "Panama",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PG",
+      "alpha3": "PNG",
+      "numericCode": "598",
+      "name": "Papua New Guinea",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PY",
+      "alpha3": "PRY",
+      "numericCode": "600",
+      "name": "Paraguay",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PE",
+      "alpha3": "PER",
+      "numericCode": "604",
+      "name": "Peru",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PH",
+      "alpha3": "PHL",
+      "numericCode": "608",
+      "name": "Philippines",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PL",
+      "alpha3": "POL",
+      "numericCode": "616",
+      "name": "Poland",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "PT",
+      "alpha3": "PRT",
+      "numericCode": "620",
+      "name": "Portugal",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "QA",
+      "alpha3": "QAT",
+      "numericCode": "634",
+      "name": "Qatar",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CG",
+      "alpha3": "COG",
+      "numericCode": "178",
+      "name": "Republic of the Congo",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "RO",
+      "alpha3": "ROU",
+      "numericCode": "642",
+      "name": "Romania",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "RU",
+      "alpha3": "RUS",
+      "numericCode": "643",
+      "name": "Russia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Russia"
+      ]
+    },
+    {
+      "code": "RW",
+      "alpha3": "RWA",
+      "numericCode": "646",
+      "name": "Rwanda",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KN",
+      "alpha3": "KNA",
+      "numericCode": "659",
+      "name": "Saint Kitts and Nevis",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LC",
+      "alpha3": "LCA",
+      "numericCode": "662",
+      "name": "Saint Lucia",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "VC",
+      "alpha3": "VCT",
+      "numericCode": "670",
+      "name": "Saint Vincent and the Grenadines",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "WS",
+      "alpha3": "WSM",
+      "numericCode": "882",
+      "name": "Samoa",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SM",
+      "alpha3": "SMR",
+      "numericCode": "674",
+      "name": "San Marino",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ST",
+      "alpha3": "STP",
+      "numericCode": "678",
+      "name": "Sao Tome and Principe",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SA",
+      "alpha3": "SAU",
+      "numericCode": "682",
+      "name": "Saudi Arabia",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SN",
+      "alpha3": "SEN",
+      "numericCode": "686",
+      "name": "Senegal",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "RS",
+      "alpha3": "SRB",
+      "numericCode": "688",
+      "name": "Serbia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SC",
+      "alpha3": "SYC",
+      "numericCode": "690",
+      "name": "Seychelles",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SL",
+      "alpha3": "SLE",
+      "numericCode": "694",
+      "name": "Sierra Leone",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SG",
+      "alpha3": "SGP",
+      "numericCode": "702",
+      "name": "Singapore",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SK",
+      "alpha3": "SVK",
+      "numericCode": "703",
+      "name": "Slovakia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SI",
+      "alpha3": "SVN",
+      "numericCode": "705",
+      "name": "Slovenia",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SB",
+      "alpha3": "SLB",
+      "numericCode": "090",
+      "name": "Solomon Islands",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SO",
+      "alpha3": "SOM",
+      "numericCode": "706",
+      "name": "Somalia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ZA",
+      "alpha3": "ZAF",
+      "numericCode": "710",
+      "name": "South Africa",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "KR",
+      "alpha3": "KOR",
+      "numericCode": "410",
+      "name": "South Korea",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "South Korea",
+        "Republic of Korea"
+      ]
+    },
+    {
+      "code": "SS",
+      "alpha3": "SSD",
+      "numericCode": "728",
+      "name": "South Sudan",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ES",
+      "alpha3": "ESP",
+      "numericCode": "724",
+      "name": "Spain",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "LK",
+      "alpha3": "LKA",
+      "numericCode": "144",
+      "name": "Sri Lanka",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SD",
+      "alpha3": "SDN",
+      "numericCode": "729",
+      "name": "Sudan",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SR",
+      "alpha3": "SUR",
+      "numericCode": "740",
+      "name": "Suriname",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SE",
+      "alpha3": "SWE",
+      "numericCode": "752",
+      "name": "Sweden",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "CH",
+      "alpha3": "CHE",
+      "numericCode": "756",
+      "name": "Switzerland",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "SY",
+      "alpha3": "SYR",
+      "numericCode": "760",
+      "name": "Syria",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Syria"
+      ]
+    },
+    {
+      "code": "TJ",
+      "alpha3": "TJK",
+      "numericCode": "762",
+      "name": "Tajikistan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TZ",
+      "alpha3": "TZA",
+      "numericCode": "834",
+      "name": "Tanzania",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Tanzania"
+      ]
+    },
+    {
+      "code": "TH",
+      "alpha3": "THA",
+      "numericCode": "764",
+      "name": "Thailand",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TG",
+      "alpha3": "TGO",
+      "numericCode": "768",
+      "name": "Togo",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TO",
+      "alpha3": "TON",
+      "numericCode": "776",
+      "name": "Tonga",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TT",
+      "alpha3": "TTO",
+      "numericCode": "780",
+      "name": "Trinidad and Tobago",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TN",
+      "alpha3": "TUN",
+      "numericCode": "788",
+      "name": "Tunisia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TR",
+      "alpha3": "TUR",
+      "numericCode": "792",
+      "name": "Türkiye",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Turkey"
+      ]
+    },
+    {
+      "code": "TM",
+      "alpha3": "TKM",
+      "numericCode": "795",
+      "name": "Turkmenistan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "TV",
+      "alpha3": "TUV",
+      "numericCode": "798",
+      "name": "Tuvalu",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "UG",
+      "alpha3": "UGA",
+      "numericCode": "800",
+      "name": "Uganda",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "UA",
+      "alpha3": "UKR",
+      "numericCode": "804",
+      "name": "Ukraine",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "AE",
+      "alpha3": "ARE",
+      "numericCode": "784",
+      "name": "United Arab Emirates",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "GB",
+      "alpha3": "GBR",
+      "numericCode": "826",
+      "name": "United Kingdom",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Great Britain",
+        "UK"
+      ]
+    },
+    {
+      "code": "US",
+      "alpha3": "USA",
+      "numericCode": "840",
+      "name": "United States",
+      "continent": "North America",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "United States of America",
+        "USA"
+      ]
+    },
+    {
+      "code": "UY",
+      "alpha3": "URY",
+      "numericCode": "858",
+      "name": "Uruguay",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "UZ",
+      "alpha3": "UZB",
+      "numericCode": "860",
+      "name": "Uzbekistan",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "VU",
+      "alpha3": "VUT",
+      "numericCode": "548",
+      "name": "Vanuatu",
+      "continent": "Oceania",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "VA",
+      "alpha3": "VAT",
+      "numericCode": "336",
+      "name": "Vatican City",
+      "continent": "Europe",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Vatican City"
+      ]
+    },
+    {
+      "code": "VE",
+      "alpha3": "VEN",
+      "numericCode": "862",
+      "name": "Venezuela",
+      "continent": "South America",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Venezuela"
+      ]
+    },
+    {
+      "code": "VN",
+      "alpha3": "VNM",
+      "numericCode": "704",
+      "name": "Vietnam",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": [
+        "Vietnam"
+      ]
+    },
+    {
+      "code": "YE",
+      "alpha3": "YEM",
+      "numericCode": "887",
+      "name": "Yemen",
+      "continent": "Asia",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ZM",
+      "alpha3": "ZMB",
+      "numericCode": "894",
+      "name": "Zambia",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    },
+    {
+      "code": "ZW",
+      "alpha3": "ZWE",
+      "numericCode": "716",
+      "name": "Zimbabwe",
+      "continent": "Africa",
+      "countsTowardWorldTotal": true,
+      "aliases": []
+    }
+  ]
+}
