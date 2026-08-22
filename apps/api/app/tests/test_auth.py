@@ -4,7 +4,7 @@ from app.auth.oauth import OAUTH_STATE_COOKIE_NAME, OAuthProfile, generate_oauth
 from app.auth.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.auth.service import AuthService
 from app.database import get_db
-from app.db.models import PasswordResetTokenDB, SavedSearchDB, UserDB, UserOAuthAccountDB
+from app.db.models import PasswordResetTokenDB, SavedSearchDB, UserDB, UserOAuthAccountDB, UserTravelProfileDB
 from app.main import app
 
 
@@ -189,6 +189,53 @@ def test_account_dashboard_usage_and_saved_search_edit_flow(db_session):
     assert paused.json()["isActive"] is False
     assert resumed.status_code == 200
     assert resumed.json()["isActive"] is True
+
+
+def test_account_watch_insights_include_history_and_respect_price_drop_baseline(db_session):
+    client = make_client(db_session)
+    client.post("/auth/signup", json=signup_payload())
+    user = db_session.query(UserDB).filter(UserDB.email == "traveler@example.com").one()
+    db_session.add(
+        UserTravelProfileDB(
+            user_id=user.id,
+            home_location="Vienna, Austria",
+            origin_airports=["VIE"],
+            alert_trigger_mode="price_drop",
+        )
+    )
+    db_session.commit()
+    created = client.post(
+        "/me/saved-searches",
+        json=saved_search_payload(startDate="2026-07-01", endDate="2026-07-31", maxBudget=180),
+    )
+    saved_id = created.json()["id"]
+
+    first_run = client.post(f"/me/saved-searches/{saved_id}/run")
+    insights = client.get(f"/me/saved-searches/{saved_id}/insights")
+    app.dependency_overrides.clear()
+
+    assert first_run.status_code == 200
+    assert first_run.json()["resultCount"] > 0
+    assert first_run.json()["notificationSent"] is False
+    assert insights.status_code == 200
+    assert insights.json()["alertTriggerMode"] == "price_drop"
+    assert insights.json()["totalChecks"] == 1
+    assert len(insights.json()["history"]) == 1
+    assert insights.json()["currentBestPrice"] is not None
+
+
+def test_account_watch_insights_are_private(db_session):
+    client = make_client(db_session)
+    client.post("/auth/signup", json=signup_payload(email="owner@example.com"))
+    created = client.post("/me/saved-searches", json=saved_search_payload())
+    saved_id = created.json()["id"]
+    client.post("/auth/logout")
+    client.post("/auth/signup", json=signup_payload(email="other@example.com"))
+
+    response = client.get(f"/me/saved-searches/{saved_id}/insights")
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 404
 
 
 def test_account_saved_searches_require_login(db_session):

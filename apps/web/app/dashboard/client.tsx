@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
@@ -8,9 +8,10 @@ import { Button, ButtonLink } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Field, Input, Select } from "../../components/ui/Input";
 import { EmptyState, Notice, Spinner } from "../../components/ui/Misc";
-import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../../lib/api";
 import { airportCity } from "../../lib/airports";
 import { formatPrice, timeAgo } from "../../lib/format";
+import type { TravelProfile } from "../../lib/types";
 
 type DashboardSavedSearch = {
   id: string;
@@ -24,11 +25,38 @@ type DashboardSavedSearch = {
   maxBudget: number;
   maxGroundTransferHours: number;
   tripStyle: string;
+  directOnly?: boolean | null;
+  includeBaggage?: boolean | null;
   frequency: string;
   isActive: boolean;
   lastCheckedAt?: string | null;
   lastNotifiedAt?: string | null;
   lastBestPrice?: number | null;
+};
+
+type WatchInsights = {
+  savedSearchId: string;
+  alertTriggerMode: string;
+  totalChecks: number;
+  successfulChecks: number;
+  notificationCount: number;
+  currentBestPrice?: number | null;
+  lowestObservedPrice?: number | null;
+  averageObservedPrice?: number | null;
+  changeFromPrevious?: number | null;
+  budgetHeadroom?: number | null;
+  history: Array<{
+    checkedAt: string;
+    bestPrice?: number | null;
+    resultCount: number;
+    status: string;
+  }>;
+  deliveries: Array<{
+    sentAt: string;
+    status: string;
+    provider: string;
+    subject: string;
+  }>;
 };
 
 type DashboardBilling = {
@@ -54,7 +82,137 @@ type DashboardData = {
   user: { email: string; displayName?: string | null };
   billing: DashboardBilling;
   savedSearches: DashboardSavedSearch[];
+  travelProfile: TravelProfile;
 };
+
+const TRIGGER_LABELS: Record<string, string> = {
+  any: "Any worthwhile deal",
+  below_budget: "Anything below my budget",
+  route_deal: "Only unusually cheap routes",
+  price_drop: "Only meaningful price drops",
+};
+
+function PriceHistoryChart({ insights, budget }: { insights: WatchInsights; budget: number }) {
+  const points = useMemo(
+    () => insights.history.filter((point) => point.bestPrice != null) as Array<WatchInsights["history"][number] & { bestPrice: number }>,
+    [insights.history],
+  );
+
+  if (points.length === 0) {
+    return (
+      <div className="grid h-44 place-items-center border-y border-line">
+        <p className="max-w-sm text-center text-sm text-mist">
+          No price history yet. Run the watch once to establish its first baseline.
+        </p>
+      </div>
+    );
+  }
+
+  const width = 640;
+  const height = 176;
+  const padX = 22;
+  const padY = 20;
+  const values = [...points.map((point) => point.bestPrice), budget];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const spread = Math.max(max - min, 20);
+  const low = min - spread * 0.15;
+  const high = max + spread * 0.15;
+  const x = (index: number) => padX + (index / Math.max(points.length - 1, 1)) * (width - padX * 2);
+  const y = (price: number) => padY + ((high - price) / (high - low)) * (height - padY * 2);
+  const path = points.map((point, index) => `${x(index)},${y(point.bestPrice)}`).join(" ");
+
+  return (
+    <div className="relative h-44 w-full border-y border-line" aria-label="Watch price history chart">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img">
+        <title>Best observed prices over the last {points.length} checks</title>
+        <line
+          x1={padX}
+          x2={width - padX}
+          y1={y(budget)}
+          y2={y(budget)}
+          stroke="currentColor"
+          className="text-coral/50"
+          strokeDasharray="5 5"
+        />
+        <text x={width - padX} y={Math.max(12, y(budget) - 6)} textAnchor="end" className="fill-coral font-mono text-[9px]">
+          BUDGET {formatPrice(budget)}
+        </text>
+        {points.length > 1 ? (
+          <polyline points={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-mint" vectorEffect="non-scaling-stroke" />
+        ) : null}
+        {points.map((point, index) => (
+          <g key={`${point.checkedAt}-${index}`}>
+            <circle cx={x(index)} cy={y(point.bestPrice)} r={points.length === 1 ? 5 : 3.5} className="fill-mint" />
+            {(index === 0 || index === points.length - 1) ? (
+              <text
+                x={x(index)}
+                y={Math.max(12, y(point.bestPrice) - 9)}
+                textAnchor={index === 0 ? "start" : "end"}
+                className="fill-cloud font-mono text-[10px]"
+              >
+                {formatPrice(point.bestPrice)}
+              </text>
+            ) : null}
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; search: DashboardSavedSearch }) {
+  const change = insights.changeFromPrevious;
+  return (
+    <div className="mt-5 border-l-2 border-mint/50 pl-4 sm:pl-5">
+      <div className="grid gap-px bg-line sm:grid-cols-4">
+        {[
+          ["Current", insights.currentBestPrice != null ? formatPrice(insights.currentBestPrice) : "—"],
+          ["Observed low", insights.lowestObservedPrice != null ? formatPrice(insights.lowestObservedPrice) : "—"],
+          ["Average", insights.averageObservedPrice != null ? formatPrice(insights.averageObservedPrice) : "—"],
+          [
+            "Latest move",
+            change == null ? "—" : change === 0 ? "No change" : `${formatPrice(Math.abs(change))} ${change < 0 ? "lower" : "higher"}`,
+          ],
+        ].map(([label, value]) => (
+          <div key={label} className="bg-ink-raised px-3 py-3">
+            <p className="font-mono text-[9px] uppercase tracking-label text-mist/60">{label}</p>
+            <p className="mono-num mt-1 font-mono text-sm font-semibold text-cloud">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mist">Price history</p>
+          <p className="font-mono text-[9px] uppercase tracking-label text-mist/60">
+            {insights.totalChecks} checks · {insights.notificationCount} alerts · {TRIGGER_LABELS[insights.alertTriggerMode] ?? insights.alertTriggerMode}
+          </p>
+        </div>
+        <PriceHistoryChart insights={insights} budget={search.maxBudget} />
+      </div>
+
+      <div className="mt-5">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mist">Recent delivery</p>
+        {insights.deliveries.length ? (
+          <div className="mt-2 divide-y divide-line border-t border-line">
+            {insights.deliveries.slice(0, 4).map((delivery) => (
+              <div key={`${delivery.sentAt}-${delivery.subject}`} className="grid gap-1 py-2.5 sm:grid-cols-[5rem_1fr_auto] sm:items-center sm:gap-3">
+                <span className={`font-mono text-[9px] uppercase tracking-label ${delivery.status === "sent" ? "text-mint" : "text-coral"}`}>
+                  {delivery.status}
+                </span>
+                <span className="truncate text-xs text-cloud">{delivery.subject}</span>
+                <span className="font-mono text-[9px] uppercase tracking-label text-mist/60">{timeAgo(delivery.sentAt)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-mist">No alert has been sent for this watch yet.</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function UsageMeter({ label, used, limit }: { label: string; used: number; limit: number }) {
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
@@ -127,14 +285,22 @@ function WatchAction({ label, onClick, disabled, tone = "default" }: { label: st
 function SavedWatchRow({
   search,
   busy,
-  onPreview,
+  expanded,
+  insights,
+  insightsLoading,
+  onCheck,
+  onDetails,
   onEdit,
   onToggle,
   onDelete,
 }: {
   search: DashboardSavedSearch;
   busy: boolean;
-  onPreview: () => void;
+  expanded: boolean;
+  insights?: WatchInsights;
+  insightsLoading: boolean;
+  onCheck: () => void;
+  onDetails: () => void;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -163,11 +329,14 @@ function SavedWatchRow({
         {search.lastBestPrice ? formatPrice(search.lastBestPrice) : "not yet"}
       </p>
       <div className="mt-3 flex flex-wrap gap-5">
-        <WatchAction label="Preview" onClick={onPreview} disabled={busy} />
+        <WatchAction label={expanded ? "Hide details" : "Details"} onClick={onDetails} disabled={busy} />
+        <WatchAction label="Check now" onClick={onCheck} disabled={busy} />
         <WatchAction label="Edit" onClick={onEdit} disabled={busy} />
         <WatchAction label={search.isActive ? "Pause" : "Resume"} onClick={onToggle} disabled={busy} />
         <WatchAction label="Delete" onClick={onDelete} disabled={busy} tone="danger" />
       </div>
+      {expanded && insightsLoading ? <div className="mt-5"><Spinner label="Loading watch history…" /></div> : null}
+      {expanded && insights ? <WatchInsightsPanel insights={insights} search={search} /> : null}
     </article>
   );
 }
@@ -179,10 +348,18 @@ export function DashboardClient() {
   const [status, setStatus] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [editing, setEditing] = useState<DashboardSavedSearch | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [insights, setInsights] = useState<Record<string, WatchInsights>>({});
+  const [insightsLoadingId, setInsightsLoadingId] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setData(await apiGet<DashboardData>("/me/dashboard"));
+      const [dashboard, travelProfile] = await Promise.all([
+        apiGet<Omit<DashboardData, "travelProfile">>("/me/dashboard"),
+        apiGet<TravelProfile>("/me/travel-profile"),
+      ]);
+      setData({ ...dashboard, travelProfile });
       setLoadFailed(false);
     } catch {
       // Never leave the page on an endless spinner — surface the failure.
@@ -190,6 +367,28 @@ export function DashboardClient() {
       setLoadFailed(true);
     }
   }, []);
+
+  async function loadInsights(id: string, force = false) {
+    if (!force && insights[id]) return;
+    setInsightsLoadingId(id);
+    try {
+      const result = await apiGet<WatchInsights>(`/me/saved-searches/${id}/insights`);
+      setInsights((current) => ({ ...current, [id]: result }));
+    } catch (error) {
+      setStatus({ tone: "error", text: error instanceof Error ? error.message : "Could not load watch history." });
+    } finally {
+      setInsightsLoadingId(null);
+    }
+  }
+
+  async function toggleDetails(id: string) {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    await loadInsights(id);
+  }
 
   useEffect(() => {
     if (user) void load();
@@ -207,19 +406,37 @@ export function DashboardClient() {
     }
   }
 
-  async function preview(id: string) {
+  async function checkNow(id: string) {
     await withBusy(id, async () => {
-      const result = await apiPost<{ resultCount?: number; bestPrice?: number | null }>(
+      const result = await apiPost<{ resultCount?: number; bestPrice?: number | null; notificationSent?: boolean }>(
         `/me/saved-searches/${id}/run`,
       );
       setStatus({
         tone: "success",
-        text: `Preview complete: ${result.resultCount ?? 0} matching trip(s)${
+        text: `Watch checked: ${result.resultCount ?? 0} matching trip(s)${
           result.bestPrice ? `, best ${formatPrice(result.bestPrice)}` : ""
-        }.`,
+        }${result.notificationSent ? ". Alert sent." : "."}`,
       });
       await load();
+      await loadInsights(id, true);
     });
+  }
+
+  async function saveProfilePreferences() {
+    if (!data) return;
+    setProfileSaving(true);
+    setStatus(null);
+    try {
+      const { userId, isComplete, createdAt, updatedAt, ...payload } = data.travelProfile;
+      const saved = await apiPut<TravelProfile>("/me/travel-profile", payload);
+      setData({ ...data, travelProfile: saved });
+      setInsights({});
+      setStatus({ tone: "success", text: "Alert preferences saved." });
+    } catch (error) {
+      setStatus({ tone: "error", text: error instanceof Error ? error.message : "Could not save alert preferences." });
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   async function toggle(search: DashboardSavedSearch) {
@@ -380,7 +597,11 @@ export function DashboardClient() {
                     key={search.id}
                     search={search}
                     busy={busyId === search.id}
-                    onPreview={() => void preview(search.id)}
+                    expanded={expandedId === search.id}
+                    insights={insights[search.id]}
+                    insightsLoading={insightsLoadingId === search.id}
+                    onCheck={() => void checkNow(search.id)}
+                    onDetails={() => void toggleDetails(search.id)}
                     onEdit={() => setEditing(search)}
                     onToggle={() => void toggle(search)}
                     onDelete={() => void removeWatch(search.id)}
@@ -409,12 +630,66 @@ export function DashboardClient() {
               </Card>
               <Card>
                 <h2 className="font-display text-lg font-bold text-cloud">Travel profile</h2>
-                <p className="mt-2 text-sm text-mist">
-                  Airports, budget, and comfort rules power your alerts and prefill every search.
-                </p>
+                {data.travelProfile.isComplete ? (
+                  <>
+                    <p className="mt-2 text-sm text-mist">{data.travelProfile.homeLocation || "Home base not set"}</p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {data.travelProfile.originAirports.map((code) => (
+                        <span key={code} className="border border-line px-2 py-1 font-mono text-[9px] uppercase tracking-label text-cloud">
+                          {code}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <Notice tone="warning">Finish your profile so every search starts with the right home airports.</Notice>
+                )}
                 <ButtonLink href="/onboarding" variant="secondary" className="mt-4 w-full">
-                  Edit travel profile
+                  {data.travelProfile.isComplete ? "Edit travel profile" : "Finish setup"}
                 </ButtonLink>
+              </Card>
+              <Card>
+                <h2 className="font-display text-lg font-bold text-cloud">Alert rules</h2>
+                <p className="mt-2 text-sm text-mist">Choose what deserves an email. The rule applies to all active watches.</p>
+                <div className="mt-4 space-y-4">
+                  <Field label="Notify me for">
+                    <Select
+                      value={data.travelProfile.alertTriggerMode ?? "any"}
+                      onChange={(event) =>
+                        setData({
+                          ...data,
+                          travelProfile: {
+                            ...data.travelProfile,
+                            alertTriggerMode: event.target.value as TravelProfile["alertTriggerMode"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="any">Any worthwhile deal</option>
+                      <option value="below_budget">Anything below my budget</option>
+                      <option value="route_deal">Only unusually cheap routes</option>
+                      <option value="price_drop">Only meaningful price drops</option>
+                    </Select>
+                  </Field>
+                  <div className="border-y border-line py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-[10px] uppercase tracking-label text-mist">Email</span>
+                      <span className="font-mono text-[10px] uppercase tracking-label text-mint">Active</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <span className="font-mono text-[10px] uppercase tracking-label text-mist">Push</span>
+                      <span className="font-mono text-[10px] uppercase tracking-label text-mist/50">Planned for iOS</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    disabled={profileSaving || !data.travelProfile.isComplete}
+                    onClick={() => void saveProfilePreferences()}
+                  >
+                    {profileSaving ? "Saving…" : "Save alert rules"}
+                  </Button>
+                </div>
               </Card>
             </aside>
           </div>

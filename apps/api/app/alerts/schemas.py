@@ -109,3 +109,32 @@ class AlertRunResponse(BaseModel):
     bestPrice: float | None = None
     notificationSent: bool = False
     warnings: list[str] = []
+
+
+class WatchPricePoint(BaseModel):
+    checkedAt: datetime
+    bestPrice: float | None = None
+    resultCount: int
+    status: str
+
+
+class WatchDeliveryStatus(BaseModel):
+    sentAt: datetime
+    status: str
+    provider: str
+    subject: str
+
+
+class WatchInsightsResponse(BaseModel):
+    savedSearchId: str
+    alertTriggerMode: str
+    totalChecks: int
+    successfulChecks: int
+    notificationCount: int
+    currentBestPrice: float | None = None
+    lowestObservedPrice: float | None = None
+    averageObservedPrice: float | None = None
+    changeFromPrevious: float | None = None
+    budgetHeadroom: float | None = None
+    history: list[WatchPricePoint]
+    deliveries: list[WatchDeliveryStatus]

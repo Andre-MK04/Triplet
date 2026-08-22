@@ -3,7 +3,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.audit import record_audit_event
-from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse, UpdateSavedSearchRequest
+from app.alerts.schemas import (
+    AlertPreviewResponse,
+    AlertRunResponse,
+    CreateSavedSearchRequest,
+    SavedSearchResponse,
+    UpdateSavedSearchRequest,
+    WatchInsightsResponse,
+)
 from app.alerts.service import (
     AlertValidationError,
     SavedSearchNotFoundError,
@@ -213,6 +220,17 @@ def update_saved_search(
         return updated
 
     return _handle_saved_search_errors(run)
+
+
+@router.get("/saved-searches/{saved_search_id}/insights", response_model=WatchInsightsResponse)
+def get_saved_search_insights(
+    saved_search_id: str,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> WatchInsightsResponse:
+    return _handle_saved_search_errors(
+        lambda: SavedSearchService(db).get_user_saved_search_insights(user, saved_search_id)
+    )
 
 
 @router.post("/saved-searches/{saved_search_id}/pause", response_model=SavedSearchResponse)

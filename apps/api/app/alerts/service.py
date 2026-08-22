@@ -2,15 +2,24 @@ import smtplib
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.alerts.email import EmailProviderError, build_email_provider
 from app.alerts.templates import build_alert_html, build_alert_subject, build_alert_text
-from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse, UpdateSavedSearchRequest
+from app.alerts.schemas import (
+    AlertPreviewResponse,
+    AlertRunResponse,
+    CreateSavedSearchRequest,
+    SavedSearchResponse,
+    UpdateSavedSearchRequest,
+    WatchDeliveryStatus,
+    WatchInsightsResponse,
+    WatchPricePoint,
+)
 from app.alerts.token_utils import generate_token, hash_token, verify_token
 from app.config import settings
-from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB
+from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB, UserTravelProfileDB
 from app.db.repositories.airports_repository import AirportsRepository
 from app.models import TripSearchRequest
 from app.tools.base import ToolContext
@@ -89,6 +98,72 @@ class SavedSearchService:
     def get_user_saved_search(self, user: UserDB, saved_search_id: str) -> SavedSearchResponse:
         row = self._get_user_saved_search(user, saved_search_id)
         return self._to_response(row)
+
+    def get_user_saved_search_insights(self, user: UserDB, saved_search_id: str) -> WatchInsightsResponse:
+        row = self._get_user_saved_search(user, saved_search_id)
+        runs = list(
+            self.db.scalars(
+                select(AlertRunDB)
+                .where(AlertRunDB.saved_search_id == row.id)
+                .order_by(AlertRunDB.started_at.desc())
+                .limit(30)
+            )
+        )
+        deliveries = list(
+            self.db.scalars(
+                select(AlertDeliveryDB)
+                .where(AlertDeliveryDB.saved_search_id == row.id)
+                .order_by(AlertDeliveryDB.created_at.desc())
+                .limit(8)
+            )
+        )
+        total_checks = self.db.scalar(
+            select(func.count(AlertRunDB.id)).where(AlertRunDB.saved_search_id == row.id)
+        ) or 0
+        successful_checks = self.db.scalar(
+            select(func.count(AlertRunDB.id))
+            .where(AlertRunDB.saved_search_id == row.id)
+            .where(AlertRunDB.status.in_({"success", "no_results"}))
+        ) or 0
+        notification_count = self.db.scalar(
+            select(func.count(AlertDeliveryDB.id)).where(AlertDeliveryDB.saved_search_id == row.id)
+        ) or 0
+        prices = [run.best_price for run in runs if run.best_price is not None]
+        chronological_prices = list(reversed(prices))
+        change_from_previous = None
+        if len(chronological_prices) >= 2:
+            change_from_previous = round(chronological_prices[-1] - chronological_prices[-2], 2)
+        current_best = prices[0] if prices else row.last_best_price
+        return WatchInsightsResponse(
+            savedSearchId=row.id,
+            alertTriggerMode=self._alert_trigger_mode(row),
+            totalChecks=total_checks,
+            successfulChecks=successful_checks,
+            notificationCount=notification_count,
+            currentBestPrice=current_best,
+            lowestObservedPrice=min(prices) if prices else current_best,
+            averageObservedPrice=round(sum(prices) / len(prices), 2) if prices else current_best,
+            changeFromPrevious=change_from_previous,
+            budgetHeadroom=round(row.max_budget - current_best, 2) if current_best is not None else None,
+            history=[
+                WatchPricePoint(
+                    checkedAt=run.finished_at or run.started_at,
+                    bestPrice=run.best_price,
+                    resultCount=run.result_count,
+                    status=run.status,
+                )
+                for run in reversed(runs)
+            ],
+            deliveries=[
+                WatchDeliveryStatus(
+                    sentAt=delivery.created_at,
+                    status=delivery.status,
+                    provider=delivery.provider,
+                    subject=delivery.subject,
+                )
+                for delivery in deliveries
+            ],
+        )
 
     def resume_user_saved_search(self, user: UserDB, saved_search_id: str) -> SavedSearchResponse:
         row = self._get_user_saved_search(user, saved_search_id)
@@ -322,11 +397,44 @@ class SavedSearchService:
             cooldown = timedelta(hours=settings.alerts_min_hours_between_notifications)
             if row.last_notified_at > datetime.utcnow() - cooldown:
                 return False
-        if row.last_notified_at is None:
+        mode = self._alert_trigger_mode(row)
+        previous_price = row.last_best_price
+
+        if mode == "price_drop":
+            if previous_price is None:
+                return False
+            required_drop = max(10, previous_price * 0.05)
+            return best_price <= previous_price - required_drop
+
+        if mode == "route_deal":
+            previous_prices = list(
+                self.db.scalars(
+                    select(AlertRunDB.best_price)
+                    .where(AlertRunDB.saved_search_id == row.id)
+                    .where(AlertRunDB.best_price.is_not(None))
+                    .order_by(AlertRunDB.started_at.desc())
+                    .limit(30)
+                )
+            )
+            if len(previous_prices) >= 3:
+                route_average = sum(previous_prices) / len(previous_prices)
+                return best_price <= route_average * 0.85
+            return best_price <= row.max_budget * 0.8
+
+        if mode == "below_budget":
+            if best_price > row.max_budget:
+                return False
+            return previous_price is None or best_price < previous_price
+
+        if row.last_notified_at is None or previous_price is None:
             return True
-        if row.last_best_price is None:
-            return True
-        return best_price <= row.last_best_price - 10
+        return best_price <= previous_price - 10
+
+    def _alert_trigger_mode(self, row: SavedSearchDB) -> str:
+        if not row.user_id:
+            return "any"
+        profile = self.db.get(UserTravelProfileDB, row.user_id)
+        return profile.alert_trigger_mode if profile and profile.alert_trigger_mode else "any"
 
     def _to_response(
         self,
@@ -384,5 +492,3 @@ def saved_search_to_response(
         manageUrl=f"{base_url}/alerts/{row.id}?token={manage_token}" if manage_token else None,
         unsubscribeUrl=f"{base_url}/alerts/{row.id}/unsubscribe?token={unsubscribe_token}" if unsubscribe_token else None,
     )
-
-
