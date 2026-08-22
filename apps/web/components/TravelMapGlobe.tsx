@@ -195,7 +195,7 @@ export function TravelMapGlobe({
   const activeCode = hoveredCode ?? selectedCode;
 
   return (
-    <div className="relative h-[clamp(420px,68vw,680px)] w-full touch-none">
+    <div className="relative h-[clamp(520px,72vw,800px)] w-full touch-none overflow-visible">
       <RouteGlobe
         animate
         interactive

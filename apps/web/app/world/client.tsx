@@ -480,7 +480,7 @@ export function TravelMapClient() {
             <div className="mt-7 flex flex-wrap items-center justify-between gap-4"><Legend /><p className="font-mono text-[9px] uppercase tracking-label text-mist/60">Private to your account</p></div>
             {!travelMap.countries.length ? <div className="mt-8 border-y border-line py-6 text-center"><h2 className="font-display text-2xl font-bold text-cloud">Map your world</h2><p className="mt-2 text-sm text-mist">Start with a few countries. Dates can always come later.</p><Button className="mt-4" size="sm" onClick={() => setAddCountriesOpen(true)}>Start adding countries</Button></div> : null}
             <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-              <div className="min-w-0 overflow-hidden border border-line bg-ink-soft">
+              <div className="relative min-w-0 overflow-visible lg:-ml-12 lg:-mr-8 lg:-mt-8">
                 <TravelMapGlobe catalog={catalog.countries} countries={travelMap.countries} selectedCode={selectedCode} onSelect={setSelectedCode} />
               </div>
               <div className="hidden lg:block">
