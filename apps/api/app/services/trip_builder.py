@@ -1,7 +1,10 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
-from app.data.geography import PLACES, distance_km, is_european, place_city, scope_matches
-from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
+from app.config import settings
+from app.data.flight_places import canonical_code, get_place, is_flightable_place, place_matches_filters
+from app.data.geography import PLACES, distance_km, place_city, place_country_code, scope_matches
+from app.models import Airport, DestinationMetadata, Flight, GroundTransfer, TripOption, TripSearchRequest
+from app.providers.travelpayouts.affiliate_links import ItinerarySegment, build_aviasales_itinerary_url
 from app.providers.travelpayouts.mapper import RoundTripFare
 from app.services.trip_explainer import build_explanation, build_tags, build_warnings
 from app.services.trip_scoring import ScoringContext, calculate_deal_score, calculate_fit_score
@@ -18,18 +21,26 @@ def build_trips(
     airports_by_code = {airport.code: airport for airport in airports}
     origin_codes = {code.upper() for code in request.originAirports}
     destination_codes = (
-        {code.upper() for code in request.destinationAirports} if request.destinationAirports else None
+        {canonical_code(code) for code in request.destinationAirports} if request.destinationAirports else None
     )
     # Multi-city: the traveller flies home from these airports, not the outbound city.
     return_origin_codes = (
-        {code.upper() for code in request.returnOriginAirports} if request.returnOriginAirports else None
+        {canonical_code(code) for code in request.returnOriginAirports} if request.returnOriginAirports else None
     )
     outbound_candidates = [
         flight
         for flight in flights
         if flight.origin in origin_codes
         and (destination_codes is None or scope_matches(flight.destination, destination_codes))
+        and place_matches_filters(
+            flight.destination,
+            country_codes={value.upper() for value in request.destinationCountries} or None,
+            regions={value.casefold() for value in request.destinationRegions} or None,
+            continents={value.casefold() for value in request.destinationContinents} or None,
+            exclude_europe=request.excludeEurope,
+        )
         and request.startDate <= flight.departureDateTime.date() <= request.endDate
+        and destination_allowed_by_travel_map(flight.destination, request, scoring)
     ]
 
     trips: list[TripOption] = []
@@ -44,6 +55,10 @@ def build_trips(
             airports_by_code[outbound.destination] = synthesized
 
         for return_flight in flights:
+            if return_flight.origin not in airports_by_code:
+                synthesized_return = synthesize_airport(return_flight.origin)
+                if synthesized_return:
+                    airports_by_code[return_flight.origin] = synthesized_return
             if not is_valid_return_candidate(outbound, return_flight, origin_codes, airports_by_code):
                 continue
             if return_origin_codes is not None and not scope_matches(return_flight.origin, return_origin_codes):
@@ -117,6 +132,18 @@ def build_trips(
                     f"{ground_transfer.durationHours:g}h by {ground_transfer.mode} — plan it as part of the trip "
                     f"(cost and time are estimates)."
                 )
+            if ground_transfer:
+                transfer_km = distance_km(ground_transfer.fromAirport, ground_transfer.toAirport)
+                crosses_border = place_country_code(ground_transfer.fromAirport) != place_country_code(
+                    ground_transfer.toAirport
+                )
+                if crosses_border or (transfer_km is not None and transfer_km > 500):
+                    warnings.append(
+                        "This is a substantial self-transfer, not a protected flight connection; "
+                        "verify border, visa, timing, and ground-transport details separately."
+                    )
+            itinerary_url = travelpayouts_itinerary_url(outbound, return_flight)
+            itinerary_affiliate_url = itinerary_url if itinerary_url and settings.travelpayouts_marker else None
             trip = TripOption(
                 id=f"{outbound.id}-{return_flight.id}",
                 tripType=trip_type,
@@ -130,22 +157,28 @@ def build_trips(
                 explanation="",
                 warnings=warnings,
                 tags=[],
-                bookingUrl=pick_trip_booking_url(outbound, return_flight),
-                bookingLabel=pick_trip_booking_label(outbound, return_flight),
-                affiliateUrl=pick_trip_affiliate_url(outbound, return_flight),
-                providerDeepLink=pick_trip_deep_link(outbound, return_flight),
+                bookingUrl=itinerary_url or pick_trip_booking_url(outbound, return_flight),
+                bookingLabel="Check price" if itinerary_url else pick_trip_booking_label(outbound, return_flight),
+                affiliateUrl=itinerary_affiliate_url or pick_trip_affiliate_url(outbound, return_flight),
+                providerDeepLink=itinerary_url or pick_trip_deep_link(outbound, return_flight),
                 outboundBookingUrl=outbound.bookingUrl or outbound.deepLink,
                 returnBookingUrl=return_flight.bookingUrl or return_flight.deepLink,
                 provider=pick_trip_provider(outbound, return_flight),
-                linkType=pick_trip_link_type(outbound, return_flight),
+                linkType=(
+                    "affiliate_referral"
+                    if itinerary_affiliate_url
+                    else ("provider_deeplink" if itinerary_url else pick_trip_link_type(outbound, return_flight))
+                ),
+                destination=destination_metadata(outbound.destination),
             )
             trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, scoring)
             trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(
-                trip, request, scoring.profile if scoring else None
+                trip, request, scoring.profile if scoring else None, scoring
             )
             trip.score = trip.dealScore
             trip.explanation = build_explanation(trip, request, airports_by_code)
             trip.tags = build_tags(trip)
+            trip.tags.extend(country_fit_tags(outbound.destination, scoring))
             if over_budget:
                 trip.tags.insert(0, "Over budget")
             trips.append(trip)
@@ -212,7 +245,7 @@ def synthesize_transfer(from_airport: str, to_airport: str) -> GroundTransfer | 
         toCity=place_city(to_airport) or to_airport.upper(),
         durationHours=hours,
         estimatedCost=cost,
-        mode="train/bus",
+        mode="ground/self-transfer",
     )
 
 
@@ -248,7 +281,7 @@ def mark_relative_tags(trips: list[TripOption]) -> None:
 
 
 # Providers whose links point at an external search/booking page.
-LINKABLE_PROVIDERS = {"skyscanner", "duffel", "travelpayouts"}
+LINKABLE_PROVIDERS = {"skyscanner", "travelpayouts"}
 
 
 def pick_trip_provider(outbound: Flight, return_flight: Flight) -> str | None:
@@ -302,11 +335,35 @@ def pick_trip_booking_label(outbound: Flight, return_flight: Flight) -> str | No
     return None
 
 
+def travelpayouts_itinerary_url(outbound: Flight, return_flight: Flight) -> str | None:
+    if outbound.provider != "travelpayouts" and return_flight.provider != "travelpayouts":
+        return None
+    return build_aviasales_itinerary_url(
+        [
+            ItinerarySegment(outbound.origin, outbound.destination, outbound.departureDateTime),
+            ItinerarySegment(return_flight.origin, return_flight.destination, return_flight.departureDateTime),
+        ]
+    )
+
+
+def destination_metadata(code: str) -> DestinationMetadata | None:
+    place = get_place(code)
+    if not place:
+        return None
+    return DestinationMetadata(
+        code=place.code,
+        kind=place.kind,
+        city=place_city(place.code) or place.name,
+        country=place.country_name,
+        countryCode=place.country_code,
+        continent=place.continent,
+    )
+
+
 def synthesize_airport(code: str) -> Airport | None:
     """Build airport metadata for a provider code from the geography dataset.
 
-    Returns None only when the code is not a known European place, so unknown
-    non-European codes are still excluded.
+    Returns None only when the code is absent from the flightable global catalogue.
     """
     place = PLACES.get(code.upper())
     if not place:
@@ -333,23 +390,38 @@ def build_round_trip_options(
 
     These are complete round-trip bundles (one price, real dates), so there is no
     one-way pairing and the total is the true round-trip fare, not a sum. Fares are
-    kept only when European, within budget, in the requested date window, and — if
-    the request scopes destinations — within that scope.
+    kept only when globally flightable, within budget, in the requested date
+    window, and within any requested geographic scope.
     """
     destination_codes = (
-        {code.upper() for code in request.destinationAirports} if request.destinationAirports else None
+        {canonical_code(code) for code in request.destinationAirports} if request.destinationAirports else None
     )
     origin_codes = {code.upper() for code in request.originAirports}
     # Round-trip fares carry no per-leg one-way price, so route history (one-way
     # baselines) must not be applied; keep only the profile for fit scoring.
-    bundle_scoring = ScoringContext(profile=scoring.profile if scoring else None)
+    bundle_scoring = ScoringContext(
+        profile=scoring.profile if scoring else None,
+        country_states=scoring.country_states if scoring else {},
+    )
 
     trips: list[TripOption] = []
     for fare in fares:
-        destination = fare.destination.upper()
-        if destination in origin_codes or not is_european(destination):
+        destination = canonical_code(fare.destination)
+        if destination in origin_codes or not is_flightable_place(destination):
             continue
         if destination_codes is not None and not scope_matches(destination, destination_codes):
+            continue
+        if not place_matches_filters(
+            destination,
+            country_codes={value.upper() for value in request.destinationCountries} or None,
+            regions={value.casefold() for value in request.destinationRegions} or None,
+            continents={value.casefold() for value in request.destinationContinents} or None,
+            exclude_europe=request.excludeEurope,
+        ):
+            continue
+        if request.directOnly and (fare.stops or 0) > 0:
+            continue
+        if not destination_allowed_by_travel_map(destination, request, scoring):
             continue
         over_budget = fare.price > request.maxBudget
         if over_budget and enforce_budget:
@@ -361,13 +433,26 @@ def build_round_trip_options(
         nights = (return_date - departure).days if return_date else request.minTripLengthDays
         if nights <= 0:
             nights = request.minTripLengthDays
+        if nights < request.minTripLengthDays or nights > request.maxTripLengthDays:
+            continue
+
+        duration = estimate_bundle_duration_minutes(fare.origin, destination)
+        outbound_departure = datetime.combine(departure, time(hour=9))
+        return_departure = datetime.combine(return_date or departure, time(hour=18))
+        itinerary_url = build_aviasales_itinerary_url(
+            [
+                ItinerarySegment(fare.origin, destination, departure),
+                ItinerarySegment(destination, fare.origin, return_date or departure),
+            ]
+        )
+        itinerary_affiliate_url = itinerary_url if itinerary_url and settings.travelpayouts_marker else None
 
         outbound = Flight(
             id=f"rt-out-{fare.origin}-{destination}-{departure.isoformat()}",
             origin=fare.origin.upper(),
             destination=destination,
-            departureDateTime=datetime.combine(departure, time(hour=9)),
-            arrivalDateTime=datetime.combine(departure, time(hour=12)),
+            departureDateTime=outbound_departure,
+            arrivalDateTime=outbound_departure + timedelta(minutes=duration),
             airline=fare.airline or "Multiple airlines",
             price=fare.price,
             currency=fare.currency,
@@ -376,15 +461,18 @@ def build_round_trip_options(
             affiliateUrl=fare.affiliateUrl,
             provider="travelpayouts",
             stops=fare.stops,
+            durationMinutes=duration,
             isLive=False,
             confidenceLevel="indicative",
+            observedAt=fare.observedAt,
+            expiresAt=fare.expiresAt,
         )
         inbound = Flight(
             id=f"rt-ret-{destination}-{fare.origin}-{(return_date or departure).isoformat()}",
             origin=destination,
             destination=fare.origin.upper(),
-            departureDateTime=datetime.combine(return_date or departure, time(hour=18)),
-            arrivalDateTime=datetime.combine(return_date or departure, time(hour=21)),
+            departureDateTime=return_departure,
+            arrivalDateTime=return_departure + timedelta(minutes=duration),
             airline=fare.airline or "Multiple airlines",
             price=0.0,  # part of the round-trip bundle; total is on the trip
             currency=fare.currency,
@@ -393,8 +481,11 @@ def build_round_trip_options(
             affiliateUrl=fare.affiliateUrl,
             provider="travelpayouts",
             stops=fare.stops,
+            durationMinutes=duration,
             isLive=False,
             confidenceLevel="indicative",
+            observedAt=fare.observedAt,
+            expiresAt=fare.expiresAt,
         )
         trip = TripOption(
             id=f"rt-{fare.origin}-{destination}-{departure.isoformat()}",
@@ -410,15 +501,22 @@ def build_round_trip_options(
             explanation="",
             warnings=["Round-trip fare; confirm exact times and baggage on the provider site."],
             tags=["Round trip"],
-            bookingUrl=fare.bookingUrl,
-            bookingLabel="Check price" if fare.bookingUrl else None,
-            affiliateUrl=fare.affiliateUrl,
-            providerDeepLink=fare.bookingUrl,
+            bookingUrl=itinerary_url or fare.bookingUrl,
+            bookingLabel="Check price" if itinerary_url or fare.bookingUrl else None,
+            affiliateUrl=itinerary_affiliate_url or fare.affiliateUrl,
+            providerDeepLink=itinerary_url or fare.bookingUrl,
             provider="travelpayouts",
-            linkType="affiliate_referral" if fare.affiliateUrl else ("provider_deeplink" if fare.bookingUrl else "none"),
+            linkType=(
+                "affiliate_referral"
+                if itinerary_affiliate_url or fare.affiliateUrl
+                else ("provider_deeplink" if itinerary_url or fare.bookingUrl else "none")
+            ),
+            destination=destination_metadata(destination),
         )
         trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, bundle_scoring)
-        trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(trip, request, bundle_scoring.profile)
+        trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(
+            trip, request, bundle_scoring.profile, bundle_scoring
+        )
         trip.score = trip.dealScore
         city = place_city(destination) or destination
         trip.explanation = (
@@ -426,6 +524,7 @@ def build_round_trip_options(
             f"{fare.currency} {round(fare.price)} total — the cheapest we found to {city} in your window."
         )
         trip.tags.extend(build_tags(trip))
+        trip.tags.extend(country_fit_tags(destination, scoring))
         if over_budget:
             trip.tags.insert(0, "Over budget")
             trip.warnings.insert(0, f"Over your €{request.maxBudget:g} budget at €{round(fare.price):g}.")
@@ -433,6 +532,37 @@ def build_round_trip_options(
 
     mark_relative_tags(trips)
     return sorted(trips, key=lambda t: (-t.dealScore, -(t.fitScore or 0), t.totalPrice))
+
+
+def estimate_bundle_duration_minutes(origin: str, destination: str) -> int:
+    from app.data.geography import estimate_duration_minutes
+
+    return estimate_duration_minutes(origin, destination) or 180
+
+
+def destination_allowed_by_travel_map(
+    destination: str,
+    request: TripSearchRequest,
+    scoring: ScoringContext | None,
+) -> bool:
+    if not request.unvisitedOnly or not scoring or not scoring.country_states:
+        return True
+    place = get_place(destination)
+    return bool(place and scoring.country_states.get(place.country_code) not in {"visited", "lived"})
+
+
+def country_fit_tags(destination: str, scoring: ScoringContext | None) -> list[str]:
+    if not scoring or not scoring.country_states:
+        return []
+    place = get_place(destination)
+    if not place:
+        return []
+    state = scoring.country_states.get(place.country_code)
+    if state == "wishlist":
+        return ["Wishlist"]
+    if state is None:
+        return ["New country"]
+    return []
 
 
 def parse_iso_date(value: str | None):

@@ -6,6 +6,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.data.flight_places import canonical_code, is_flightable_place, place_matches_filters
+from app.data.geography import scope_matches
 from app.db.repositories.cached_deals_repository import CachedDealsRepository
 from app.db.repositories.price_observations_repository import PriceObservationsRepository
 from app.models import Flight, ProviderMetadata, TripSearchRequest
@@ -33,15 +35,29 @@ class FlightSearchService:
         db: Session | None = None,
         provider_name: str | None = None,
         provider: FlightProvider | None = None,
+        cache_only: bool = False,
     ):
         self.provider_name = (provider_name or settings.flight_provider).lower()
         self.db = db
+        self.cache_only = cache_only and self.provider_name in {"travelpayouts", "hybrid"}
         self.provider = provider or self._build_provider(db)
+        self.deals_cache_used = False
+        self.deals_provider_attempted = False
+        self.deals_provider_succeeded = False
 
     def search_candidate_flights(self, request: TripSearchRequest) -> list[Flight]:
         return self.search_candidate_flights_with_metadata(request).flights
 
     def search_candidate_flights_with_metadata(self, request: TripSearchRequest) -> FlightSearchResult:
+        if self.cache_only:
+            return FlightSearchResult(
+                flights=[],
+                metadata=ProviderMetadata(
+                    providerUsed="database",
+                    providerName="cached_deals",
+                    cachedResultsUsed=True,
+                ),
+            )
         if self.provider_name == "hybrid":
             result = self._search_hybrid(request)
         else:
@@ -89,31 +105,78 @@ class FlightSearchService:
 
         deals_repo = CachedDealsRepository(self.db) if self.db is not None else None
         try:
+            if self.cache_only:
+                if not deals_repo:
+                    return []
+                self.deals_cache_used = True
+                return self._filter_round_trip_fares(deals_repo.fresh_deals(request.originAirports), request)
             if request.destinationAirports:
                 routes = getattr(provider, "round_trips_for", None)
                 if not callable(routes):
                     return []
-                fares = routes(
+                self.deals_provider_attempted = True
+                route_args = (
                     request.originAirports,
-                    request.destinationAirports,
+                    [canonical_code(code) for code in request.destinationAirports],
                     DateRange(start=request.startDate, end=request.endDate),
                 )
+                try:
+                    fares = routes(*route_args, direct_only=request.directOnly)
+                except TypeError as exc:
+                    if "direct_only" not in str(exc):
+                        raise
+                    fares = routes(*route_args)
                 if deals_repo and fares:
                     self._cache_deals(deals_repo, fares)
-                return fares
+                self.deals_provider_succeeded = bool(fares)
+                return self._filter_round_trip_fares(fares, request)
 
             # "Anywhere": serve fresh cached deals; only fetch live on a cold cache.
             if deals_repo and deals_repo.has_fresh(request.originAirports):
-                return deals_repo.fresh_deals(request.originAirports)
+                self.deals_cache_used = True
+                return self._filter_round_trip_fares(deals_repo.fresh_deals(request.originAirports), request)
             discover = getattr(provider, "discover_round_trips", None)
             if not callable(discover):
                 return []
+            self.deals_provider_attempted = True
             fares = discover(request.originAirports)
             if deals_repo and fares:
                 self._cache_deals(deals_repo, fares)
-            return fares
+            self.deals_provider_succeeded = bool(fares)
+            return self._filter_round_trip_fares(fares, request)
         except ProviderError:
             return []
+
+    @staticmethod
+    def _filter_round_trip_fares(fares, request: TripSearchRequest):
+        countries = {code.strip().upper() for code in request.destinationCountries}
+        regions = {value.strip().casefold() for value in request.destinationRegions}
+        continents = {value.strip().casefold() for value in request.destinationContinents}
+        origins = {code.strip().upper() for code in request.originAirports}
+        destinations = (
+            {canonical_code(code) for code in request.destinationAirports}
+            if request.destinationAirports
+            else None
+        )
+        filtered = []
+        for fare in fares:
+            destination = canonical_code(fare.destination)
+            if destination in origins or not is_flightable_place(destination):
+                continue
+            if destinations is not None and not scope_matches(destination, destinations):
+                continue
+            if not place_matches_filters(
+                destination,
+                country_codes=countries or None,
+                regions=regions or None,
+                continents=continents or None,
+                exclude_europe=request.excludeEurope,
+            ):
+                continue
+            if request.directOnly and (fare.stops or 0) > 0:
+                continue
+            filtered.append(fare.model_copy(update={"destination": destination}))
+        return filtered
 
     def _cache_deals(self, deals_repo: CachedDealsRepository, fares) -> None:
         """Best-effort cache write: a cache problem must never fail the search."""
@@ -123,6 +186,15 @@ class FlightSearchService:
             logger.warning("deals_cache_write_failed", exc_info=True)
             if self.db is not None:
                 self.db.rollback()
+
+    def apply_deal_metadata(self, metadata: ProviderMetadata) -> ProviderMetadata:
+        metadata.cachedResultsUsed = metadata.cachedResultsUsed or self.deals_cache_used
+        metadata.liveProviderAttempted = metadata.liveProviderAttempted or self.deals_provider_attempted
+        metadata.liveProviderSucceeded = metadata.liveProviderSucceeded or self.deals_provider_succeeded
+        if self.provider.name == "travelpayouts":
+            metadata.providerWarnings = list(dict.fromkeys([*metadata.providerWarnings, *self.provider.warnings]))
+            metadata.requestsAttempted = self.provider.requests_attempted or metadata.requestsAttempted
+        return metadata
 
     def _build_provider(self, db: Session | None) -> FlightProvider:
         if self.provider_name == "hybrid":
@@ -184,6 +256,10 @@ class FlightSearchService:
 
     def _search_with_provider(self, provider: FlightProvider, request: TripSearchRequest) -> list[Flight]:
         return_window_end = request.endDate + timedelta(days=request.maxTripLengthDays)
+        if provider.name == "travelpayouts" and request.destinationAirports and not request.returnOriginAirports:
+            # A simple return gets the provider's real round-trip bundle in
+            # discover_round_trip_fares; avoid two redundant one-way route calls.
+            return []
         if request.destinationAirports or request.returnOriginAirports:
             # Targeted search: origins → chosen destinations, returns back to the
             # origins from the fly-home airports (multi-city) or the destinations

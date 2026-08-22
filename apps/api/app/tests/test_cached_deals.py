@@ -86,6 +86,60 @@ def test_anywhere_search_serves_cache_without_calling_provider(db_session):
     assert any(f.destination == "CPH" for f in fares)  # served from cache, no exception
 
 
+def test_worldwide_country_scope_filters_shared_cache_without_provider_call(db_session):
+    from datetime import date
+    from app.models import TripSearchRequest
+    from app.services.flight_search_service import FlightSearchService
+
+    CachedDealsRepository(db_session).upsert_deals([fare("JFK", 520), fare("BCN", 110)])
+
+    class ExplodingProvider:
+        name = "travelpayouts"
+        def discover_round_trips(self, origins):
+            raise AssertionError("fresh broad cache must not call the provider")
+
+    service = FlightSearchService(
+        db=db_session,
+        provider_name="travelpayouts",
+        provider=ExplodingProvider(),
+    )
+    request = TripSearchRequest(
+        originAirports=["VIE"], destinationCountries=["US"],
+        startDate=date(2026, 8, 1), endDate=date(2026, 8, 31),
+        minTripLengthDays=3, maxTripLengthDays=10, maxBudget=700,
+        maxGroundTransferHours=4, tripStyle="surprise me",
+    )
+    fares = service.discover_round_trip_fares(request)
+    assert [item.destination for item in fares] == ["JFK"]
+
+
+def test_alert_cache_only_specific_destination_never_calls_route_provider(db_session):
+    from datetime import date
+    from app.models import TripSearchRequest
+    from app.services.flight_search_service import FlightSearchService
+
+    CachedDealsRepository(db_session).upsert_deals([fare("JFK", 520), fare("BCN", 110)])
+
+    class ExplodingProvider:
+        name = "travelpayouts"
+        def round_trips_for(self, *args, **kwargs):
+            raise AssertionError("cache-only alert must not call the provider")
+
+    service = FlightSearchService(
+        db=db_session,
+        provider_name="travelpayouts",
+        provider=ExplodingProvider(),
+        cache_only=True,
+    )
+    request = TripSearchRequest(
+        originAirports=["VIE"], destinationAirports=["JFK"],
+        startDate=date(2026, 8, 1), endDate=date(2026, 8, 31),
+        minTripLengthDays=3, maxTripLengthDays=10, maxBudget=700,
+        maxGroundTransferHours=4, tripStyle="one city",
+    )
+    assert [item.destination for item in service.discover_round_trip_fares(request)] == ["JFK"]
+
+
 def test_anywhere_search_calls_provider_and_warms_cache_when_cold(db_session):
     from datetime import date
     from app.models import TripSearchRequest

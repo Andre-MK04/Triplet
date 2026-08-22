@@ -11,6 +11,11 @@ class TripSearchRequest(BaseModel):
     originAirports: list[str] = Field(min_length=1)
     # None means "anywhere" — the classic Triplet surprise search.
     destinationAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    destinationCountries: list[str] = Field(default_factory=list, max_length=20)
+    destinationRegions: list[str] = Field(default_factory=list, max_length=8)
+    destinationContinents: list[str] = Field(default_factory=list, max_length=7)
+    excludeEurope: bool = False
+    unvisitedOnly: bool = False
     # Multi-city: when set, return legs are searched from these airports and the
     # trip is built as an open-jaw with the between-cities journey estimated,
     # not filtered out by the ground-transfer limit.
@@ -32,7 +37,9 @@ class TripSearchRequest(BaseModel):
     maxBudget: float = Field(gt=0)
     maxGroundTransferHours: float = Field(ge=0)
     tripStyle: Literal["one city", "two nearby cities", "surprise me"]
-    directOnly: bool = True
+    # Connections are normal on long-haul routes. Users can still require direct
+    # flights explicitly, but the worldwide default must not hide useful trips.
+    directOnly: bool = False
     includeBaggage: bool = False
     # Optional per-search travel styles (destination-style keys like "beach",
     # "food"). When set, they override the profile's styles for this search and
@@ -43,6 +50,15 @@ class TripSearchRequest(BaseModel):
 class ScoreComponent(BaseModel):
     label: str
     points: int
+
+
+class DestinationMetadata(BaseModel):
+    code: str
+    kind: Literal["airport", "city"]
+    city: str
+    country: str
+    countryCode: str
+    continent: str | None = None
 
 
 class TripOption(BaseModel):
@@ -74,6 +90,7 @@ class TripOption(BaseModel):
     returnBookingUrl: str | None = None
     provider: str | None = None
     linkType: Literal["provider_deeplink", "affiliate_referral", "none"] = "none"
+    destination: DestinationMetadata | None = None
 
 
 class ProviderMetadata(BaseModel):

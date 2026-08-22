@@ -17,6 +17,7 @@ from app.services.flight_search_service import (
 )
 from app.tools.base import ToolContext
 from app.tools.registry import build_default_tool_registry
+from app.tools.travel_tools import UnsupportedFlightPlaceError
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 tool_registry = build_default_tool_registry()
@@ -60,6 +61,8 @@ def search_trips(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except (ProviderAuthError, ProviderApiError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except UnsupportedFlightPlaceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return TripSearchResponse.model_validate(result.model_dump())
 

@@ -45,17 +45,30 @@ def test_city_directions_mapper_extracts_round_trips():
     assert by_dest["CPH"].affiliateUrl and "marker=m1" in by_dest["CPH"].affiliateUrl
 
 
-def test_build_round_trips_filters_europe_budget_and_date_window():
+def test_build_round_trips_keeps_global_destinations_and_filters_date_window():
     fares = map_city_directions_response(city_directions_payload(), "VIE", marker=None)
     trips = build_round_trip_options(fares, request(), scoring=None)
     dests = {t.outboundFlight.destination for t in trips}
-    # CPH kept; MOW dropped (non-European); BCN dropped (September, outside August window).
+    # Existing Europe and worldwide destinations survive; September is excluded.
     assert "CPH" in dests
-    assert "MOW" not in dests
+    assert "MOW" in dests
     assert "BCN" not in dests
     cph = next(t for t in trips if t.outboundFlight.destination == "CPH")
     assert cph.fareKind == "round_trip_bundle"
     assert cph.totalPrice == 118
+
+
+def test_build_round_trips_filters_by_global_continent():
+    fares = [
+        RoundTripFare(origin="VIE", destination="JFK", price=520, departureDate="2026-08-05", returnDate="2026-08-13"),
+        RoundTripFare(origin="VIE", destination="CPH", price=120, departureDate="2026-08-05", returnDate="2026-08-13"),
+    ]
+    trips = build_round_trip_options(
+        fares,
+        request(destinationContinents=["North America"], maxBudget=700),
+        scoring=None,
+    )
+    assert [trip.outboundFlight.destination for trip in trips] == ["JFK"]
 
 
 def test_build_round_trips_respects_destination_scope():

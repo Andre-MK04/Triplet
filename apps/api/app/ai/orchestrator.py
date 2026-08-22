@@ -57,17 +57,6 @@ FALLBACK_KNOWN_AIRPORTS = {
     "TRS",
     "VCE",
     "TSF",
-    "ALC",
-    "VLC",
-    "BCN",
-    "MAD",
-    "AGP",
-    "SVQ",
-    "LIS",
-    "OPO",
-    "ATH",
-    "CTA",
-    "PMI",
 }
 
 TRAVEL_MAP_CONTEXT_PATTERNS = (
@@ -285,6 +274,9 @@ def build_trip_search_request(
 ) -> TripSearchRequest:
     origin_airports = request.originAirports or intent.originAirports or (DEFAULT_ORIGINS if use_defaults else [])
     destination_airports = request.destinationAirports or intent.destinationAirports
+    destination_countries = request.destinationCountries or intent.destinationCountries
+    destination_regions = request.destinationRegions or intent.destinationRegions
+    destination_continents = request.destinationContinents or intent.destinationContinents
     return_origin_airports = request.returnOriginAirports or intent.returnOriginAirports
     # No explicit/parsed dates → a rolling spontaneity window from today (never
     # a hardcoded calendar year, which silently goes stale).
@@ -293,7 +285,7 @@ def build_trip_search_request(
     end_date = request.endDate or intent.endDate or (default_end if use_defaults else None)
     min_days = request.minTripLengthDays or intent.minTripLengthDays or (4 if use_defaults else None)
     max_days = request.maxTripLengthDays or intent.maxTripLengthDays or (8 if use_defaults else None)
-    max_budget = request.maxBudget or intent.maxBudget or (180 if use_defaults else None)
+    max_budget = request.maxBudget or intent.maxBudget or (600 if use_defaults else None)
     max_transfer = request.maxGroundTransferHours
     if max_transfer is None:
         max_transfer = intent.maxGroundTransferHours if intent.maxGroundTransferHours is not None else 4
@@ -302,6 +294,11 @@ def build_trip_search_request(
     search_request = TripSearchRequest(
         originAirports=[code.upper() for code in origin_airports],
         destinationAirports=[code.upper() for code in destination_airports] if destination_airports else None,
+        destinationCountries=[code.upper() for code in destination_countries],
+        destinationRegions=list(destination_regions),
+        destinationContinents=list(destination_continents),
+        excludeEurope=request.excludeEurope if request.excludeEurope is not None else intent.excludeEurope,
+        unvisitedOnly=request.unvisitedOnly if request.unvisitedOnly is not None else intent.unvisitedOnly,
         returnOriginAirports=(
             [code.upper() for code in return_origin_airports] if return_origin_airports else None
         ),
@@ -357,7 +354,7 @@ def known_airport_codes(context: ToolContext) -> set[str]:
     try:
         from app.db.repositories.airports_repository import AirportsRepository
 
-        return {airport.code for airport in AirportsRepository(context.db).list_airports()}
+        return {airport.code for airport in AirportsRepository(context.db).list_origin_candidates()}
     except Exception:  # noqa: BLE001 - validation falls back to built-in MVP airport set.
         return FALLBACK_KNOWN_AIRPORTS
 

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models import ProviderMetadata, TripOption
 
@@ -15,6 +15,11 @@ class CreateSavedSearchRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
     originAirports: list[str] = Field(min_length=1, max_length=12)
     destinationAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    destinationCountries: list[str] = Field(default_factory=list, max_length=20)
+    destinationRegions: list[str] = Field(default_factory=list, max_length=8)
+    destinationContinents: list[str] = Field(default_factory=list, max_length=7)
+    excludeEurope: bool = False
+    unvisitedOnly: bool = False
     startDate: date
     endDate: date
     minTripLengthDays: int = Field(ge=1)
@@ -45,6 +50,21 @@ class CreateSavedSearchRequest(BaseModel):
         if value is None:
             return None
         return list(dict.fromkeys(code.strip().upper() for code in value if code.strip())) or None
+
+    @model_validator(mode="after")
+    def reject_unpersisted_geographic_scope(self):
+        if (
+            self.destinationCountries
+            or self.destinationRegions
+            or self.destinationContinents
+            or self.excludeEurope
+            or self.unvisitedOnly
+        ):
+            raise ValueError(
+                "Country, region, continent, outside-Europe, and unvisited-only watches are not persisted yet. "
+                "Choose a city/airport or save an anywhere watch."
+            )
+        return self
 
 
 class UpdateSavedSearchRequest(BaseModel):

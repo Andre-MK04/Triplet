@@ -23,6 +23,8 @@ class RoundTripFare(BaseModel):
     stops: int = 0
     bookingUrl: str | None = None
     affiliateUrl: str | None = None
+    observedAt: datetime | None = None
+    expiresAt: datetime | None = None
 
 
 class TravelpayoutsMappingResult(BaseModel):
@@ -143,6 +145,8 @@ def map_round_trip_rows(payload: dict[str, Any], marker: str | None) -> list[Rou
                 stops=parse_int(row.get("transfers")) or 0,
                 bookingUrl=link,
                 affiliateUrl=link if marker else None,
+                observedAt=datetime.utcnow(),
+                expiresAt=datetime.utcnow() + timedelta(hours=24),
             )
         )
     return fares
@@ -177,6 +181,8 @@ def map_city_directions_response(
                 stops=parse_int(row.get("transfers")) or 0,
                 bookingUrl=link,
                 affiliateUrl=link if marker else None,
+                observedAt=datetime.utcnow(),
+                expiresAt=datetime.utcnow() + timedelta(hours=24),
             )
         )
     return fares

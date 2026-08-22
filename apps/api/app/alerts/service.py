@@ -23,6 +23,7 @@ from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB, Us
 from app.db.repositories.airports_repository import AirportsRepository
 from app.models import TripSearchRequest
 from app.tools.base import ToolContext
+from app.services.flight_search_service import FlightSearchService
 from app.tools.registry import build_default_tool_registry
 from app.tools.schemas import SearchTripsOutput
 
@@ -334,7 +335,11 @@ class SavedSearchService:
     def _search(self, row: SavedSearchDB) -> SearchTripsOutput:
         request = saved_search_to_trip_request(row)
         # Pass ownership so scoring can use the owner's travel profile (fit score).
-        context = ToolContext(db=self.db, user_id=row.user_id)
+        context = ToolContext(
+            db=self.db,
+            user_id=row.user_id,
+            flight_search_service=FlightSearchService(db=self.db, cache_only=True),
+        )
         result = self.registry.run_tool("search_trips", request.model_dump(mode="json"), context)
         return SearchTripsOutput.model_validate(result)
 
@@ -345,10 +350,18 @@ class SavedSearchService:
             raise AlertValidationError("Saved alert date range cannot exceed 180 days.")
         if request.maxTripLengthDays < request.minTripLengthDays:
             raise AlertValidationError("maxTripLengthDays must be greater than or equal to minTripLengthDays.")
-        known = {airport.code for airport in AirportsRepository(self.db).list_airports()}
+        known = {airport.code for airport in AirportsRepository(self.db).list_origin_candidates()}
         invalid = [code for code in request.originAirports if code not in known]
         if invalid:
             raise AlertValidationError(f"Unknown origin airport code(s): {', '.join(invalid)}.")
+        if request.destinationAirports:
+            from app.data.flight_places import is_flightable_place
+
+            invalid_destinations = [code for code in request.destinationAirports if not is_flightable_place(code)]
+            if invalid_destinations:
+                raise AlertValidationError(
+                    f"Unknown destination code(s): {', '.join(invalid_destinations)}."
+                )
 
     def _validate_row(self, row: SavedSearchDB) -> None:
         request = CreateSavedSearchRequest(

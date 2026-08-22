@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
+import { Autocomplete } from "../../components/Autocomplete";
 import { useAuth } from "../../components/AuthContext";
 import { TripRow } from "../../components/TripRow";
 import { Button } from "../../components/ui/Button";
@@ -12,10 +13,11 @@ import { Chip } from "../../components/ui/Chip";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
 import { EmptyState, Notice } from "../../components/ui/Misc";
 import { ApiError, apiPost, apiGet } from "../../lib/api";
-import { AIRPORTS_BY_CODE, DESTINATION_REGIONS, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
+import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import type {
   AISearchResponse,
+  FlightPlaceResult,
   ProviderMetadata,
   SavedSearch,
   TravelProfile,
@@ -26,9 +28,9 @@ import type {
 } from "../../lib/types";
 
 const EXAMPLE_PROMPTS = [
-  "Find me a 5-7 day trip in August from Vienna or Zagreb under €180.",
-  "Show me warm two-city trips from airports near Slovenia.",
-  "Find cheap weekend trips from Venice, Trieste, or Ljubljana.",
+  "Find me an 8-12 day trip from Vienna to Japan this October under €900.",
+  "Show me somewhere new outside Europe from Zagreb for 7-10 days under €700.",
+  "Find a warm Southeast Asia trip from Venice or Vienna with at most one stop.",
 ];
 
 const BUDGET_TO_AMOUNT: Record<TravelProfile["budgetComfortZone"], number> = {
@@ -41,6 +43,11 @@ const BUDGET_TO_AMOUNT: Record<TravelProfile["budgetComfortZone"], number> = {
 type AdvancedForm = {
   originAirports: string[];
   destinationAirports: string[];
+  destinationCountries: string[];
+  destinationRegions: string[];
+  destinationContinents: string[];
+  excludeEurope: boolean;
+  unvisitedOnly: boolean;
   returnOriginAirports: string[];
   startDate: string;
   endDate: string;
@@ -52,15 +59,34 @@ type AdvancedForm = {
   directOnly: boolean;
 };
 
+function inputDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const today = new Date();
+const defaultStart = new Date(today);
+defaultStart.setDate(defaultStart.getDate() + 14);
+const defaultEnd = new Date(today);
+defaultEnd.setDate(defaultEnd.getDate() + 90);
+const placesEndpoint = (query: string) => `/places/search?q=${query}&limit=12`;
+
 const defaultForm: AdvancedForm = {
   originAirports: ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"],
   destinationAirports: [],
+  destinationCountries: [],
+  destinationRegions: [],
+  destinationContinents: [],
+  excludeEurope: false,
+  unvisitedOnly: false,
   returnOriginAirports: [],
-  startDate: "2026-07-15",
-  endDate: "2026-08-31",
+  startDate: inputDate(defaultStart),
+  endDate: inputDate(defaultEnd),
   minTripLengthDays: 4,
   maxTripLengthDays: 8,
-  maxBudget: 180,
+  maxBudget: 600,
   maxGroundTransferHours: 4,
   tripStyle: "surprise me",
   directOnly: false,
@@ -125,8 +151,9 @@ export function DiscoverClient() {
   const [mode, setMode] = useState<"ai" | "advanced">("ai");
   const [aiMessage, setAiMessage] = useState(EXAMPLE_PROMPTS[0]);
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
-  const [customAirport, setCustomAirport] = useState("");
   const [returnOriginRaw, setReturnOriginRaw] = useState("");
+  const [destinationQuery, setDestinationQuery] = useState("");
+  const [destinationSelections, setDestinationSelections] = useState<FlightPlaceResult[]>([]);
 
   const [trips, setTrips] = useState<TripOption[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -181,6 +208,11 @@ export function DiscoverClient() {
     () => ({
       originAirports: form.originAirports,
       destinationAirports: form.destinationAirports.length > 0 ? form.destinationAirports : null,
+      destinationCountries: form.destinationCountries,
+      destinationRegions: form.destinationRegions,
+      destinationContinents: form.destinationContinents,
+      excludeEurope: form.excludeEurope,
+      unvisitedOnly: form.unvisitedOnly,
       returnOriginAirports: form.returnOriginAirports.length > 0 ? form.returnOriginAirports : null,
       startDate: form.startDate,
       endDate: form.endDate,
@@ -249,6 +281,19 @@ export function DiscoverClient() {
       setAlertStatus({ tone: "error", text: "Run a search first so we know what to watch." });
       return;
     }
+    if (
+      lastPayload.destinationCountries?.length ||
+      lastPayload.destinationRegions?.length ||
+      lastPayload.destinationContinents?.length ||
+      lastPayload.excludeEurope ||
+      lastPayload.unvisitedOnly
+    ) {
+      setAlertStatus({
+        tone: "error",
+        text: "Country and region watches are not available yet. Choose a city or airport, or use an anywhere search.",
+      });
+      return;
+    }
     setIsSavingAlert(true);
     setAlertStatus(null);
     try {
@@ -284,14 +329,46 @@ export function DiscoverClient() {
     }));
   }
 
-  function toggleDestinationRegion(codes: string[]) {
+  function addDestination(place: FlightPlaceResult) {
+    if (destinationSelections.some((selection) => selection.kind === place.kind && selection.code === place.code)) return;
+    setDestinationSelections((current) => [...current, place]);
+    setDestinationQuery("");
     setForm((current) => {
-      const allSelected = codes.every((code) => current.destinationAirports.includes(code));
-      const next = allSelected
-        ? current.destinationAirports.filter((code) => !codes.includes(code))
-        : [...new Set([...current.destinationAirports, ...codes])];
-      return { ...current, destinationAirports: next };
+      if (place.kind === "airport" || place.kind === "city") {
+        return { ...current, destinationAirports: [...new Set([...current.destinationAirports, place.code])] };
+      }
+      if (place.kind === "country") {
+        return { ...current, destinationCountries: [...new Set([...current.destinationCountries, place.code])] };
+      }
+      if (place.kind === "region") {
+        return { ...current, destinationRegions: [...new Set([...current.destinationRegions, place.code])] };
+      }
+      return { ...current, destinationContinents: [...new Set([...current.destinationContinents, place.code])] };
     });
+  }
+
+  function removeDestination(place: FlightPlaceResult) {
+    setDestinationSelections((current) => current.filter((selection) => selection !== place));
+    setForm((current) => ({
+      ...current,
+      destinationAirports: current.destinationAirports.filter((code) => code !== place.code),
+      destinationCountries: current.destinationCountries.filter((code) => code !== place.code),
+      destinationRegions: current.destinationRegions.filter((code) => code !== place.code),
+      destinationContinents: current.destinationContinents.filter((code) => code !== place.code),
+    }));
+  }
+
+  function clearDestinations() {
+    setDestinationSelections([]);
+    setDestinationQuery("");
+    setForm((current) => ({
+      ...current,
+      destinationAirports: [],
+      destinationCountries: [],
+      destinationRegions: [],
+      destinationContinents: [],
+      excludeEurope: false,
+    }));
   }
 
   return (
@@ -300,8 +377,8 @@ export function DiscoverClient() {
         <header className="mb-8 max-w-2xl">
           <h1 className="font-display text-3xl font-bold text-cloud sm:text-4xl">Discover trips</h1>
           <p className="mt-2 text-mist">
-            Describe the trip you want, or fine-tune every knob. Triplet builds complete trip ideas from
-            real observed fares.
+            Search worldwide from supported European airports. Triplet builds complete trip ideas from real
+            observed fares.
           </p>
         </header>
 
@@ -344,7 +421,7 @@ export function DiscoverClient() {
                   rows={2}
                   aria-label="Describe your trip"
                   className="min-h-0 font-mono"
-                  placeholder="e.g. a cheap 5–7 day trip in August from Vienna or Zagreb — food and warm places"
+                  placeholder="e.g. Japan from Vienna in October for 8–12 days under €900"
                 />
               </div>
               <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -382,51 +459,68 @@ export function DiscoverClient() {
                         {code} ✕
                       </Chip>
                     ))}
-                  <span className="inline-flex items-center gap-1">
-                    <Input
-                      value={customAirport}
-                      onChange={(event) => setCustomAirport(event.target.value.toUpperCase())}
-                      placeholder="+ IATA"
-                      maxLength={3}
-                      className="w-24 rounded-full py-2 text-center"
-                      aria-label="Add another origin airport"
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          const code = customAirport.trim();
-                          if (/^[A-Z]{3}$/.test(code) && !form.originAirports.includes(code)) toggleAirport(code);
-                          setCustomAirport("");
-                        }
-                      }}
-                    />
-                  </span>
                 </div>
               </div>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-mist">To (optional)</p>
-                  {form.destinationAirports.length > 0 ? (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-mist">Worldwide destination</p>
+                  {destinationSelections.length > 0 || form.excludeEurope ? (
                     <button
                       type="button"
-                      onClick={() => setForm({ ...form, destinationAirports: [] })}
+                      onClick={clearDestinations}
                       className="text-xs text-mist underline hover:text-cloud"
                     >
-                      Clear — surprise me
+                      Clear · anywhere
                     </button>
                   ) : (
                     <span className="text-xs text-mist/70">Leave empty for anywhere</span>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {DESTINATION_REGIONS.map((region) => {
-                    const active = region.codes.every((code) => form.destinationAirports.includes(code));
-                    return (
-                      <Chip key={region.label} selected={active} onClick={() => toggleDestinationRegion(region.codes)}>
-                        {region.label}
+                <div className="max-w-2xl">
+                  <Autocomplete<FlightPlaceResult>
+                    endpoint={placesEndpoint}
+                    value={destinationQuery}
+                    placeholder="Search a city, airport, country, region, or continent"
+                    ariaLabel="Search worldwide destinations"
+                    optionKey={(place) => `${place.kind}-${place.code}`}
+                    onSelect={addDestination}
+                    renderOption={(place) => (
+                      <span className="flex items-baseline justify-between gap-4">
+                        <span className="font-medium text-cloud">{place.name}</span>
+                        <span className="font-mono text-[10px] uppercase text-mist">{place.subtitle}</span>
+                      </span>
+                    )}
+                  />
+                </div>
+                {destinationSelections.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {destinationSelections.map((place) => (
+                      <Chip key={`${place.kind}-${place.code}`} selected onClick={() => removeDestination(place)}>
+                        {place.name} · {place.kind} ×
                       </Chip>
-                    );
-                  })}
+                    ))}
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-mist">
+                    <input
+                      type="checkbox"
+                      checked={form.excludeEurope}
+                      onChange={(event) => setForm({ ...form, excludeEurope: event.target.checked })}
+                      className="h-4 w-4 accent-[#7ddfc3]"
+                    />
+                    Outside Europe
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-mist">
+                    <input
+                      type="checkbox"
+                      checked={form.unvisitedOnly}
+                      onChange={(event) => setForm({ ...form, unvisitedOnly: event.target.checked })}
+                      className="h-4 w-4 accent-[#7ddfc3]"
+                    />
+                    Countries new to me
+                  </label>
                 </div>
               </div>
 
@@ -675,7 +769,7 @@ export function DiscoverClient() {
 
           {!isLoading && hasSearched && trips.length === 0 && !error ? (
             <EmptyState icon="🛫" title="No trips matched this search">
-              {lastPayload?.destinationAirports?.length
+              {lastPayload?.destinationAirports?.length || lastPayload?.destinationCountries?.length || lastPayload?.destinationRegions?.length || lastPayload?.destinationContinents?.length
                 ? "We couldn't find fares to that destination in your budget and dates. Try widening the dates or budget, or clear the destination to see anywhere."
                 : "Try widening the budget, adding more origin airports, or allowing longer ground transfers."}
             </EmptyState>

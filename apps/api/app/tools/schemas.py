@@ -57,6 +57,11 @@ class ParseTripIntentInput(BaseModel):
 class ParsedTripIntent(BaseModel):
     originAirports: list[str] = []
     destinationAirports: list[str] | None = None
+    destinationCountries: list[str] = []
+    destinationRegions: list[str] = []
+    destinationContinents: list[str] = []
+    excludeEurope: bool = False
+    unvisitedOnly: bool = False
     # Multi-city: airports the traveller flies home from, when they name a
     # different city for the return leg ("…then from Helsinki back to Budapest").
     returnOriginAirports: list[str] | None = None

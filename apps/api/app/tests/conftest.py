@@ -27,6 +27,7 @@ def isolated_provider_settings(monkeypatch):
     monkeypatch.setattr(settings, "travelpayouts_api_enabled", False)
     monkeypatch.setattr(settings, "travelpayouts_api_token", None)
     monkeypatch.setattr(settings, "travelpayouts_marker", None)
+    monkeypatch.setattr(settings, "travelpayouts_discovery_limit_per_origin", 100)
     monkeypatch.setattr(settings, "skyscanner_api_enabled", False)
     monkeypatch.setattr(settings, "skyscanner_api_key", None)
     monkeypatch.setattr(settings, "skyscanner_media_partner_id", None)

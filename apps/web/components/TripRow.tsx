@@ -53,6 +53,8 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
   const [open, setOpen] = useState(false);
 
   const dest = trip.outboundFlight.destination;
+  const destinationCity = trip.destination?.city ?? cityFor(dest);
+  const destinationCountry = trip.destination?.country ?? countryFor(dest);
   const overBudget = trip.tags.some((tag) => tag.toLowerCase() === "over budget");
   const isOpenJaw = trip.tripType === "open_jaw";
   const returnFrom = trip.returnFlight.origin;
@@ -69,11 +71,12 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
       >
         <span>
           <span className="block font-display text-xl font-bold uppercase leading-tight text-cloud">
-            {cityFor(dest)}
+            {destinationCity}
             {isOpenJaw ? <span className="text-mist"> ⇢ {cityFor(returnFrom)}</span> : null}
           </span>
           <span className="mt-1 block font-mono text-xs uppercase text-mist">
-            {countryFor(dest) ? `${countryFor(dest)} · ` : ""}
+            {destinationCountry ? `${destinationCountry} · ` : ""}
+            {trip.destination?.continent ? `${trip.destination.continent} · ` : ""}
             {dest}
             {isOpenJaw ? ` → ${returnFrom}` : ""}
           </span>

@@ -64,6 +64,14 @@ export type TripOption = {
   returnBookingUrl?: string | null;
   provider?: string | null;
   linkType?: "provider_deeplink" | "affiliate_referral" | "none";
+  destination?: {
+    code: string;
+    kind: "airport" | "city";
+    city: string;
+    country: string;
+    countryCode: string;
+    continent?: string | null;
+  } | null;
 };
 
 export type TripStyle = "one city" | "two nearby cities" | "surprise me";
@@ -71,6 +79,11 @@ export type TripStyle = "one city" | "two nearby cities" | "surprise me";
 export type TripSearchPayload = {
   originAirports: string[];
   destinationAirports?: string[] | null;
+  destinationCountries?: string[];
+  destinationRegions?: string[];
+  destinationContinents?: string[];
+  excludeEurope?: boolean;
+  unvisitedOnly?: boolean;
   /** Multi-city: airports the traveller flies home from, when different from the destination. */
   returnOriginAirports?: string[] | null;
   startDate: string;
@@ -82,6 +95,18 @@ export type TripSearchPayload = {
   tripStyle: TripStyle;
   directOnly?: boolean;
   includeBaggage?: boolean;
+};
+
+export type FlightPlaceResult = {
+  code: string;
+  kind: "airport" | "city" | "country" | "region" | "continent";
+  name: string;
+  subtitle: string;
+  city?: string | null;
+  countryCode?: string | null;
+  countryName?: string | null;
+  continent?: string | null;
+  searchCodes: string[];
 };
 
 export type ProviderMetadata = {

@@ -1,8 +1,10 @@
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.intent_parser import parse_trip_intent
-from app.db.models import UserTravelProfileDB
+from app.data.flight_places import canonical_code, is_flightable_place
+from app.db.models import UserCountryDB, UserTravelProfileDB
 from app.db.repositories.airports_repository import AirportsRepository
 from app.db.repositories.price_observations_repository import PriceObservationsRepository
 from app.db.repositories.search_logs_repository import SearchLogsRepository
@@ -31,6 +33,10 @@ MAX_PERSISTED_SUGGESTIONS = 12
 MAX_ROUTE_STATS_LOOKUPS = 60
 
 
+class UnsupportedFlightPlaceError(ValueError):
+    pass
+
+
 def build_scoring_context(context: ToolContext, flights: list[Flight]) -> ScoringContext:
     profile = context.db.get(UserTravelProfileDB, context.user_id) if context.user_id else None
 
@@ -43,7 +49,18 @@ def build_scoring_context(context: ToolContext, flights: list[Flight]) -> Scorin
             if stats["count"]:
                 route_stats[route_key(origin, destination)] = stats
 
-    return ScoringContext(route_stats=route_stats, profile=profile)
+    country_states: dict[str, str] = {}
+    if context.user_id:
+        rows = context.db.scalars(select(UserCountryDB).where(UserCountryDB.user_id == context.user_id)).all()
+        for row in rows:
+            if row.lived:
+                country_states[row.country_code] = "lived"
+            elif row.visited:
+                country_states[row.country_code] = "visited"
+            elif row.wishlist:
+                country_states[row.country_code] = "wishlist"
+
+    return ScoringContext(route_stats=route_stats, profile=profile, country_states=country_states)
 
 
 class SearchTripsTool(Tool):
@@ -54,7 +71,21 @@ class SearchTripsTool(Tool):
 
     def run(self, input_data: SearchTripsInput, context: ToolContext) -> SearchTripsOutput:
         request = TripSearchRequest(**input_data.model_dump())
-        airports = AirportsRepository(context.db).list_airports()
+        airport_repository = AirportsRepository(context.db)
+        allowed_origins = {airport.code for airport in airport_repository.list_origin_candidates()}
+        invalid_origins = sorted({code.upper() for code in request.originAirports} - allowed_origins)
+        if invalid_origins:
+            raise UnsupportedFlightPlaceError(
+                f"Unsupported origin airport(s): {', '.join(invalid_origins)}. "
+                "Triplet currently supports selected European origin airports."
+            )
+        for field_name in ("destinationAirports", "returnOriginAirports"):
+            values = getattr(request, field_name) or []
+            invalid = sorted(code for code in values if not is_flightable_place(code))
+            if invalid:
+                raise UnsupportedFlightPlaceError(f"Unknown or non-flightable destination code(s): {', '.join(invalid)}.")
+            setattr(request, field_name, [canonical_code(code) for code in values] or None)
+        airports = airport_repository.list_airports()
         flight_search = context.flight_search_service or FlightSearchService(db=context.db)
         flight_result = flight_search.search_candidate_flights_with_metadata(request)
         transfers = TransfersRepository(context.db).list_transfers()
@@ -70,15 +101,17 @@ class SearchTripsTool(Tool):
             scoring=scoring,
             enforce_budget=enforce_budget,
         )
-        # Augment with round-trip bundles discovered across Europe (city-directions),
+        # Augment with worldwide round-trip bundles from shared discovery data,
         # which avoid one-way pairing gaps and give true round-trip prices. Bundles
         # are same-city by nature, so an explicit multi-city request skips them.
         if request.returnOriginAirports:
             bundle_trips = []
         else:
+            round_trip_fares = flight_search.discover_round_trip_fares(request)
             bundle_trips = build_round_trip_options(
-                flight_search.discover_round_trip_fares(request), request, scoring, enforce_budget=enforce_budget
+                round_trip_fares, request, scoring, enforce_budget=enforce_budget
             )
+            flight_search.apply_deal_metadata(flight_result.metadata)
         trips = merge_trip_options(paired_trips, bundle_trips)
 
         try:

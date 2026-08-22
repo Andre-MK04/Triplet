@@ -92,11 +92,12 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
   const outbound = trip.outboundFlight;
   const inbound = trip.returnFlight;
   const confidence = confidenceLabel(isDemo ? "mock" : outbound.confidenceLevel);
+  const destinationCity = trip.destination?.city ?? airportCity(outbound.destination);
   const observed = timeAgo(outbound.observedAt);
   const routeTitle =
     trip.tripType === "open_jaw"
       ? `${airportCity(outbound.origin)} → ${airportCity(outbound.destination)} / ${airportCity(inbound.origin)} → ${airportCity(inbound.destination)}`
-      : `${airportCity(outbound.origin)} → ${airportCity(outbound.destination)}`;
+      : `${airportCity(outbound.origin)} → ${destinationCity}`;
 
   return (
     <motion.article
@@ -130,6 +131,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
         <DealScoreBadge score={trip.dealScore ?? trip.score} />
         {typeof trip.fitScore === "number" ? <FitScoreBadge score={trip.fitScore} /> : null}
         <Badge tone={confidence.tone}>{confidence.label}</Badge>
+        {trip.destination ? <Badge>{trip.destination.country} · {trip.destination.continent}</Badge> : null}
         {trip.tripType === "open_jaw" ? <Badge tone="sky">Open-jaw</Badge> : null}
         {trip.tags.slice(0, 3).map((tag) => (
           <Badge key={tag}>{tag}</Badge>

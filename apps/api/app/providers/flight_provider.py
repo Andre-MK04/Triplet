@@ -24,7 +24,7 @@ class TripLengthRange(BaseModel):
 class SearchConstraints(BaseModel):
     passengers: int = 1
     cabin: str = "economy"
-    directOnly: bool = True
+    directOnly: bool = False
     maxStops: int | None = None
 
 
@@ -224,7 +224,7 @@ class FlightProvider(ABC):
         start_date: date,
         end_date: date,
         destination_codes: list[str] | None = None,
-        direct_only: bool = True,
+        direct_only: bool = False,
     ) -> list[Flight]:
         return self.search_flexible(
             origin_codes,
@@ -238,7 +238,7 @@ class FlightProvider(ABC):
         origin_codes: list[str],
         start_date: date,
         end_date: date,
-        direct_only: bool = True,
+        direct_only: bool = False,
     ) -> list[Flight]:
         return self.search_flexible(
             origin_codes,
@@ -252,7 +252,7 @@ class FlightProvider(ABC):
         return_destination_codes: list[str],
         start_date: date,
         end_date: date,
-        direct_only: bool = True,
+        direct_only: bool = False,
     ) -> list[Flight]:
         return self.search_flexible(
             None,

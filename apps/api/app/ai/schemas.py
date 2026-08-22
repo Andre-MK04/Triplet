@@ -24,6 +24,11 @@ class AISearchRequest(BaseModel):
     message: str = Field(min_length=1)
     originAirports: list[str] | None = None
     destinationAirports: list[str] | None = None
+    destinationCountries: list[str] | None = None
+    destinationRegions: list[str] | None = None
+    destinationContinents: list[str] | None = None
+    excludeEurope: bool | None = None
+    unvisitedOnly: bool | None = None
     returnOriginAirports: list[str] | None = None
     startDate: date | None = None
     endDate: date | None = None

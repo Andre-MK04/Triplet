@@ -10,4 +10,4 @@ class GroundTransfer(BaseModel):
     toCity: str
     durationHours: float
     estimatedCost: float
-    mode: Literal["train/bus", "train", "bus", "car"]
+    mode: Literal["ground/self-transfer", "train/bus", "train", "bus", "car"]

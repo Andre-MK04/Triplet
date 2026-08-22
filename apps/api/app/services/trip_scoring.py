@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 from app.data.destination_styles import STYLE_LABELS, destination_styles
+from app.data.geography import distance_km, place_country_code
 from app.db.models import UserTravelProfileDB
 from app.models import ScoreComponent, TripOption, TripSearchRequest
 
@@ -16,6 +17,7 @@ class ScoringContext:
 
     route_stats: dict[str, dict] = field(default_factory=dict)
     profile: UserTravelProfileDB | None = None
+    country_states: dict[str, str] = field(default_factory=dict)
 
 
 def route_key(origin: str, destination: str) -> str:
@@ -66,10 +68,17 @@ def calculate_deal_score(
     if trip.returnFlight.arrivalDateTime.hour >= 23:
         add("Late return arrival", -8)
 
-    if trip.nights < 3:
-        add("Very short trip", -15)
-    elif trip.nights > 10:
-        add("Long trip uses more budget days", -8)
+    route_distance = distance_km(trip.outboundFlight.origin, trip.outboundFlight.destination) or 0
+    if route_distance >= 3500:
+        if trip.nights < 5:
+            add("Very short stay for a long-haul journey", -12)
+        elif trip.nights >= 8:
+            add("Trip length makes the long journey worthwhile", 4)
+    else:
+        if trip.nights < 3:
+            add("Very short trip", -15)
+        elif trip.nights > 10:
+            add("Long trip uses more budget days", -8)
 
     if trip.tripType == "open_jaw" and trip.groundTransfer:
         if trip.groundTransfer.durationHours <= 3:
@@ -82,16 +91,18 @@ def calculate_deal_score(
     ):
         add("Baggage not included", -10)
 
-    add_price_history_component(trip, context, add)
-    add_stops_component(trip, add)
+    history_used = add_price_history_component(trip, context, add)
+    if not history_used:
+        add_distance_band_component(trip, route_distance, add)
+    add_stops_component(trip, route_distance, add)
     add_confidence_component(trip, add)
 
     return clamp(score), components
 
 
-def add_price_history_component(trip: TripOption, context: ScoringContext | None, add) -> None:
+def add_price_history_component(trip: TripOption, context: ScoringContext | None, add) -> bool:
     if not context or not context.route_stats:
-        return
+        return False
     ratios: list[float] = []
     near_lowest = False
     for flight in (trip.outboundFlight, trip.returnFlight):
@@ -105,7 +116,7 @@ def add_price_history_component(trip: TripOption, context: ScoringContext | None
         if min_price and flight.price <= min_price * 1.02:
             near_lowest = True
     if not ratios:
-        return
+        return False
     ratio = sum(ratios) / len(ratios)
     if ratio <= 0.55:
         add("Far below this route's typical observed price", 12)
@@ -117,9 +128,20 @@ def add_price_history_component(trip: TripOption, context: ScoringContext | None
         add("Above typical observed price", -10)
     if near_lowest:
         add("Near the lowest price we've observed", 3)
+    return True
 
 
-def add_stops_component(trip: TripOption, add) -> None:
+def add_distance_band_component(trip: TripOption, route_distance: float, add) -> None:
+    """Use a modest route-class heuristic, never presented as observed history."""
+    if route_distance <= 0:
+        return
+    expected = 180 if route_distance < 1500 else 300 if route_distance < 3500 else 550 if route_distance < 7000 else 750
+    ratio = trip.totalPrice / expected
+    if ratio >= 1.5:
+        add("High indicative fare for this distance", -5)
+
+
+def add_stops_component(trip: TripOption, route_distance: float, add) -> None:
     outbound_stops = trip.outboundFlight.stops
     return_stops = trip.returnFlight.stops
     if outbound_stops is None or return_stops is None:
@@ -128,7 +150,10 @@ def add_stops_component(trip: TripOption, add) -> None:
     if total_stops == 0:
         add("Direct both ways", 4)
     elif total_stops == 2:
-        add("Two stops in total", -4)
+        if route_distance >= 3500:
+            add("One connection each way is normal for long haul", 0)
+        else:
+            add("Two stops in total", -4)
     elif total_stops > 2:
         add("Several stops", -8)
 
@@ -143,6 +168,7 @@ def calculate_fit_score(
     trip: TripOption,
     request: TripSearchRequest,
     profile: UserTravelProfileDB | None = None,
+    context: ScoringContext | None = None,
 ) -> tuple[int, list[ScoreComponent]]:
     """How well this trip matches the user's travel profile (or the request alone)."""
     components: list[ScoreComponent] = []
@@ -157,6 +183,12 @@ def calculate_fit_score(
     # Search travel styles override profile styles for THIS search (product rule:
     # explicit search wins). Falls back to profile styles when the search is silent.
     search_styles = {s.strip().lower() for s in (request.travelStyles or []) if s.strip()}
+    destination_country = place_country_code(trip.outboundFlight.destination)
+    country_state = context.country_states.get(destination_country) if context and destination_country else None
+    if country_state == "wishlist":
+        add("On your country wishlist", 10)
+    elif country_state is None and context and context.country_states:
+        add("A country you have not visited yet", 6)
 
     if profile is None:
         # Without a profile, fit is relative to the request only.

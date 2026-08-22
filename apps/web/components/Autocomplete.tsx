@@ -82,6 +82,7 @@ export function Autocomplete<T>({
 
   function choose(item: T) {
     onSelect(item);
+    if (value !== undefined) setQuery(value);
     setOpen(false);
   }
 

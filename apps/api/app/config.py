@@ -29,7 +29,7 @@ class Settings:
         )
     )
     flight_provider: str = os.getenv("FLIGHT_PROVIDER", "database")
-    live_flight_provider: str = os.getenv("LIVE_FLIGHT_PROVIDER", "duffel")
+    live_flight_provider: str = os.getenv("LIVE_FLIGHT_PROVIDER", "travelpayouts")
     enable_dev_tool_endpoints: bool = os.getenv("ENABLE_DEV_TOOL_ENDPOINTS", "true").lower() == "true"
     duffel_api_enabled: bool = os.getenv("DUFFEL_API_ENABLED", "false").lower() == "true"
     duffel_api_key: str | None = os.getenv("DUFFEL_API_KEY") or None
@@ -46,6 +46,9 @@ class Settings:
     travelpayouts_affiliate_base_url: str = os.getenv("TRAVELPAYOUTS_AFFILIATE_BASE_URL", "https://www.aviasales.com")
     travelpayouts_timeout_seconds: float = float(os.getenv("TRAVELPAYOUTS_TIMEOUT_SECONDS", "20"))
     travelpayouts_max_requests_per_search: int = int(os.getenv("TRAVELPAYOUTS_MAX_REQUESTS_PER_SEARCH", "30"))
+    travelpayouts_discovery_limit_per_origin: int = int(
+        os.getenv("TRAVELPAYOUTS_DISCOVERY_LIMIT_PER_ORIGIN", "100")
+    )
     travelpayouts_cache_enabled: bool = os.getenv("TRAVELPAYOUTS_CACHE_ENABLED", "true").lower() == "true"
     travelpayouts_currency: str = os.getenv("TRAVELPAYOUTS_CURRENCY", "EUR")
     skyscanner_api_enabled: bool = os.getenv("SKYSCANNER_API_ENABLED", "false").lower() == "true"

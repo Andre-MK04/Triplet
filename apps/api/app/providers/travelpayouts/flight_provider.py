@@ -3,7 +3,6 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.data.search_destinations import SEARCH_DESTINATIONS
 from app.db.repositories.flights_repository import FlightsRepository
 from app.providers.caching import cache_flights
 from app.models import Flight
@@ -61,13 +60,20 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
         trip_length_range: TripLengthRange | None = None,
         constraints: SearchConstraints | None = None,
     ) -> list[Flight]:
-        origins = origin_airports or SEARCH_DESTINATIONS
-        destinations = destination_scope or SEARCH_DESTINATIONS
+        origins = origin_airports or []
+        destinations = destination_scope or []
         months = months_in_range(date_range)
         flights: list[Flight] = []
 
         if not settings.travelpayouts_api_enabled:
             self.warnings.append("Travelpayouts API is disabled; no indicative fares were fetched.")
+            return self._finalize(flights)
+
+        if not destinations:
+            self.warnings.append(
+                "Broad destination discovery uses city-directions and the shared deals cache; "
+                "the per-route price API was not expanded into a route matrix."
+            )
             return self._finalize(flights)
 
         for origin in origins:
@@ -79,7 +85,12 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                         return self._finalize(flights, date_range)
                     self.requests_attempted += 1
                     try:
-                        payload = self.client.prices_for_dates(origin, destination, month)
+                        payload = self.client.prices_for_dates(
+                            origin,
+                            destination,
+                            month,
+                            direct_only=bool(constraints and constraints.directOnly),
+                        )
                     except ProviderNoResultsError:
                         continue
                     flights.extend(self.normalize_response_to_internal_flights(payload))
@@ -103,10 +114,21 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
             except ProviderError as exc:
                 self.warnings.append(f"city-directions failed for {origin}: {exc}")
                 continue
-            fares.extend(map_city_directions_response(payload, origin, settings.travelpayouts_marker))
+            mapped = map_city_directions_response(payload, origin, settings.travelpayouts_marker)
+            fares.extend(
+                sorted(mapped, key=lambda fare: fare.price)[
+                    : settings.travelpayouts_discovery_limit_per_origin
+                ]
+            )
         return fares
 
-    def round_trips_for(self, origins: list[str], destinations: list[str], date_range: DateRange) -> list[RoundTripFare]:
+    def round_trips_for(
+        self,
+        origins: list[str],
+        destinations: list[str],
+        date_range: DateRange,
+        direct_only: bool = False,
+    ) -> list[RoundTripFare]:
         """Direct round-trip fares for specific routes (prices_for_dates one_way=false).
 
         Used for a requested destination so it always yields something, even a
@@ -126,7 +148,13 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                         return fares
                     self.requests_attempted += 1
                     try:
-                        payload = self.client.prices_for_dates(origin, destination, month, one_way=False)
+                        payload = self.client.prices_for_dates(
+                            origin,
+                            destination,
+                            month,
+                            one_way=False,
+                            direct_only=direct_only,
+                        )
                     except ProviderNoResultsError:
                         continue
                     except ProviderError as exc:
@@ -184,8 +212,9 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                 "TRAVELPAYOUTS_MARKER",
             ],
             rateLimitNotes=(
-                "Cached data API, one request per route/month; prices are indicative, not live. "
-                f"Capped at {settings.travelpayouts_max_requests_per_search} requests per search."
+                "Cached data API: broad discovery is one request per origin and targeted searches are one "
+                f"request per route/month. Targeted searches are capped at {settings.travelpayouts_max_requests_per_search} "
+                f"requests; discovery retains up to {settings.travelpayouts_discovery_limit_per_origin} destinations per origin."
             ),
             warnings=warnings,
         )

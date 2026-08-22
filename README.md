@@ -1,6 +1,33 @@
 # Triplet
 
-Triplet helps you find cheap trips, not just cheap flights. This MVP finds cheap European trips from multiple nearby airports using mock one-way flights and mock ground transfers so the smart open-jaw trip builder can be developed before real flight APIs are added.
+Triplet helps Europe-based travelers find and plan cheap trips worldwide. Departure airports remain the supported European `AirportDB.is_user_origin_candidate` set; destinations can be airports, city/metro codes, countries, regions, continents, or anywhere. Triplet does not sell tickets: it ranks observed fares and hands complete return or open-jaw itineraries to Aviasales.
+
+## Worldwide Flight Discovery
+
+The worldwide architecture preserves a strict split between origins and destinations:
+
+- **Origins:** selected European departure airports stored in PostgreSQL and explicitly marked as user origin candidates. Plan limits still apply.
+- **Destinations:** a generated provider-independent catalogue of flightable Travelpayouts airports and cities, enriched with Triplet's canonical country/continent data.
+- **Anywhere:** the scheduled refresher calls provider discovery once per origin, validates global destinations, and writes the shared `cached_round_trips` pool. Searches and alerts filter that pool by country, region, continent, budget, dates, and travel-map state; they never enumerate world routes.
+- **Explicit place:** a city/airport request uses bounded `prices_for_dates(..., one_way=false)` calls for only the requested origin, destination, and months. It does not depend on the place appearing in popular-direction discovery.
+- **Handoff:** Triplet creates indexed Aviasales segment links for both normal returns and open jaws. `TRAVELPAYOUTS_MARKER` is the only public affiliate identifier included.
+
+Travelpayouts prices are cached/indicative, not live availability or an exhaustive view of every fare. The UI keeps the observed timestamp, confidence level, provider warning, and “Check price” terminology. Triplet does not process payment, issue tickets, or guarantee fares.
+
+Worldwide city/airport and anywhere watches reuse the shared deal cache and never call Travelpayouts per subscriber. Country/region watch persistence is intentionally not added without a schema migration; the API rejects those watch shapes instead of silently broadening them to “anywhere.” Country/region search itself is fully supported.
+
+### Global Place Sync
+
+The application loads the versioned `apps/api/app/data/flight_places.json` catalogue once and builds indexed in-memory lookups. Regenerate it from Travelpayouts static airports, cities, and countries data with:
+
+```bash
+cd apps/api
+python scripts/sync_travelpayouts_places.py
+```
+
+The sync keeps only `flightable=true`, `iata_type=airport` airport rows and cities with a flightable airport, so railway and bus-station entries are not exposed as airports. The output includes airport/city kind, city code, country, continent, coordinates, timezone, and a legacy `FRU -> BSZ` Bishkek alias. This external sync is intentionally separate from deterministic Alembic migrations; no database migration is required for worldwide destinations.
+
+Travelpayouts `/v1/city-directions` remains isolated behind `discover_round_trips`. It is a legacy discovery adapter and can be replaced later without changing services. The endpoint has no relied-upon pagination contract here; Triplet retains the cheapest `TRAVELPAYOUTS_DISCOVERY_LIMIT_PER_ORIGIN` mapped destinations (default 100) from each bounded one-request response.
 
 ## Project Structure
 
@@ -385,11 +412,9 @@ clearly labeled as demo/cached fares.
 
 Notes:
 
-- **Duffel** is the active live-price candidate: self-service API access, real offers with baggage
-  data and offer expiry. It is a booking API, so there are no public deep links; in the MVP it is
-  a price/availability source and users are sent to a general search link elsewhere.
-- **Travelpayouts/Aviasales** is the active affiliate/deep-link candidate: cached market prices
-  (`confidenceLevel=indicative`, never shown as live) with attributable Aviasales search links.
+- **Travelpayouts/Aviasales** is Triplet's active worldwide discovery and affiliate provider: cached
+  market prices (`confidenceLevel=indicative`, never shown as live) with attributable Aviasales links.
+- **Duffel** remains a dormant adapter and is not enabled or required by worldwide search.
 - **Skyscanner** stays dormant (`requires_approval`) until partner access exists. The adapter is
   kept so it can be activated by configuration alone.
 - The AI layer never invents fares; it only ranks and explains flights returned by these providers.
@@ -399,18 +424,13 @@ Notes:
 Keep API keys in the backend environment only. Then:
 
 ```text
-# Duffel (live offers)
-FLIGHT_PROVIDER=hybrid
-LIVE_FLIGHT_PROVIDER=duffel
-DUFFEL_API_ENABLED=true
-DUFFEL_API_KEY=<backend only>
-
-# or Travelpayouts (indicative prices + affiliate links)
+# Travelpayouts (worldwide indicative prices + affiliate links)
 FLIGHT_PROVIDER=hybrid
 LIVE_FLIGHT_PROVIDER=travelpayouts
 TRAVELPAYOUTS_API_ENABLED=true
 TRAVELPAYOUTS_API_TOKEN=<backend only>
 TRAVELPAYOUTS_MARKER=<affiliate marker>
+TRAVELPAYOUTS_DISCOVERY_LIMIT_PER_ORIGIN=100
 ```
 
 Run the sanitized smoke tests (counts and status only; no secrets, no raw payloads):
@@ -652,7 +672,7 @@ Provider modes:
 FLIGHT_PROVIDER=database uvicorn app.main:app --reload --port 8001
 
 # Database fares plus a live provider when available. Falls back to database.
-FLIGHT_PROVIDER=hybrid LIVE_FLIGHT_PROVIDER=duffel uvicorn app.main:app --reload --port 8001
+FLIGHT_PROVIDER=hybrid LIVE_FLIGHT_PROVIDER=travelpayouts uvicorn app.main:app --reload --port 8001
 ```
 
 Diagnostics, when development tool endpoints are enabled:
@@ -707,7 +727,7 @@ Expected: database available and cached flights present.
 Hybrid mode without live provider credentials:
 
 ```bash
-FLIGHT_PROVIDER=hybrid LIVE_FLIGHT_PROVIDER=duffel DUFFEL_API_ENABLED=false uvicorn app.main:app --reload --port 8001
+FLIGHT_PROVIDER=hybrid LIVE_FLIGHT_PROVIDER=travelpayouts TRAVELPAYOUTS_API_ENABLED=false uvicorn app.main:app --reload --port 8001
 ```
 
 Expected: app still works, live provider warning is returned, database fallback is used.
@@ -724,9 +744,10 @@ Live provider mode with credentials (any of duffel / travelpayouts / skyscanner)
 
 ```bash
 FLIGHT_PROVIDER=hybrid \
-LIVE_FLIGHT_PROVIDER=duffel \
-DUFFEL_API_ENABLED=true \
-DUFFEL_API_KEY=your_backend_key \
+LIVE_FLIGHT_PROVIDER=travelpayouts \
+TRAVELPAYOUTS_API_ENABLED=true \
+TRAVELPAYOUTS_API_TOKEN=your_backend_key \
+TRAVELPAYOUTS_MARKER=your_public_marker \
 uvicorn app.main:app --reload --port 8001
 ```
 
@@ -1027,9 +1048,9 @@ Results are sorted by deal score, fit score, price, and shorter ground transfer.
 - Ground transfers are static city/airport pairs, not live train or bus schedules.
 - Repository tests use SQLite in memory; local development uses PostgreSQL.
 - Provider tests (Duffel, Travelpayouts, Skyscanner) use mocked HTTP responses; no real external API calls run in tests.
-- Travelpayouts is smoke-tested against the live API (2026-07-06): hybrid search returns real indicative fares with affiliate links and records price observations. The Duffel adapter is implemented but has no credentials configured yet.
+- Travelpayouts is the active worldwide Data API strategy. Hybrid search returns indicative fares with affiliate links and records price observations; the dormant Duffel adapter is not part of this feature.
 - Travelpayouts smoke tests use a ~4-week window because its cached data is month-granular; single-day queries on thin routes can legitimately return nothing.
-- Duffel offers have no public deep link (it is a booking API); Travelpayouts prices are indicative, never live.
+- Travelpayouts discovery is popular-direction coverage rather than every possible fare; explicit destinations use bounded targeted month queries. Prices remain indicative, never live.
 - Skyscanner mapping supports direct one-way offers and simple single-itinerary connections; complex multi-itinerary offers may be skipped. The adapter is dormant pending partner approval.
 - AI is optional. OpenAI is called only when `AI_ENABLED=true`; otherwise rule-based fallback is used.
 - Alert emails are console/log output by default.

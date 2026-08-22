@@ -125,4 +125,6 @@ def _to_fare(row: CachedRoundTripDB) -> RoundTripFare:
         stops=row.stops,
         bookingUrl=row.booking_url,
         affiliateUrl=row.affiliate_url,
+        observedAt=row.observed_at,
+        expiresAt=row.expires_at,
     )

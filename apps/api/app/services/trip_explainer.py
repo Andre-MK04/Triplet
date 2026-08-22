@@ -1,4 +1,5 @@
 from app.data.destination_styles import destination_styles, style_labels
+from app.data.geography import distance_km
 from app.models import Airport, Flight, GroundTransfer, TripOption, TripSearchRequest
 
 
@@ -77,6 +78,15 @@ def build_tags(trip: TripOption) -> list[str]:
         tags.append("Two-city trip")
     else:
         tags.append("No ground transfer")
+
+    route_distance = distance_km(trip.outboundFlight.origin, trip.outboundFlight.destination) or 0
+    if route_distance >= 3500:
+        tags.append("Long haul")
+    stops = trip.outboundFlight.stops
+    if stops == 0:
+        tags.append("Direct")
+    elif stops == 1:
+        tags.append("1 stop")
 
     styles = destination_styles(trip.outboundFlight.destination, trip.returnFlight.origin)
     tags.extend(style_labels(styles))

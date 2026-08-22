@@ -1,6 +1,8 @@
 import re
 from datetime import date
 
+from app.data.country_catalog import country_catalog
+from app.data.flight_places import REGION_TO_COUNTRY_CODES, get_place
 from app.data.geography import resolve_place_names
 from app.models import TripSearchRequest
 from app.tools.schemas import ParsedTripIntent
@@ -22,8 +24,16 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     text = message.lower()
     origin_airports = parse_origins(text)
     return_origin_airports = parse_return_origins(text, exclude=set(origin_airports))
-    destination_airports = parse_destinations(
+    destination_countries, destination_regions, destination_continents = parse_destination_filters(
+        text, origin_airports
+    )
+    has_broad_scope = bool(destination_countries or destination_regions or destination_continents)
+    destination_airports = None if has_broad_scope else parse_destinations(
         text, exclude=set(origin_airports) | set(return_origin_airports or [])
+    )
+    exclude_europe = bool(re.search(r"\b(?:outside|beyond|not in) europe\b", text))
+    unvisited_only = bool(
+        re.search(r"\b(?:unvisited|somewhere new|never visited|haven't visited|have not visited)\b", text)
     )
     start_date, end_date = parse_date_range(text)
     min_days, max_days = parse_trip_length(text)
@@ -49,6 +59,11 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
         parsed_search = TripSearchRequest(
             originAirports=origin_airports,
             destinationAirports=destination_airports,
+            destinationCountries=destination_countries,
+            destinationRegions=destination_regions,
+            destinationContinents=destination_continents,
+            excludeEurope=exclude_europe,
+            unvisitedOnly=unvisited_only,
             returnOriginAirports=return_origin_airports,
             startDate=start_date,
             endDate=end_date,
@@ -72,6 +87,11 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     return ParsedTripIntent(
         originAirports=origin_airports,
         destinationAirports=destination_airports,
+        destinationCountries=destination_countries,
+        destinationRegions=destination_regions,
+        destinationContinents=destination_continents,
+        excludeEurope=exclude_europe,
+        unvisitedOnly=unvisited_only,
         returnOriginAirports=return_origin_airports,
         startDate=start_date,
         endDate=end_date,
@@ -90,7 +110,7 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
 
 
 def parse_destinations(text: str, exclude: set[str] | None = None) -> list[str] | None:
-    """Any European region, country, or city named in the request.
+    """Any explicit worldwide city or flight code named in the request.
 
     Origin airports are excluded so "from Vienna to Sweden" doesn't put Vienna
     on both sides. Returns None (= anywhere) when no place is recognised.
@@ -98,6 +118,27 @@ def parse_destinations(text: str, exclude: set[str] | None = None) -> list[str] 
     exclude = exclude or set()
     codes = [code for code in resolve_place_names(text) if code not in exclude]
     return codes or None
+
+
+def parse_destination_filters(text: str, origin_airports: list[str]) -> tuple[list[str], list[str], list[str]]:
+    padded = f" {text.casefold()} "
+    origin_countries = {
+        place.country_code for code in origin_airports if (place := get_place(code)) is not None
+    }
+    countries: list[str] = []
+    for country in country_catalog().countries:
+        names = (country.name, *country.aliases)
+        if country.code not in origin_countries and any(f" {name.casefold()} " in padded for name in names):
+            countries.append(country.code)
+    regions = [region for region in REGION_TO_COUNTRY_CODES if f" {region} " in padded]
+    continents = [
+        continent
+        for continent in country_catalog().continents
+        if continent != "Antarctica"
+        and f" {continent.casefold()} " in padded
+        and not re.search(rf"\b(?:outside|beyond|not in) {re.escape(continent.casefold())}\b", text)
+    ]
+    return countries, regions, continents
 
 
 _RETURN_FROM_PATTERN = re.compile(

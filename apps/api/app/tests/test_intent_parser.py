@@ -60,18 +60,16 @@ def test_parses_scandinavia_region_as_destination():
     )
 
     assert intent.originAirports == ["VIE"]
-    assert intent.destinationAirports is not None
-    # Scandinavia = Sweden + Norway + Denmark airports; all Nordic, no origin leak.
-    assert {"ARN", "GOT", "OSL", "BGO", "CPH"} <= set(intent.destinationAirports)
-    assert "VIE" not in intent.destinationAirports
-    assert "BCN" not in intent.destinationAirports
+    assert intent.destinationAirports is None
+    assert intent.destinationRegions == ["scandinavia"]
 
 
 def test_parses_country_name_as_destination():
     intent = parse_trip_intent("find me trips to Sweden in July from Vienna")
 
     assert intent.originAirports == ["VIE"]
-    assert set(intent.destinationAirports) == {"ARN", "STO", "GOT"}
+    assert intent.destinationAirports is None
+    assert intent.destinationCountries == ["SE"]
 
 
 def test_parses_named_destination_city():
@@ -95,7 +93,7 @@ def test_parses_multi_city_then_from_phrasing():
     )
 
     assert intent.originAirports == ["BUD"]
-    assert set(intent.destinationAirports) == {"ARN", "STO"}
+    assert intent.destinationAirports == ["STO"]
     assert intent.returnOriginAirports == ["HEL"]
 
 
@@ -111,3 +109,14 @@ def test_plain_round_trip_has_no_return_origin():
     intent = parse_trip_intent("from vienna to copenhagen in august for 5 days under 200")
 
     assert intent.returnOriginAirports is None
+
+
+def test_parses_worldwide_geographic_and_travel_map_filters():
+    intent = parse_trip_intent(
+        "from Vienna somewhere new outside Europe in August for 8 days under 900"
+    )
+
+    assert intent.destinationAirports is None
+    assert intent.excludeEurope is True
+    assert intent.unvisitedOnly is True
+    assert intent.destinationContinents == []

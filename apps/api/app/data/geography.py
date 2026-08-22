@@ -1,17 +1,19 @@
-"""European flight geography: airport/metro codes -> city + country, and the
-country/region vocabulary used to resolve destinations from natural language.
+"""Flight geography helpers backed by the generated worldwide place catalogue."""
 
-This is curated editorial reference data (not provider data), so it carries no
-live-price honesty concerns. It covers the major scheduled airports plus the
-IATA *city/metro* codes providers return (STO, PAR, ROM, MIL, MOW, LON, BER...),
-because Travelpayouts mixes both namespaces.
+from __future__ import annotations
 
-Codes here define what counts as "European" for filtering and how any place name
-a user types resolves to airport codes.
-"""
-
-import re
 from dataclasses import dataclass
+import math
+import re
+
+from app.data.country_catalog import country_catalog
+from app.data.flight_places import (
+    REGION_TO_COUNTRY_CODES,
+    canonical_code,
+    catalogue,
+    flightable_city_codes_for_country,
+    get_place,
+)
 
 
 @dataclass(frozen=True)
@@ -23,138 +25,29 @@ class Place:
     lon: float | None = None
 
 
-# code -> Place. Airport codes and city/metro codes both included.
+def _city_name(code: str) -> str:
+    place = get_place(code)
+    if not place:
+        return code.upper()
+    if place.kind == "city":
+        return place.name
+    city = get_place(place.city_code or "")
+    return city.name if city else place.name
+
+
+# Compatibility mapping for code that still consumes the original Place shape.
 PLACES: dict[str, Place] = {
-    # Austria
-    "VIE": Place("VIE", "Vienna", "Austria", 48.11, 16.57),
-    "GRZ": Place("GRZ", "Graz", "Austria", 46.99, 15.44),
-    "SZG": Place("SZG", "Salzburg", "Austria", 47.79, 13.00),
-    # Slovenia / Croatia
-    "LJU": Place("LJU", "Ljubljana", "Slovenia", 46.22, 14.46),
-    "ZAG": Place("ZAG", "Zagreb", "Croatia", 45.74, 16.07),
-    "SPU": Place("SPU", "Split", "Croatia", 43.54, 16.30),
-    "DBV": Place("DBV", "Dubrovnik", "Croatia", 42.56, 18.27),
-    # Italy
-    "VCE": Place("VCE", "Venice", "Italy", 45.51, 12.35),
-    "TSF": Place("TSF", "Venice", "Italy", 45.65, 12.19),
-    "TRS": Place("TRS", "Trieste", "Italy", 45.83, 13.47),
-    "FCO": Place("FCO", "Rome", "Italy", 41.80, 12.24),
-    "CIA": Place("CIA", "Rome", "Italy", 41.80, 12.59),
-    "ROM": Place("ROM", "Rome", "Italy", 41.90, 12.50),
-    "MXP": Place("MXP", "Milan", "Italy", 45.63, 8.72),
-    "LIN": Place("LIN", "Milan", "Italy", 45.45, 9.28),
-    "BGY": Place("BGY", "Milan", "Italy", 45.67, 9.70),
-    "MIL": Place("MIL", "Milan", "Italy", 45.46, 9.19),
-    "NAP": Place("NAP", "Naples", "Italy", 40.89, 14.29),
-    "CTA": Place("CTA", "Catania", "Italy", 37.47, 15.07),
-    "BLQ": Place("BLQ", "Bologna", "Italy", 44.53, 11.29),
-    "PMO": Place("PMO", "Palermo", "Italy", 38.18, 13.10),
-    # Spain
-    "BCN": Place("BCN", "Barcelona", "Spain", 41.30, 2.08),
-    "MAD": Place("MAD", "Madrid", "Spain", 40.47, -3.56),
-    "VLC": Place("VLC", "Valencia", "Spain", 39.49, -0.48),
-    "ALC": Place("ALC", "Alicante", "Spain", 38.28, -0.56),
-    "AGP": Place("AGP", "Malaga", "Spain", 36.67, -4.50),
-    "SVQ": Place("SVQ", "Seville", "Spain", 37.42, -5.90),
-    "PMI": Place("PMI", "Palma de Mallorca", "Spain", 39.55, 2.74),
-    "IBZ": Place("IBZ", "Ibiza", "Spain", 38.87, 1.37),
-    "BIO": Place("BIO", "Bilbao", "Spain", 43.30, -2.91),
-    # Portugal
-    "LIS": Place("LIS", "Lisbon", "Portugal", 38.77, -9.13),
-    "OPO": Place("OPO", "Porto", "Portugal", 41.24, -8.68),
-    "FAO": Place("FAO", "Faro", "Portugal", 37.01, -7.97),
-    # France
-    "CDG": Place("CDG", "Paris", "France", 49.01, 2.55),
-    "ORY": Place("ORY", "Paris", "France", 48.72, 2.38),
-    "PAR": Place("PAR", "Paris", "France", 48.86, 2.35),
-    "NCE": Place("NCE", "Nice", "France", 43.66, 7.22),
-    "LYS": Place("LYS", "Lyon", "France", 45.73, 5.08),
-    "MRS": Place("MRS", "Marseille", "France", 43.44, 5.22),
-    "TLS": Place("TLS", "Toulouse", "France", 43.63, 1.37),
-    "BOD": Place("BOD", "Bordeaux", "France", 44.83, -0.72),
-    # Germany
-    "BER": Place("BER", "Berlin", "Germany", 52.37, 13.50),
-    "MUC": Place("MUC", "Munich", "Germany", 48.35, 11.79),
-    "FRA": Place("FRA", "Frankfurt", "Germany", 50.03, 8.56),
-    "DUS": Place("DUS", "Dusseldorf", "Germany", 51.29, 6.77),
-    "HAM": Place("HAM", "Hamburg", "Germany", 53.63, 10.00),
-    "CGN": Place("CGN", "Cologne", "Germany", 50.87, 7.14),
-    "STR": Place("STR", "Stuttgart", "Germany", 48.69, 9.22),
-    # Netherlands / Belgium / Luxembourg
-    "AMS": Place("AMS", "Amsterdam", "Netherlands", 52.31, 4.76),
-    "EIN": Place("EIN", "Eindhoven", "Netherlands", 51.45, 5.37),
-    "BRU": Place("BRU", "Brussels", "Belgium", 50.90, 4.48),
-    "CRL": Place("CRL", "Brussels", "Belgium", 50.46, 4.45),
-    "LUX": Place("LUX", "Luxembourg", "Luxembourg", 49.63, 6.21),
-    # UK / Ireland
-    "LON": Place("LON", "London", "United Kingdom", 51.51, -0.13),
-    "LHR": Place("LHR", "London", "United Kingdom", 51.47, -0.45),
-    "LGW": Place("LGW", "London", "United Kingdom", 51.15, -0.18),
-    "STN": Place("STN", "London", "United Kingdom", 51.89, 0.24),
-    "LTN": Place("LTN", "London", "United Kingdom", 51.87, -0.37),
-    "MAN": Place("MAN", "Manchester", "United Kingdom", 53.35, -2.27),
-    "EDI": Place("EDI", "Edinburgh", "United Kingdom", 55.95, -3.37),
-    "DUB": Place("DUB", "Dublin", "Ireland", 53.42, -6.27),
-    # Nordics
-    "CPH": Place("CPH", "Copenhagen", "Denmark", 55.62, 12.65),
-    "BLL": Place("BLL", "Billund", "Denmark", 55.74, 9.15),
-    "ARN": Place("ARN", "Stockholm", "Sweden", 59.65, 17.93),
-    "STO": Place("STO", "Stockholm", "Sweden", 59.33, 18.06),
-    "GOT": Place("GOT", "Gothenburg", "Sweden", 57.66, 12.28),
-    "OSL": Place("OSL", "Oslo", "Norway", 60.19, 11.10),
-    "BGO": Place("BGO", "Bergen", "Norway", 60.29, 5.22),
-    "TRD": Place("TRD", "Trondheim", "Norway", 63.46, 10.92),
-    "HEL": Place("HEL", "Helsinki", "Finland", 60.32, 24.96),
-    "KEF": Place("KEF", "Reykjavik", "Iceland", 63.99, -22.61),
-    "REK": Place("REK", "Reykjavik", "Iceland", 64.13, -21.94),
-    # Central / Eastern Europe
-    "BUD": Place("BUD", "Budapest", "Hungary", 47.44, 19.26),
-    "PRG": Place("PRG", "Prague", "Czechia", 50.10, 14.26),
-    "WAW": Place("WAW", "Warsaw", "Poland", 52.17, 20.97),
-    "KRK": Place("KRK", "Krakow", "Poland", 50.08, 19.80),
-    "GDN": Place("GDN", "Gdansk", "Poland", 54.38, 18.47),
-    "OTP": Place("OTP", "Bucharest", "Romania", 44.57, 26.10),
-    "SOF": Place("SOF", "Sofia", "Bulgaria", 42.69, 23.41),
-    "BTS": Place("BTS", "Bratislava", "Slovakia", 48.17, 17.21),
-    "RIX": Place("RIX", "Riga", "Latvia", 56.92, 23.97),
-    "TLL": Place("TLL", "Tallinn", "Estonia", 59.41, 24.83),
-    "VNO": Place("VNO", "Vilnius", "Lithuania", 54.64, 25.28),
-    # Greece / Cyprus / Malta
-    "ATH": Place("ATH", "Athens", "Greece", 37.94, 23.94),
-    "SKG": Place("SKG", "Thessaloniki", "Greece", 40.52, 22.97),
-    "HER": Place("HER", "Heraklion", "Greece", 35.34, 25.18),
-    "JMK": Place("JMK", "Mykonos", "Greece", 37.44, 25.35),
-    "JTR": Place("JTR", "Santorini", "Greece", 36.40, 25.48),
-    "LCA": Place("LCA", "Larnaca", "Cyprus", 34.88, 33.63),
-    "MLA": Place("MLA", "Malta", "Malta", 35.86, 14.48),
-    # Switzerland / Alps
-    "ZRH": Place("ZRH", "Zurich", "Switzerland", 47.46, 8.55),
-    "GVA": Place("GVA", "Geneva", "Switzerland", 46.24, 6.11),
-    # Balkans
-    "BEG": Place("BEG", "Belgrade", "Serbia", 44.82, 20.29),
-    "TIA": Place("TIA", "Tirana", "Albania", 41.41, 19.72),
-    "SKP": Place("SKP", "Skopje", "North Macedonia", 41.96, 21.62),
+    code: Place(
+        code=code,
+        city=_city_name(code),
+        country=place.country_name,
+        lat=place.latitude,
+        lon=place.longitude,
+    )
+    for code in {row.code for row in catalogue().places}
+    if (place := get_place(code)) is not None
 }
 
-# Country -> representative airport codes (used to scope searches like "Sweden").
-COUNTRY_TO_AIRPORTS: dict[str, list[str]] = {}
-for _place in PLACES.values():
-    COUNTRY_TO_AIRPORTS.setdefault(_place.country.lower(), []).append(_place.code)
-
-# Region words -> the countries they cover.
-REGION_TO_COUNTRIES: dict[str, list[str]] = {
-    "scandinavia": ["Sweden", "Norway", "Denmark"],
-    "nordics": ["Sweden", "Norway", "Denmark", "Finland", "Iceland"],
-    "iberia": ["Spain", "Portugal"],
-    "benelux": ["Netherlands", "Belgium", "Luxembourg"],
-    "baltics": ["Estonia", "Latvia", "Lithuania"],
-    "balkans": ["Serbia", "Albania", "North Macedonia", "Croatia", "Bulgaria"],
-    "british isles": ["United Kingdom", "Ireland"],
-    "central europe": ["Austria", "Czechia", "Hungary", "Slovakia", "Poland", "Slovenia"],
-    "mediterranean": ["Spain", "Italy", "Greece", "Portugal", "Croatia", "Malta", "Cyprus"],
-}
-
-# Common aliases so natural language resolves to a country key.
 COUNTRY_ALIASES: dict[str, str] = {
     "uk": "United Kingdom",
     "u.k.": "United Kingdom",
@@ -165,116 +58,143 @@ COUNTRY_ALIASES: dict[str, str] = {
     "holland": "Netherlands",
     "the netherlands": "Netherlands",
     "czech republic": "Czechia",
-    "czechia": "Czechia",
 }
+for _country in country_catalog().countries:
+    for _alias in _country.aliases:
+        COUNTRY_ALIASES[_alias.casefold()] = _country.name
 
-EUROPEAN_COUNTRIES: set[str] = {place.country for place in PLACES.values()}
+_COUNTRY_CODES_BY_NAME = {country.name.casefold(): country.code for country in country_catalog().countries}
+_COUNTRY_NAMES_BY_CODE = {country.code: country.name for country in country_catalog().countries}
+
+REGION_TO_COUNTRIES: dict[str, list[str]] = {
+    region: [_COUNTRY_NAMES_BY_CODE[code] for code in codes if code in _COUNTRY_NAMES_BY_CODE]
+    for region, codes in REGION_TO_COUNTRY_CODES.items()
+}
+EUROPEAN_COUNTRIES: set[str] = {
+    country.name for country in country_catalog().countries if country.continent == "Europe"
+}
 
 
 def is_european(code: str) -> bool:
-    return code.upper() in PLACES
+    """Return true only when the known place is geographically in Europe."""
+    place = get_place(code)
+    return bool(place and place.continent == "Europe")
+
+
+def is_european_country(country_code: str) -> bool:
+    country = next(
+        (row for row in country_catalog().countries if row.code == country_code.strip().upper()),
+        None,
+    )
+    return bool(country and country.continent == "Europe")
 
 
 def distance_km(origin: str, destination: str) -> float | None:
-    """Great-circle distance between two known places, in kilometres."""
-    import math
-
-    a = PLACES.get(origin.upper())
-    b = PLACES.get(destination.upper())
-    if not a or not b or a.lat is None or b.lat is None:
+    """Great-circle distance between two flight places, in kilometres."""
+    a = get_place(origin)
+    b = get_place(destination)
+    if not a or not b or a.latitude is None or b.latitude is None:
         return None
-    r = 6371.0
-    p1, p2 = math.radians(a.lat), math.radians(b.lat)
-    dphi = math.radians(b.lat - a.lat)
-    dlmb = math.radians(b.lon - a.lon)
-    h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
-    return 2 * r * math.asin(min(1.0, math.sqrt(h)))
+    radius = 6371.0
+    p1, p2 = math.radians(a.latitude), math.radians(b.latitude)
+    dphi = math.radians(b.latitude - a.latitude)
+    dlambda = math.radians((b.longitude or 0) - (a.longitude or 0))
+    h = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
+    return 2 * radius * math.asin(min(1.0, math.sqrt(h)))
 
 
 def estimate_duration_minutes(origin: str, destination: str) -> int | None:
-    """Rough flight time from great-circle distance, when a provider omits it.
-
-    Used so we don't discard the cheapest fare just because the feed lacked a
-    duration field. Approximate by design (≈700 km/h cruise + 40 min overhead).
-    """
     km = distance_km(origin, destination)
     if km is None:
         return None
-    return int(round(km / 700 * 60)) + 40
+    return int(round(km / 780 * 60)) + 45
 
 
 def place_country(code: str) -> str | None:
-    place = PLACES.get(code.upper())
-    return place.country if place else None
+    place = get_place(code)
+    return place.country_name if place else None
+
+
+def place_country_code(code: str) -> str | None:
+    place = get_place(code)
+    return place.country_code if place else None
+
+
+def place_continent(code: str) -> str | None:
+    place = get_place(code)
+    return place.continent if place else None
 
 
 def place_city(code: str) -> str | None:
-    place = PLACES.get(code.upper())
-    return place.city if place else None
+    return _city_name(canonical_code(code)) if get_place(code) else None
 
 
 def scope_matches(code: str, scope: set[str]) -> bool:
-    """Whether a provider destination code satisfies a requested scope.
-
-    Matches on exact code or same city, so airport/metro pairs for one city
-    (KEF/REK Reykjavik, ARN/STO Stockholm) are treated as equivalent.
-    """
-    code = code.upper()
-    if code in scope:
+    normalized = canonical_code(code)
+    normalized_scope = {canonical_code(value) for value in scope}
+    if normalized in normalized_scope:
         return True
-    city = place_city(code)
-    if not city:
+    place = get_place(normalized)
+    if not place:
         return False
-    return any(place_city(s) == city for s in scope)
+    city_code = place.city_code or place.code
+    return any(
+        candidate and (candidate.city_code or candidate.code) == city_code
+        for value in normalized_scope
+        if (candidate := get_place(value)) is not None
+    )
 
 
-def airports_for_country(country: str) -> list[str]:
-    key = COUNTRY_ALIASES.get(country.lower().strip(), country).lower()
-    return list(COUNTRY_TO_AIRPORTS.get(key, []))
+def airports_for_country(country: str, limit: int = 20) -> list[str]:
+    name = COUNTRY_ALIASES.get(country.casefold().strip(), country).casefold()
+    country_code = _COUNTRY_CODES_BY_NAME.get(name, country.strip().upper())
+    return flightable_city_codes_for_country(country_code, limit=limit)
 
 
-def airports_for_region(region: str) -> list[str]:
+def airports_for_region(region: str, limit: int = 20) -> list[str]:
     codes: list[str] = []
-    for country in REGION_TO_COUNTRIES.get(region.lower().strip(), []):
-        codes.extend(COUNTRY_TO_AIRPORTS.get(country.lower(), []))
-    return list(dict.fromkeys(codes))
+    for country_code in REGION_TO_COUNTRY_CODES.get(region.casefold().strip(), frozenset()):
+        codes.extend(flightable_city_codes_for_country(country_code, limit=max(1, limit - len(codes))))
+        if len(codes) >= limit:
+            break
+    return list(dict.fromkeys(codes))[:limit]
 
 
-# City names that are also common English words; only treat them as a place
-# when a destination cue ("to Nice", "in Split") precedes them.
-AMBIGUOUS_CITY_NAMES = {"nice", "split", "faro"}
+AMBIGUOUS_CITY_NAMES = {"nice", "split", "faro", "reading", "mobile", "orange"}
 _DESTINATION_CUE = r"(?:to|in|towards?|visit(?:ing)?|near)\s+(?:the\s+)?"
 
 
-def resolve_place_names(text: str) -> list[str]:
-    """Airport codes for any region, country, or city mentioned in free text.
-
-    Regions expand to their countries' airports; countries to their airports;
-    cities to their own code. Returns [] when nothing geographic is recognised.
-    """
-    lowered = f" {text.lower()} "
+def resolve_place_names(text: str, limit: int = 20) -> list[str]:
+    """Resolve explicit worldwide region, country, city, and IATA mentions."""
+    lowered = f" {text.casefold()} "
     codes: list[str] = []
 
-    for region in REGION_TO_COUNTRIES:
-        if f" {region} " in lowered or f" {region}." in lowered:
-            codes.extend(airports_for_region(region))
-
-    for alias, country in COUNTRY_ALIASES.items():
-        if f" {alias} " in lowered:
-            codes.extend(airports_for_country(country))
-    for country in EUROPEAN_COUNTRIES:
-        if f" {country.lower()} " in lowered:
-            codes.extend(airports_for_country(country))
-
-    # Cities: match on the city name; skip very short names to avoid false hits.
-    for place in PLACES.values():
-        city = place.city.lower()
-        if len(city) < 4:
+    for token in re.findall(r"\b[a-zA-Z]{3}\b", text):
+        if not token.isupper():
             continue
+        normalized = canonical_code(token)
+        if get_place(normalized):
+            codes.append(normalized)
+
+    for region in REGION_TO_COUNTRY_CODES:
+        if f" {region} " in lowered:
+            codes.extend(airports_for_region(region, limit=limit))
+
+    for country in country_catalog().countries:
+        names = (country.name, *country.aliases)
+        if any(f" {name.casefold()} " in lowered for name in names):
+            codes.extend(flightable_city_codes_for_country(country.code, limit=limit))
+
+    for place in catalogue().places:
+        if place.kind != "city" or len(place.name) < 4:
+            continue
+        city = place.name.casefold()
         if city in AMBIGUOUS_CITY_NAMES:
             if re.search(rf"\b{_DESTINATION_CUE}{re.escape(city)}\b", lowered):
                 codes.append(place.code)
         elif f" {city} " in lowered:
             codes.append(place.code)
+        if len(dict.fromkeys(codes)) >= limit:
+            break
 
-    return list(dict.fromkeys(codes))
+    return list(dict.fromkeys(codes))[:limit]

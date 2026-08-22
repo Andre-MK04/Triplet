@@ -50,6 +50,7 @@ class TravelpayoutsHttpClient:
         departure_at: str,
         one_way: bool = True,
         limit: int = 30,
+        direct_only: bool = False,
     ) -> dict[str, Any]:
         return self._get(
             "/aviasales/v3/prices_for_dates",
@@ -60,7 +61,7 @@ class TravelpayoutsHttpClient:
                 "one_way": str(one_way).lower(),
                 "unique": "false",
                 "sorting": "price",
-                "direct": "false",
+                "direct": str(direct_only).lower(),
                 "currency": settings.travelpayouts_currency.lower(),
                 "limit": limit,
             },
