@@ -37,14 +37,14 @@ const STATUS_COLORS_DARK: Record<TravelMapStatus, string> = {
   lived: "#ff9a78",
   visited: "#7ddfc3",
   wishlist: "#e8c46a",
-  unvisited: "#21303b",
+  unvisited: "#476575",
 };
 
 const STATUS_COLORS_LIGHT: Record<TravelMapStatus, string> = {
   lived: "#d65f42",
   visited: "#16836f",
   wishlist: "#a97a12",
-  unvisited: "#8198a3",
+  unvisited: "#f0f8fb",
 };
 
 type CountryPolygonProps = {
@@ -67,7 +67,8 @@ function CountryPolygon({ code, coordinates, status, selected, light, onHover, o
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   const palette = light ? STATUS_COLORS_LIGHT : STATUS_COLORS_DARK;
-  const opacity = status === "unvisited" ? (light ? 0.42 : 0.22) : 0.86;
+  const unvisited = status === "unvisited";
+  const opacity = unvisited ? (light ? 0.64 : 0.36) : 0.86;
 
   function hover(event: ThreeEvent<PointerEvent>) {
     event.stopPropagation();
@@ -96,26 +97,42 @@ function CountryPolygon({ code, coordinates, status, selected, light, onHover, o
   }
 
   return (
-    <mesh
-      geometry={geometry}
-      onPointerOver={hover}
-      onPointerOut={leave}
-      onPointerDown={pointerDown}
-      onPointerUp={pointerUp}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(code);
-      }}
-      renderOrder={2}
-    >
-      <meshBasicMaterial
-        color={selected ? (light ? "#0d5f51" : "#b7f5e3") : palette[status]}
-        transparent
-        opacity={selected ? 0.98 : opacity}
-        side={THREE.DoubleSide}
-        depthWrite={false}
-      />
-    </mesh>
+    <group>
+      <mesh
+        geometry={geometry}
+        onPointerOver={hover}
+        onPointerOut={leave}
+        onPointerDown={pointerDown}
+        onPointerUp={pointerUp}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(code);
+        }}
+        renderOrder={2}
+      >
+        <meshBasicMaterial
+          color={selected ? (light ? "#0d5f51" : "#b7f5e3") : palette[status]}
+          transparent
+          opacity={selected ? 0.98 : opacity}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {unvisited && !selected ? (
+        <mesh geometry={geometry} renderOrder={3}>
+          <meshBasicMaterial
+            color={light ? "#ffffff" : "#9fd8ea"}
+            transparent
+            opacity={light ? 0.16 : 0.1}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            polygonOffset
+            polygonOffsetFactor={-1}
+          />
+        </mesh>
+      ) : null}
+    </group>
   );
 }
 
