@@ -258,7 +258,7 @@ export default function LandingPage() {
               stays fully inside its column at every width. */}
           <div className="relative flex min-h-[clamp(320px,44vw,620px)] items-center justify-center" aria-hidden>
             <div className="mx-auto aspect-square w-[min(88vw,420px)] max-w-full lg:w-[min(46vw,640px)]">
-              <RouteGlobe markers={markers} />
+              <RouteGlobe markers={markers} cameraDistance={6.25} />
             </div>
           </div>
         </div>
