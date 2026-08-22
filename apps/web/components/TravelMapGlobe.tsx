@@ -195,7 +195,7 @@ export function TravelMapGlobe({
   const activeCode = hoveredCode ?? selectedCode;
 
   return (
-    <div className="relative h-[clamp(520px,72vw,800px)] w-full touch-none overflow-visible">
+    <div className="relative h-[clamp(320px,72vw,720px)] w-full touch-none overflow-visible">
       <RouteGlobe
         animate
         interactive
@@ -203,6 +203,7 @@ export function TravelMapGlobe({
         ariaLabel="Interactive personal travel globe. Use the searchable country list as a keyboard-accessible alternative."
         showRoutes={false}
         showEuropeOutline={false}
+        cameraDistance={6.25}
         overlay={
           <CountryLayer
             catalog={catalog}

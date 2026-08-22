@@ -289,6 +289,7 @@ type RouteGlobeProps = {
   ariaLabel?: string;
   showRoutes?: boolean;
   showEuropeOutline?: boolean;
+  cameraDistance?: number;
 };
 
 export default function RouteGlobe({
@@ -300,6 +301,7 @@ export default function RouteGlobe({
   ariaLabel,
   showRoutes = true,
   showEuropeOutline = true,
+  cameraDistance = 4.6,
 }: RouteGlobeProps) {
   const reducedMotion = usePrefersReducedMotion();
   const light = useResolvedTheme() === "light";
@@ -335,7 +337,7 @@ export default function RouteGlobe({
 
   return (
     <Canvas
-      camera={{ position: [0, 0, 4.6], fov: 42 }}
+      camera={{ position: [0, 0, cameraDistance], fov: 42 }}
       dpr={[1, 1.75]}
       gl={{ antialias: true, alpha: true, powerPreference: "low-power" }}
       style={{ background: "transparent" }}
