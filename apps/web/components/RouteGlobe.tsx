@@ -4,9 +4,33 @@ import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
+import { feature } from "topojson-client";
+import ConicPolygonGeometry from "three-conic-polygon-geometry";
+import worldTopology from "world-atlas/countries-110m.json";
 
 import { AIRPORTS } from "../lib/airports";
 import { useResolvedTheme } from "./useResolvedTheme";
+
+type PolygonCoordinates = number[][][];
+type Geometry =
+  | { type: "Polygon"; coordinates: PolygonCoordinates }
+  | { type: "MultiPolygon"; coordinates: PolygonCoordinates[] };
+type CountryFeature = {
+  id?: string | number;
+  properties?: { name?: string };
+  geometry: Geometry | null;
+};
+
+const topology = worldTopology as unknown as {
+  type: "Topology";
+  objects: { countries: object };
+  arcs: unknown[];
+  transform?: object;
+};
+
+const COUNTRY_FEATURES = (
+  feature(topology as never, topology.objects.countries as never) as unknown as { features: CountryFeature[] }
+).features;
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -98,65 +122,45 @@ const DEFAULT_ROUTES: Array<[string, string]> = [
   ["TRS", "DUB"],
 ];
 
-// Stylised low-poly Europe: coarse outlines as [lat, lon] loops, deliberately
-// abstract (an instrument overlay, not a map projection).
-const EUROPE_OUTLINES: Array<Array<[number, number]>> = [
-  // Continental silhouette (Iberia → Atlantic coast → Scandinavia → east → Med).
-  [
-    [36.0, -5.6], [37.0, -8.9], [38.7, -9.4], [41.1, -8.9], [43.4, -8.5], [43.4, -1.8],
-    [46.0, -1.2], [48.4, -4.8], [49.7, -1.9], [51.0, 2.0], [53.4, 5.0], [55.5, 8.3],
-    [57.7, 10.6], [58.0, 7.0], [60.4, 5.0], [63.4, 9.7], [67.3, 14.0], [71.0, 25.8],
-    [70.0, 28.5], [66.0, 30.0], [61.0, 28.5], [59.9, 30.3], [57.0, 24.1], [54.4, 19.0],
-    [54.1, 13.0], [53.5, 8.5], [52.0, 4.6], [51.0, 3.0], [48.6, -1.5], [46.5, -1.1],
-    [44.0, -1.3], [43.3, -2.0], [41.9, 3.2], [39.5, 0.0], [36.7, -2.5], [36.0, -5.6],
-  ],
-  // Mediterranean arc: south France → Italy → Adriatic → Greece → back across.
-  [
-    [42.5, 3.2], [43.3, 5.4], [43.7, 7.3], [44.4, 8.9], [43.0, 10.0], [41.9, 12.5],
-    [40.6, 14.3], [38.9, 16.6], [37.9, 15.7], [40.0, 18.5], [42.0, 15.0], [44.8, 13.6],
-    [45.6, 13.8], [44.0, 15.2], [42.6, 18.1], [40.5, 19.4], [38.4, 21.5], [36.8, 22.5],
-    [38.0, 23.7], [40.5, 22.9], [41.0, 29.0],
-  ],
-  // Britain.
-  [
-    [50.1, -5.7], [50.8, -0.8], [51.4, 1.4], [52.9, 1.7], [54.5, -0.6], [56.0, -2.6],
-    [57.5, -1.8], [58.6, -5.0], [56.5, -6.0], [54.6, -3.4], [53.3, -4.6], [51.6, -5.1],
-    [50.1, -5.7],
-  ],
-  // Ireland.
-  [
-    [51.8, -10.2], [52.2, -6.4], [53.3, -6.1], [55.2, -7.6], [54.3, -10.0], [51.8, -10.2],
-  ],
-  // Iceland.
-  [
-    [63.4, -18.5], [64.0, -22.6], [65.6, -24.0], [66.3, -18.7], [65.0, -13.8], [63.4, -18.5],
-  ],
-];
+function CountrySurfacePolygon({ coordinates, light }: { coordinates: PolygonCoordinates; light: boolean }) {
+  const geometry = useMemo(
+    () => new ConicPolygonGeometry(coordinates, 1.902, 1.918, false, true, false, 7),
+    [coordinates],
+  );
 
-function latLonLoopPoints(loop: Array<[number, number]>, radius: number): THREE.Vector3[] {
-  return loop.map(([lat, lon]) => latLonToVector3(lat, lon, radius));
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return (
+    <mesh geometry={geometry} renderOrder={1}>
+      <meshBasicMaterial
+        color={light ? "#8198a3" : "#5f7f90"}
+        transparent
+        opacity={light ? 0.42 : 0.46}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
 }
 
-function EuropeOutline({ light }: { light: boolean }) {
-  const lines = useMemo(
+function CountrySurface({ light }: { light: boolean }) {
+  const polygons = useMemo(
     () =>
-      EUROPE_OUTLINES.map((loop) => {
-        const geometry = new THREE.BufferGeometry().setFromPoints(
-          latLonLoopPoints(loop, GLOBE_RADIUS * 1.004),
-        );
-        const material = new THREE.LineBasicMaterial({
-          color: light ? "#16836f" : "#7ddfc3",
-          transparent: true,
-          opacity: 0.4,
-        });
-        return new THREE.Line(geometry, material);
+      COUNTRY_FEATURES.flatMap((countryFeature) => {
+        if (!countryFeature.geometry) return [];
+        return countryFeature.geometry.type === "Polygon"
+          ? [countryFeature.geometry.coordinates]
+          : countryFeature.geometry.coordinates;
       }),
-    [light],
+    [],
   );
+
   return (
-    <group>
-      {lines.map((line, index) => (
-        <primitive key={index} object={line} />
+    // ConicPolygonGeometry uses globe.gl's axis convention. A 90° Y rotation
+    // aligns the topojson country layer with the existing route/marker vectors.
+    <group rotation={[0, Math.PI / 2, 0]}>
+      {polygons.map((coordinates, index) => (
+        <CountrySurfacePolygon key={index} coordinates={coordinates} light={light} />
       ))}
     </group>
   );
@@ -265,7 +269,7 @@ function GlobeScene({
         />
       </mesh>
       <DotSphere light={light} />
-      {showEuropeOutline ? <EuropeOutline light={light} /> : null}
+      {showEuropeOutline ? <CountrySurface light={light} /> : null}
       {overlay}
       {showRoutes ? DEFAULT_ROUTES.map(([from, to], index) => (
         <RouteArc key={`${from}-${to}`} from={from} to={to} phase={index * 0.45} animate={animate} light={light} />
