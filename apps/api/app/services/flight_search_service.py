@@ -15,8 +15,13 @@ from app.providers import DatabaseFlightProvider, FlightProvider
 from app.providers.errors import ProviderError
 from app.providers.flight_provider import DateRange
 from app.providers.registry import UnknownFlightProviderError, build_live_provider, build_provider
+from app.services.destination_scope import DestinationScope, resolve_destination_scope
 
 logger = logging.getLogger(__name__)
+
+# Below this many in-window options, an "anywhere" search is not really answered
+# by the cache and is worth a provider call for the dates actually requested.
+ANYWHERE_MIN_RESULTS = 8
 
 
 class FlightProviderNotImplementedError(NotImplementedError):
@@ -44,6 +49,7 @@ class FlightSearchService:
         self.deals_cache_used = False
         self.deals_provider_attempted = False
         self.deals_provider_succeeded = False
+        self._scope: DestinationScope | None = None
 
     def search_candidate_flights(self, request: TripSearchRequest) -> list[Flight]:
         return self.search_candidate_flights_with_metadata(request).flights
@@ -85,14 +91,33 @@ class FlightSearchService:
     ) -> list[Flight]:
         return self.provider.search_flights(origin_codes, start_date, end_date, destination_codes)
 
+    def resolve_scope(self, request: TripSearchRequest) -> DestinationScope:
+        """Resolve (and memoise) what this request's destination fields mean."""
+        if self._scope is None:
+            hint: tuple[str, ...] = ()
+            if self.db is not None:
+                try:
+                    hint = CachedDealsRepository(self.db).country_ranking(request.originAirports)
+                except SQLAlchemyError:
+                    logger.warning("country_ranking_failed", exc_info=True)
+                    self.db.rollback()
+            self._scope = resolve_destination_scope(
+                request,
+                ranked_country_hint=hint,
+                request_budget=settings.travelpayouts_max_requests_per_search,
+            )
+        return self._scope
+
     def discover_round_trip_fares(self, request: TripSearchRequest):
         """Round-trip fares, served from the deals cache when fresh.
 
         Open "anywhere" searches read the scheduled deals cache and only call the
-        provider (city-directions) on a cold/stale cache, then warm it. A specific
-        requested destination always does a direct per-route round-trip query (so
-        that place yields something) and caches the result. Read-through keeps the
-        user path off the live API on the common path.
+        provider (city-directions) on a cold/stale cache, then warm it. Any named
+        destination — a city, a country, a region, a continent, or simply
+        "outside Europe" — is resolved to concrete query targets and asked about
+        directly, so a requested place yields fares whether or not the shared
+        discovery cache already happened to cover it. Read-through keeps the user
+        path off the live API on the common path.
         """
         provider = self.provider
         if self.provider_name == "hybrid":
@@ -103,6 +128,7 @@ class FlightSearchService:
             except (UnknownFlightProviderError, ProviderError):
                 return []
 
+        scope = self.resolve_scope(request)
         deals_repo = CachedDealsRepository(self.db) if self.db is not None else None
         try:
             if self.cache_only:
@@ -110,42 +136,76 @@ class FlightSearchService:
                     return []
                 self.deals_cache_used = True
                 return self._filter_round_trip_fares(deals_repo.fresh_deals(request.originAirports), request)
-            if request.destinationAirports:
-                routes = getattr(provider, "round_trips_for", None)
-                if not callable(routes):
-                    return []
-                self.deals_provider_attempted = True
-                route_args = (
-                    request.originAirports,
-                    [canonical_code(code) for code in request.destinationAirports],
-                    DateRange(start=request.startDate, end=request.endDate),
-                )
-                try:
-                    fares = routes(*route_args, direct_only=request.directOnly)
-                except TypeError as exc:
-                    if "direct_only" not in str(exc):
-                        raise
-                    fares = routes(*route_args)
+            if scope.is_targeted:
+                fares = self._targeted_round_trip_fares(provider, request, scope)
                 if deals_repo and fares:
                     self._cache_deals(deals_repo, fares)
                 self.deals_provider_succeeded = bool(fares)
+                if deals_repo:
+                    # A targeted scope can also be satisfied by deals we already
+                    # hold, so fold the cache in rather than throwing it away.
+                    cached = deals_repo.fresh_deals(request.originAirports)
+                    if cached:
+                        self.deals_cache_used = True
+                        fares = fares + cached
                 return self._filter_round_trip_fares(fares, request)
 
-            # "Anywhere": serve fresh cached deals; only fetch live on a cold cache.
+            # "Anywhere": serve fresh cached deals, then top up from the provider
+            # only if they don't actually answer the question.
+            cached: list = []
             if deals_repo and deals_repo.has_fresh(request.originAirports):
                 self.deals_cache_used = True
-                return self._filter_round_trip_fares(deals_repo.fresh_deals(request.originAirports), request)
-            discover = getattr(provider, "discover_round_trips", None)
-            if not callable(discover):
-                return []
-            self.deals_provider_attempted = True
-            fares = discover(request.originAirports)
+                cached = self._filter_round_trip_fares(deals_repo.fresh_deals(request.originAirports), request)
+                if len(cached) >= ANYWHERE_MIN_RESULTS:
+                    return cached
+
+            fares = self._open_round_trip_fares(provider, request, cold_cache=not cached)
             if deals_repo and fares:
                 self._cache_deals(deals_repo, fares)
             self.deals_provider_succeeded = bool(fares)
-            return self._filter_round_trip_fares(fares, request)
+            return cached + self._filter_round_trip_fares(fares, request)
         except ProviderError:
             return []
+
+    def _open_round_trip_fares(self, provider, request: TripSearchRequest, cold_cache: bool):
+        """Fares for an "anywhere" search.
+
+        The shared discovery cache answers "cheapest from here, ever", which is
+        great for warming but often lands outside the dates someone asked about.
+        So an open search also asks for real fares inside its own date window,
+        and only falls back to broad discovery when there is no cache to warm.
+        """
+        fares: list = []
+        in_window = getattr(provider, "round_trips_in_window", None)
+        if callable(in_window):
+            self.deals_provider_attempted = True
+            fares.extend(in_window(request.originAirports, DateRange(start=request.startDate, end=request.endDate)))
+
+        discover = getattr(provider, "discover_round_trips", None)
+        if cold_cache and callable(discover):
+            self.deals_provider_attempted = True
+            fares.extend(discover(request.originAirports))
+        return fares
+
+    def _targeted_round_trip_fares(self, provider, request: TripSearchRequest, scope: DestinationScope):
+        """Ask the provider about exactly the places this search named."""
+        routes = getattr(provider, "round_trips_for", None)
+        if not callable(routes):
+            return []
+        self.deals_provider_attempted = True
+        route_args = (
+            request.originAirports,
+            list(scope.query_targets),
+            DateRange(start=request.startDate, end=request.endDate),
+        )
+        try:
+            return routes(*route_args, direct_only=request.directOnly)
+        except TypeError as exc:
+            # Alternative provider adapters may not accept every keyword; degrade
+            # rather than failing a search over a signature mismatch.
+            if "direct_only" not in str(exc):
+                raise
+            return routes(*route_args)
 
     @staticmethod
     def _filter_round_trip_fares(fares, request: TripSearchRequest):
@@ -213,9 +273,11 @@ class FlightSearchService:
         # Read-through fast path: for an "anywhere" search whose origins already
         # have fresh cached deals, serve from the database and skip the live
         # provider entirely. The scheduled tick (and cold searches) keep the
-        # cache warm. Specific-destination searches always go live (rarer, and
-        # we want that exact place fresh).
-        if not request.destinationAirports and CachedDealsRepository(self.db).has_fresh(request.originAirports):
+        # cache warm. Searches that named a destination always go live (rarer,
+        # and the cache cannot be trusted to already cover that place).
+        if self.resolve_scope(request).is_anywhere and CachedDealsRepository(self.db).has_fresh(
+            request.originAirports
+        ):
             metadata = ProviderMetadata(
                 providerUsed="database",
                 providerName="database",
@@ -256,7 +318,11 @@ class FlightSearchService:
 
     def _search_with_provider(self, provider: FlightProvider, request: TripSearchRequest) -> list[Flight]:
         return_window_end = request.endDate + timedelta(days=request.maxTripLengthDays)
-        if provider.name == "travelpayouts" and request.destinationAirports and not request.returnOriginAirports:
+        if (
+            provider.name == "travelpayouts"
+            and not request.returnOriginAirports
+            and self.resolve_scope(request).is_targeted
+        ):
             # A simple return gets the provider's real round-trip bundle in
             # discover_round_trip_fares; avoid two redundant one-way route calls.
             return []

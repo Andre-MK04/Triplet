@@ -2,7 +2,7 @@ import re
 from datetime import date
 
 from app.data.country_catalog import country_catalog
-from app.data.flight_places import REGION_TO_COUNTRY_CODES, get_place
+from app.data.flight_places import REGION_TO_COUNTRY_CODES, get_place, is_supported_origin
 from app.data.geography import resolve_place_names
 from app.models import TripSearchRequest
 from app.tools.schemas import ParsedTripIntent
@@ -166,11 +166,39 @@ def parse_return_origins(text: str, exclude: set[str] | None = None) -> list[str
     return list(dict.fromkeys(codes)) or None
 
 
+# "from Munich", "leaving Porto or Lisbon", "departing from Kraków on the 5th".
+# The city fragment is non-greedy so it stops at the first boundary word rather
+# than swallowing the destination in "from Vienna to Lisbon".
+_ORIGIN_FROM_PATTERN = re.compile(
+    r"\b(?:from|out of|leaving|depart(?:ing)?(?:\s+from)?)\s+"
+    r"([a-zà-ž][a-zà-ž.'-]*(?:\s+(?!(?:to|in|on|at|for|under|back|home)\b)[a-zà-ž][a-zà-ž.'-]*)*?)"
+    r"(?=\s+(?:to|in|on|at|for|under|around|between|next|this|during|over|back|home)\b|[,.;!?]|$)",
+    re.IGNORECASE,
+)
+# "flying back from Porto" and "then from Helsinki" name the city you fly HOME
+# from, not where the trip starts.
+_RETURN_CUE_BEFORE_FROM = re.compile(r"\b(?:back|home|return|returning|then|afterwards?|later)\s+$", re.IGNORECASE)
+
+
 def parse_origins(text: str) -> list[str]:
+    """European airports the traveller would fly out of.
+
+    The curated city map covers the multi-airport home cities (Venice really is
+    VCE and TSF), and anything else named after a "from"-style cue is resolved
+    against the worldwide catalogue and kept only if it is in Europe — Triplet
+    departs from Europe, so a non-European match is a misparse, not an origin.
+    """
     airports: list[str] = []
     for city, codes in CITY_TO_AIRPORTS.items():
         if city in text:
             airports.extend(codes)
+
+    for match in _ORIGIN_FROM_PATTERN.finditer(text):
+        fragment = match.group(1).strip()
+        if not fragment or _RETURN_CUE_BEFORE_FROM.search(text[: match.start()]):
+            continue
+        airports.extend(code for code in resolve_place_names(fragment, limit=4) if is_supported_origin(code))
+
     return list(dict.fromkeys(airports))
 
 

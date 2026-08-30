@@ -26,6 +26,10 @@ from app.providers.travelpayouts.mapper import (
 
 logger = logging.getLogger(__name__)
 
+# A targeted query asks for a country as often as a single city, so ask for a
+# generous page: one country query can legitimately return dozens of cities.
+TARGETED_ROUTE_LIMIT = 100
+
 
 class TravelpayoutsAviasalesProvider(FlightProvider):
     """Travelpayouts/Aviasales Data API adapter.
@@ -70,10 +74,10 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
             return self._finalize(flights)
 
         if not destinations:
-            self.warnings.append(
-                "Broad destination discovery uses city-directions and the shared deals cache; "
-                "the per-route price API was not expanded into a route matrix."
-            )
+            # Open searches are answered by the round-trip primitives
+            # (round_trips_in_window / discover_round_trips), not by expanding
+            # one-way routes into a matrix. Nothing to warn a traveller about.
+            logger.info("travelpayouts_search skipped one-way matrix for an open destination scope")
             return self._finalize(flights)
 
         for origin in origins:
@@ -122,6 +126,40 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
             )
         return fares
 
+    def round_trips_in_window(self, origins: list[str], date_range: DateRange) -> list[RoundTripFare]:
+        """Cheapest round trips from each origin *within the requested months*.
+
+        city-directions answers "cheapest from here, ever", so its fares usually
+        sit outside the dates someone actually asked about — an open search for
+        October would otherwise be answered mostly with fares for other months.
+        This asks the per-route price API with no destination, which returns real
+        in-window round trips across whatever cities have them. One request per
+        origin per month. Returns [] (never raises).
+        """
+        if not settings.travelpayouts_api_enabled:
+            return []
+        fares: list[RoundTripFare] = []
+        for month in months_in_range(date_range):
+            for origin in origins:
+                if self.requests_attempted >= self.max_requests:
+                    return fares
+                self.requests_attempted += 1
+                try:
+                    payload = self.client.prices_for_dates(
+                        origin,
+                        None,
+                        month,
+                        one_way=False,
+                        limit=TARGETED_ROUTE_LIMIT,
+                    )
+                except ProviderNoResultsError:
+                    continue
+                except ProviderError as exc:
+                    self.warnings.append(f"open search failed for {origin} in {month}: {exc}")
+                    continue
+                fares.extend(map_round_trip_rows(payload, settings.travelpayouts_marker))
+        return fares
+
     def round_trips_for(
         self,
         origins: list[str],
@@ -129,38 +167,48 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
         date_range: DateRange,
         direct_only: bool = False,
     ) -> list[RoundTripFare]:
-        """Direct round-trip fares for specific routes (prices_for_dates one_way=false).
+        """Round-trip fares for requested destinations (prices_for_dates one_way=false).
 
-        Used for a requested destination so it always yields something, even a
-        pricey one — no one-way pairing that fails on thin routes. Returns []
-        (never raises); respects the per-search request cap.
+        ``destinations`` may hold city/airport codes or ISO country codes, so a
+        request for a whole country is one query rather than a guess at its
+        cities. Used whenever the traveller named a destination, so that place
+        always yields something — even a pricey one — instead of depending on
+        whichever routes the shared discovery cache happens to hold.
+
+        Queries are planned month by month and destination before origin, so a
+        request budget that runs out costs extra origins rather than dropping
+        destinations the traveller explicitly asked about. Returns [] (never
+        raises); respects the per-search request cap.
         """
         if not settings.travelpayouts_api_enabled:
             return []
-        months = months_in_range(date_range)
         fares: list[RoundTripFare] = []
-        for origin in origins:
-            for destination in destinations:
-                if origin.upper() == destination.upper():
-                    continue
-                for month in months:
-                    if self.requests_attempted >= self.max_requests:
-                        return fares
-                    self.requests_attempted += 1
-                    try:
-                        payload = self.client.prices_for_dates(
-                            origin,
-                            destination,
-                            month,
-                            one_way=False,
-                            direct_only=direct_only,
-                        )
-                    except ProviderNoResultsError:
-                        continue
-                    except ProviderError as exc:
-                        self.warnings.append(f"round-trip query failed for {origin}-{destination}: {exc}")
-                        continue
-                    fares.extend(map_round_trip_rows(payload, settings.travelpayouts_marker))
+        skipped_origins: set[str] = set()
+        for origin, destination, month in plan_route_queries(origins, destinations, date_range):
+            if self.requests_attempted >= self.max_requests:
+                skipped_origins.add(origin.upper())
+                continue
+            self.requests_attempted += 1
+            try:
+                payload = self.client.prices_for_dates(
+                    origin,
+                    destination,
+                    month,
+                    one_way=False,
+                    direct_only=direct_only,
+                    limit=TARGETED_ROUTE_LIMIT,
+                )
+            except ProviderNoResultsError:
+                continue
+            except ProviderError as exc:
+                self.warnings.append(f"round-trip query failed for {origin}-{destination}: {exc}")
+                continue
+            fares.extend(map_round_trip_rows(payload, settings.travelpayouts_marker))
+        if skipped_origins:
+            self.warnings.append(
+                "Checked as many routes as this search allows; "
+                f"{', '.join(sorted(skipped_origins))} was not covered for every date range."
+            )
         return fares
 
     def normalize_response_to_internal_flights(self, raw_response: dict) -> list[Flight]:
@@ -242,6 +290,29 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
             self.cached_flights_count,
         )
         return sorted(deduped, key=lambda flight: flight.price)
+
+
+def plan_route_queries(
+    origins: list[str],
+    destinations: list[str],
+    date_range: DateRange,
+) -> list[tuple[str, str, str]]:
+    """Order (origin, destination, month) queries so a truncated plan still covers
+    every requested destination.
+
+    Month is the outermost loop and destination sits inside origin, so the first
+    origin covers all destinations for the first month before anything goes
+    deeper. Truncation then costs extra origins and later months, never a
+    destination the traveller named.
+    """
+    plan: list[tuple[str, str, str]] = []
+    for month in months_in_range(date_range):
+        for origin in origins:
+            for destination in destinations:
+                if origin.strip().upper() == destination.strip().upper():
+                    continue
+                plan.append((origin, destination, month))
+    return plan
 
 
 def months_in_range(date_range: DateRange) -> list[str]:

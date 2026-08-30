@@ -83,6 +83,26 @@ class CachedDealsRepository:
         ).all()
         return [_to_fare(row) for row in rows]
 
+    def country_ranking(self, origins: list[str], ttl_hours: int = DEFAULT_TTL_HOURS) -> tuple[str, ...]:
+        """Countries we have recently seen real fares to, cheapest first.
+
+        Used to decide which countries of a large scope ("Asia", "outside
+        Europe") are worth spending provider requests on: somewhere we already
+        know is reachable and affordable from these airports beats any static
+        guess about which countries matter.
+        """
+        from app.data.flight_places import get_place
+
+        cheapest: dict[str, float] = {}
+        for fare in self.fresh_deals(origins, ttl_hours=ttl_hours):
+            place = get_place(fare.destination)
+            if not place:
+                continue
+            current = cheapest.get(place.country_code)
+            if current is None or fare.price < current:
+                cheapest[place.country_code] = fare.price
+        return tuple(code for code, _ in sorted(cheapest.items(), key=lambda item: item[1]))
+
     def has_fresh(self, origins: list[str], ttl_hours: int = DEFAULT_TTL_HOURS) -> bool:
         cutoff = datetime.utcnow() - timedelta(hours=ttl_hours)
         codes = [code.upper() for code in origins]

@@ -22,6 +22,7 @@ from app.ai.schemas import (
     SearchPreviewResponse,
 )
 from app.config import settings
+from app.data.flight_places import is_supported_origin
 from app.db.models import UserDB
 from app.models import TripSearchRequest
 from app.preferences.resolution import DEFAULT_SPONTANEITY, spontaneity_window
@@ -48,16 +49,6 @@ DEFAULT_ORIGINS = ["LJU", "ZAG", "VIE", "BUD", "TRS", "VCE"]
 DEFAULT_START_DATE = date(2026, 7, 1)
 DEFAULT_END_DATE = date(2026, 8, 31)
 ALLOWED_AI_TOOLS = {"get_airports", "search_trips", "estimate_ground_transfer"}
-FALLBACK_KNOWN_AIRPORTS = {
-    "LJU",
-    "ZAG",
-    "VIE",
-    "GRZ",
-    "BUD",
-    "TRS",
-    "VCE",
-    "TSF",
-}
 
 TRAVEL_MAP_CONTEXT_PATTERNS = (
     r"\b(?:haven't|have not|never)\s+(?:been|visited|lived)",
@@ -343,20 +334,12 @@ def validate_search_request(raw: dict[str, Any], context: ToolContext) -> TripSe
     if len(request.originAirports) > 12:
         raise ValueError("AI search supports at most 12 origin airports.")
 
-    known = known_airport_codes(context)
-    invalid = [code for code in request.originAirports if code not in known]
+    invalid = [code for code in request.originAirports if not is_supported_origin(code)]
     if invalid:
-        raise ValueError(f"Unknown origin airport code(s): {', '.join(invalid)}.")
+        raise ValueError(
+            f"Triplet departs from Europe, so these are not usable origins: {', '.join(invalid)}."
+        )
     return request
-
-
-def known_airport_codes(context: ToolContext) -> set[str]:
-    try:
-        from app.db.repositories.airports_repository import AirportsRepository
-
-        return {airport.code for airport in AirportsRepository(context.db).list_origin_candidates()}
-    except Exception:  # noqa: BLE001 - validation falls back to built-in MVP airport set.
-        return FALLBACK_KNOWN_AIRPORTS
 
 
 def openai_tool_schemas(registry: ToolRegistry) -> list[dict[str, Any]]:

@@ -96,6 +96,19 @@ def is_known_place(code: str) -> bool:
     return get_place(code) is not None
 
 
+def is_supported_origin(code: str) -> bool:
+    """Whether Triplet will search *from* this place.
+
+    Triplet's premise is European departures to anywhere in the world, so the
+    rule is geographic rather than a hand-maintained list: any flightable
+    European place qualifies. Travellers pick their own home airports during
+    onboarding from the full European airport directory, and the search must not
+    reject an airport the product just offered them.
+    """
+    place = get_place(code)
+    return bool(place and place.continent == "Europe")
+
+
 def place_matches_filters(
     code: str,
     *,

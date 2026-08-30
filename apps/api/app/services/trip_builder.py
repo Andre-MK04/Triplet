@@ -576,31 +576,55 @@ def parse_iso_date(value: str | None):
         return None
 
 
-def merge_trip_options(paired: list[TripOption], bundles: list[TripOption]) -> list[TripOption]:
+def merge_trip_options(
+    paired: list[TripOption],
+    bundles: list[TripOption],
+    per_destination_limit: int = 1,
+) -> list[TripOption]:
     """Combine one-way-paired trips with round-trip bundles.
 
-    When both exist for the same origin->destination, keep the cheaper one (a
-    round-trip bundle usually beats two summed one-ways). Re-rank by deal score,
-    then fit, then price, and cap the result.
+    Identical departures for the same route collapse to the cheaper option (a
+    round-trip bundle usually beats two summed one-ways). Beyond that,
+    ``per_destination_limit`` decides how many dated options a destination may
+    contribute: an "anywhere" search wants one per place so the results show
+    variety, while a search that named a place wants a few dates to choose
+    between. Re-ranks by deal score, then fit, then price, and caps the result.
     """
-    by_route: dict[tuple[str, str], TripOption] = {}
-    order: list[tuple[str, str]] = []
+    by_departure: dict[tuple[str, str, object], TripOption] = {}
+    order: list[tuple[str, str, object]] = []
     for trip in paired + bundles:
-        key = (trip.outboundFlight.origin, trip.outboundFlight.destination)
-        existing = by_route.get(key)
+        key = (
+            trip.outboundFlight.origin,
+            trip.outboundFlight.destination,
+            trip.outboundFlight.departureDateTime.date(),
+        )
+        existing = by_departure.get(key)
         if existing is None:
-            by_route[key] = trip
+            by_departure[key] = trip
             order.append(key)
         elif trip.totalPrice < existing.totalPrice:
-            by_route[key] = trip
+            by_departure[key] = trip
 
-    merged = [by_route[key] for key in order]
-    mark_relative_tags(merged)
-    return sorted(
-        merged,
+    ranked = sorted(
+        (by_departure[key] for key in order),
         key=lambda trip: (
             -trip.dealScore,
             -(trip.fitScore or 0),
             trip.totalPrice,
         ),
-    )[:30]
+    )
+
+    seen_per_destination: dict[tuple[str, str], int] = {}
+    merged: list[TripOption] = []
+    for trip in ranked:
+        route = (trip.outboundFlight.origin, trip.outboundFlight.destination)
+        count = seen_per_destination.get(route, 0)
+        if count >= max(1, per_destination_limit):
+            continue
+        seen_per_destination[route] = count + 1
+        merged.append(trip)
+        if len(merged) >= 30:
+            break
+
+    mark_relative_tags(merged)
+    return merged

@@ -17,6 +17,7 @@ import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import type {
   AISearchResponse,
+  AirportResult,
   FlightPlaceResult,
   ProviderMetadata,
   SavedSearch,
@@ -72,6 +73,7 @@ defaultStart.setDate(defaultStart.getDate() + 14);
 const defaultEnd = new Date(today);
 defaultEnd.setDate(defaultEnd.getDate() + 90);
 const placesEndpoint = (query: string) => `/places/search?q=${query}&limit=12`;
+const originsEndpoint = (query: string) => `/airports/search?q=${query}&limit=8&originsOnly=true`;
 
 const defaultForm: AdvancedForm = {
   originAirports: ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"],
@@ -115,6 +117,26 @@ function providerNotice(metadata?: ProviderMetadata | null, tripCount = 0): { te
   return null;
 }
 
+function emptyStateMessage(payload: TripSearchPayload | null): string {
+  const namedPlace = (payload?.destinationAirports?.length ?? 0) > 0;
+  const namedScope =
+    (payload?.destinationCountries?.length ?? 0) > 0 ||
+    (payload?.destinationRegions?.length ?? 0) > 0 ||
+    (payload?.destinationContinents?.length ?? 0) > 0;
+
+  if (namedPlace || namedScope) {
+    // We did ask the fare data about this place — there simply wasn't anything
+    // for these dates and lengths. Say so instead of implying a Triplet limit.
+    return `We checked ${
+      namedPlace ? "that destination" : "those countries"
+    } directly and found no round trips in your dates and trip length. Long-haul fares are often thin outside a few months — try a wider date window, a longer trip, or a higher budget.`;
+  }
+  if (payload?.excludeEurope) {
+    return "No long-haul fares outside Europe matched these dates and budget. Long-haul rarely fits short windows — try a wider date range and a longer trip.";
+  }
+  return "Try widening the budget, adding more origin airports, or allowing longer ground transfers.";
+}
+
 function limitAwareError(error: unknown): string {
   if (error instanceof ApiError) {
     // 402 details are already specific and actionable (mention trial/Pro).
@@ -154,6 +176,9 @@ export function DiscoverClient() {
   const [returnOriginRaw, setReturnOriginRaw] = useState("");
   const [destinationQuery, setDestinationQuery] = useState("");
   const [destinationSelections, setDestinationSelections] = useState<FlightPlaceResult[]>([]);
+  const [originQuery, setOriginQuery] = useState("");
+  // City names for origins picked via search, so chips don't read as bare codes.
+  const [originLabels, setOriginLabels] = useState<Record<string, string>>({});
 
   const [trips, setTrips] = useState<TripOption[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -329,6 +354,16 @@ export function DiscoverClient() {
     }));
   }
 
+  function addOrigin(airport: AirportResult) {
+    setOriginQuery("");
+    setOriginLabels((current) => ({ ...current, [airport.iataCode]: airport.city ?? airport.name }));
+    setForm((current) =>
+      current.originAirports.includes(airport.iataCode)
+        ? current
+        : { ...current, originAirports: [...current.originAirports, airport.iataCode] },
+    );
+  }
+
   function addDestination(place: FlightPlaceResult) {
     if (destinationSelections.some((selection) => selection.kind === place.kind && selection.code === place.code)) return;
     setDestinationSelections((current) => [...current, place]);
@@ -445,7 +480,10 @@ export function DiscoverClient() {
           ) : (
             <form onSubmit={runAdvancedSearch} className="space-y-5">
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-mist">From airports</p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-mist">From airports</p>
+                  <span className="text-xs text-mist/70">Any European airport</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {ORIGIN_AIRPORT_CODES.map((code) => (
                     <Chip key={code} selected={form.originAirports.includes(code)} onClick={() => toggleAirport(code)}>
@@ -456,9 +494,27 @@ export function DiscoverClient() {
                     .filter((code) => !ORIGIN_AIRPORT_CODES.includes(code))
                     .map((code) => (
                       <Chip key={code} selected onClick={() => toggleAirport(code)}>
-                        {code} ✕
+                        {originLabels[code] ?? code} {code} ✕
                       </Chip>
                     ))}
+                </div>
+                <div className="mt-3 max-w-md">
+                  <Autocomplete<AirportResult>
+                    endpoint={originsEndpoint}
+                    value={originQuery}
+                    placeholder="Add another departure airport"
+                    ariaLabel="Add a departure airport"
+                    optionKey={(airport) => airport.iataCode}
+                    onSelect={addOrigin}
+                    renderOption={(airport) => (
+                      <span className="flex items-baseline justify-between gap-4">
+                        <span className="font-medium text-cloud">
+                          {airport.city ?? airport.name} ({airport.iataCode})
+                        </span>
+                        <span className="font-mono text-[10px] uppercase text-mist">{airport.countryName}</span>
+                      </span>
+                    )}
+                  />
                 </div>
               </div>
 
@@ -769,9 +825,7 @@ export function DiscoverClient() {
 
           {!isLoading && hasSearched && trips.length === 0 && !error ? (
             <EmptyState icon="🛫" title="No trips matched this search">
-              {lastPayload?.destinationAirports?.length || lastPayload?.destinationCountries?.length || lastPayload?.destinationRegions?.length || lastPayload?.destinationContinents?.length
-                ? "We couldn't find fares to that destination in your budget and dates. Try widening the dates or budget, or clear the destination to see anywhere."
-                : "Try widening the budget, adding more origin airports, or allowing longer ground transfers."}
+              {emptyStateMessage(lastPayload)}
             </EmptyState>
           ) : null}
 

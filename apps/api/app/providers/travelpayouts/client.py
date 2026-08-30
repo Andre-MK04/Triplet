@@ -46,18 +46,36 @@ class TravelpayoutsHttpClient:
     def prices_for_dates(
         self,
         origin: str,
-        destination: str,
+        destination: str | None,
         departure_at: str,
         one_way: bool = True,
         limit: int = 30,
         direct_only: bool = False,
     ) -> dict[str, Any]:
+        """Cheapest known fares for a route and month.
+
+        ``destination`` accepts an IATA city/airport code or an ISO-3166 alpha-2
+        country code — the country form is what makes "trips to Japan" a single
+        query instead of a guess at which Japanese cities to try, and it returns
+        each city that has fares. Omit it entirely to ask "anywhere from here in
+        this month", which is the only primitive that answers an open search
+        *within a date window*.
+
+        The API can also collapse the answer to one fare per city (``unique``),
+        but that is deliberately not used: the single cheapest fare to a city is
+        usually a trip length nobody asked for, so collapsing loses far more
+        usable options than the extra cities it would surface.
+        """
+        params = {
+            "origin": origin.upper(),
+            "departure_at": departure_at,
+        }
+        if destination:
+            params["destination"] = destination.upper()
         return self._get(
             "/aviasales/v3/prices_for_dates",
             {
-                "origin": origin.upper(),
-                "destination": destination.upper(),
-                "departure_at": departure_at,
+                **params,
                 "one_way": str(one_way).lower(),
                 "unique": "false",
                 "sorting": "price",

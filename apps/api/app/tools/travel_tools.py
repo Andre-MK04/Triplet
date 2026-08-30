@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.intent_parser import parse_trip_intent
-from app.data.flight_places import canonical_code, is_flightable_place
+from app.data.flight_places import canonical_code, is_flightable_place, is_supported_origin
 from app.db.models import UserCountryDB, UserTravelProfileDB
 from app.db.repositories.airports_repository import AirportsRepository
 from app.db.repositories.price_observations_repository import PriceObservationsRepository
@@ -72,13 +72,15 @@ class SearchTripsTool(Tool):
     def run(self, input_data: SearchTripsInput, context: ToolContext) -> SearchTripsOutput:
         request = TripSearchRequest(**input_data.model_dump())
         airport_repository = AirportsRepository(context.db)
-        allowed_origins = {airport.code for airport in airport_repository.list_origin_candidates()}
-        invalid_origins = sorted({code.upper() for code in request.originAirports} - allowed_origins)
+        invalid_origins = sorted(
+            {code.upper() for code in request.originAirports if not is_supported_origin(code)}
+        )
         if invalid_origins:
             raise UnsupportedFlightPlaceError(
                 f"Unsupported origin airport(s): {', '.join(invalid_origins)}. "
-                "Triplet currently supports selected European origin airports."
+                "Triplet searches trips departing from Europe, so origins must be European airports."
             )
+        request.originAirports = [canonical_code(code) for code in request.originAirports]
         for field_name in ("destinationAirports", "returnOriginAirports"):
             values = getattr(request, field_name) or []
             invalid = sorted(code for code in values if not is_flightable_place(code))
@@ -90,9 +92,11 @@ class SearchTripsTool(Tool):
         flight_result = flight_search.search_candidate_flights_with_metadata(request)
         transfers = TransfersRepository(context.db).list_transfers()
         scoring = build_scoring_context(context, flight_result.flights)
-        # A specific requested destination should always yield something, even if
-        # it's over budget (flagged, low score). "Anywhere" keeps the budget filter.
-        enforce_budget = request.destinationAirports is None
+        scope = flight_search.resolve_scope(request)
+        # A requested destination should always yield something, even if it's
+        # over budget (flagged, low score). "Anywhere" keeps the budget filter,
+        # because there it only hides options the traveller has alternatives to.
+        enforce_budget = scope.is_anywhere
         paired_trips = build_trips(
             request,
             airports=airports,
@@ -112,7 +116,13 @@ class SearchTripsTool(Tool):
                 round_trip_fares, request, scoring, enforce_budget=enforce_budget
             )
             flight_search.apply_deal_metadata(flight_result.metadata)
-        trips = merge_trip_options(paired_trips, bundle_trips)
+        # Naming a place is a request to compare its dates; a broad scope is a
+        # request to compare places, so it keeps fewer options per destination.
+        trips = merge_trip_options(
+            paired_trips,
+            bundle_trips,
+            per_destination_limit=scope.options_per_destination,
+        )
 
         try:
             TripSuggestionsRepository(context.db).save_trips(
