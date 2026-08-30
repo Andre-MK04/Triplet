@@ -236,7 +236,7 @@ class FlightSearchService:
             if request.directOnly and (fare.stops or 0) > 0:
                 continue
             filtered.append(fare.model_copy(update={"destination": destination}))
-        return filtered
+        return merge_duplicate_fares(filtered)
 
     def _cache_deals(self, deals_repo: CachedDealsRepository, fares) -> None:
         """Best-effort cache write: a cache problem must never fail the search."""
@@ -389,6 +389,35 @@ class FlightSearchService:
         except Exception:
             # Price history is best-effort; never fail a search over it.
             logger.exception("price_observation_recording_failed")
+
+
+def merge_duplicate_fares(fares: list) -> list:
+    """Collapse fares for the same route and dates, keeping the best of each field.
+
+    The same trip can arrive from more than one provider endpoint — the price
+    calendar covers every departure date, prices_for_dates carries the exact-fare
+    booking link. Keeping the cheaper price *and* the available link means a
+    traveller is never quoted a price whose link we dropped, or sent to a search
+    page when the provider gave us the fare itself.
+    """
+    best: dict[tuple, object] = {}
+    order: list[tuple] = []
+    for fare in fares:
+        key = (fare.origin.upper(), fare.destination.upper(), fare.departureDate, fare.returnDate)
+        existing = best.get(key)
+        if existing is None:
+            best[key] = fare
+            order.append(key)
+            continue
+        updates = {}
+        if fare.price < existing.price:  # type: ignore[attr-defined]
+            updates = fare.model_dump()
+        for field in ("bookingUrl", "affiliateUrl", "observedAt", "expiresAt"):
+            chosen = getattr(fare, field) or getattr(existing, field)
+            if chosen is not None:
+                updates[field] = chosen
+        best[key] = existing.model_copy(update=updates)  # type: ignore[attr-defined]
+    return [best[key] for key in order]
 
 
 def deduplicate_flights(flights: list[Flight]) -> list[Flight]:

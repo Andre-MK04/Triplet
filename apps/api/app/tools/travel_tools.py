@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -31,6 +33,10 @@ from app.tools.schemas import (
 
 MAX_PERSISTED_SUGGESTIONS = 12
 MAX_ROUTE_STATS_LOOKUPS = 60
+# How far past the requested window we will look for a nearest match, and how
+# many of those to show. Deliberately modest: these are consolation results.
+RELAXED_HORIZON_DAYS = 300
+RELAXED_RESULT_LIMIT = 8
 
 
 class UnsupportedFlightPlaceError(ValueError):
@@ -61,6 +67,74 @@ def build_scoring_context(context: ToolContext, flights: list[Flight]) -> Scorin
                 country_states[row.country_code] = "wishlist"
 
     return ScoringContext(route_stats=route_stats, profile=profile, country_states=country_states)
+
+
+def nearest_matches(
+    round_trip_fares,
+    request: TripSearchRequest,
+    scope,
+    scoring: ScoringContext,
+    airports,
+    transfers,
+    flights,
+) -> tuple[list, str | None]:
+    """Closest real options when a named destination has nothing that fits exactly.
+
+    Travelpayouts serves cached market fares — whatever travellers have recently
+    searched — so a thin route can genuinely hold no fare of the requested length.
+    Vienna→Dublin has September fares, but only 2–4 night ones; asking for a week
+    would otherwise return a bare "no trips", which reads as a Triplet failure
+    rather than what it is.
+
+    We already hold fares beyond the requested window (the price calendar answers
+    with a wide horizon), so the closest matches cost no extra provider requests.
+    They are real fares with their real dates — never the requested trip reshaped
+    to look like a match — and the returned note says exactly what was loosened.
+    """
+    if not round_trip_fares and not flights:
+        return [], None
+
+    horizon_start = min(request.startDate, date.today())
+    horizon_end = max(request.endDate, date.today()) + timedelta(days=RELAXED_HORIZON_DAYS)
+    attempts = [
+        (
+            request.model_copy(update={"minTripLengthDays": 1, "maxTripLengthDays": 60}),
+            f"No {request.minTripLengthDays}–{request.maxTripLengthDays} night trip is on offer for "
+            f"{scope.label} in these dates. These are the closest real fares, at other trip lengths.",
+        ),
+        (
+            request.model_copy(update={"startDate": horizon_start, "endDate": horizon_end}),
+            f"No {scope.label} trip is on offer in those dates. These are the closest real fares, "
+            "on other dates.",
+        ),
+        (
+            request.model_copy(
+                update={
+                    "minTripLengthDays": 1,
+                    "maxTripLengthDays": 60,
+                    "startDate": horizon_start,
+                    "endDate": horizon_end,
+                }
+            ),
+            f"Nothing matched exactly for {scope.label}. These are the closest real fares we hold, "
+            "at other dates and trip lengths.",
+        ),
+    ]
+
+    for relaxed, note in attempts:
+        bundles = build_round_trip_options(round_trip_fares, relaxed, scoring, enforce_budget=False)
+        paired = build_trips(
+            relaxed,
+            airports=airports,
+            flights=flights,
+            transfers=transfers,
+            scoring=scoring,
+            enforce_budget=False,
+        )
+        trips = merge_trip_options(paired, bundles, per_destination_limit=scope.options_per_destination)
+        if trips:
+            return trips[:RELAXED_RESULT_LIMIT], note
+    return [], None
 
 
 class SearchTripsTool(Tool):
@@ -108,6 +182,7 @@ class SearchTripsTool(Tool):
         # Augment with worldwide round-trip bundles from shared discovery data,
         # which avoid one-way pairing gaps and give true round-trip prices. Bundles
         # are same-city by nature, so an explicit multi-city request skips them.
+        round_trip_fares: list = []
         if request.returnOriginAirports:
             bundle_trips = []
         else:
@@ -124,6 +199,12 @@ class SearchTripsTool(Tool):
             per_destination_limit=scope.options_per_destination,
         )
 
+        relaxation_note: str | None = None
+        if not trips and scope.is_targeted and not request.returnOriginAirports:
+            trips, relaxation_note = nearest_matches(
+                round_trip_fares, request, scope, scoring, airports, transfers, flight_result.flights
+            )
+
         try:
             TripSuggestionsRepository(context.db).save_trips(
                 trips[:MAX_PERSISTED_SUGGESTIONS],
@@ -139,6 +220,7 @@ class SearchTripsTool(Tool):
 
         return SearchTripsOutput(
             trips=trips,
+            relaxationNote=relaxation_note,
             providerUsed=flight_result.metadata.providerUsed,
             providerWarnings=flight_result.metadata.providerWarnings,
             cachedResultsUsed=flight_result.metadata.cachedResultsUsed,

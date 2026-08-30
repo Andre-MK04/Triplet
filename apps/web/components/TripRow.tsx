@@ -33,9 +33,12 @@ function telemetry(flight: Flight): string {
 }
 
 function freshness(trip: TripOption): string {
-  const observed = trip.outboundFlight.observedAt;
-  const ago = observed ? timeAgo(observed) : null;
-  return ago ? `indicative · observed ${ago}` : "indicative fare";
+  // The provider serves cached market fares and never says when a fare was
+  // actually seen — only we know when we last read it. Saying "observed" implied
+  // a live sighting, so this says what is true: when Triplet checked.
+  const checked = trip.outboundFlight.observedAt;
+  const ago = checked ? timeAgo(checked) : null;
+  return ago ? `cached fare · checked ${ago}` : "cached fare";
 }
 
 function LegLine({ label, flight, showPrice }: { label: string; flight: Flight; showPrice: boolean }) {

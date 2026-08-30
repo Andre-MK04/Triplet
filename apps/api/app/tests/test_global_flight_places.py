@@ -83,6 +83,7 @@ def test_explicit_worldwide_route_uses_bounded_targeted_round_trip_queries(monke
     class TargetedClient:
         def __init__(self):
             self.calls = []
+            self.calendar_calls = []
 
         def prices_for_dates(self, origin, destination, month, **kwargs):
             self.calls.append((origin, destination, month, kwargs))
@@ -97,6 +98,23 @@ def test_explicit_worldwide_route_uses_bounded_targeted_round_trip_queries(monke
                 }],
             }
 
+        def price_calendar(self, origin, destination, month):
+            self.calendar_calls.append((origin, destination, month))
+            return {
+                "currency": "eur",
+                "data": {
+                    f"{month}-07": {
+                        "origin": origin,
+                        "destination": destination,
+                        "departure_at": f"{month}-07T09:00:00",
+                        "return_at": f"{month}-14T09:00:00",
+                        "price": 505,
+                        "airline": "LH",
+                        "transfers": 1,
+                    }
+                },
+            }
+
     monkeypatch.setattr("app.providers.travelpayouts.flight_provider.settings.travelpayouts_api_enabled", True)
     client = TargetedClient()
     provider = TravelpayoutsAviasalesProvider(client=client, cache_enabled=False, max_requests=10)
@@ -106,7 +124,12 @@ def test_explicit_worldwide_route_uses_bounded_targeted_round_trip_queries(monke
     assert len(client.calls) == 2
     assert {(origin, destination) for origin, destination, _, _ in client.calls} == {("VIE", "NYC")}
     assert all(call[3]["one_way"] is False for call in client.calls)
-    assert fares
+    # A named city is also asked for its price calendar, which is the only source
+    # dense enough to cover every trip length on a route.
+    assert client.calendar_calls == [("VIE", "NYC", "2026-10"), ("VIE", "NYC", "2026-11")]
+    assert {fare.departureDate for fare in fares} == {
+        "2026-10-05", "2026-10-07", "2026-11-05", "2026-11-07",
+    }
 
 
 def test_global_round_trip_builds_metadata_link_and_preserves_price_honesty(monkeypatch):

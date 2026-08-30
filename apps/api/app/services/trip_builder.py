@@ -439,13 +439,21 @@ def build_round_trip_options(
         duration = estimate_bundle_duration_minutes(fare.origin, destination)
         outbound_departure = datetime.combine(departure, time(hour=9))
         return_departure = datetime.combine(return_date or departure, time(hour=18))
-        itinerary_url = build_aviasales_itinerary_url(
+        search_url = build_aviasales_itinerary_url(
             [
                 ItinerarySegment(fare.origin, destination, departure),
                 ItinerarySegment(destination, fare.origin, return_date or departure),
             ]
         )
-        itinerary_affiliate_url = itinerary_url if itinerary_url and settings.travelpayouts_marker else None
+        # The provider's own link identifies the exact fare we are quoting, so the
+        # page the traveller lands on shows this trip rather than a fresh search
+        # that may surface a different itinerary at a different price. Our
+        # constructed route+dates search is the fallback when there is no link.
+        itinerary_url = fare.bookingUrl or search_url
+        itinerary_affiliate_url = (
+            fare.affiliateUrl
+            or (search_url if search_url and settings.travelpayouts_marker else None)
+        )
 
         outbound = Flight(
             id=f"rt-out-{fare.origin}-{destination}-{departure.isoformat()}",
@@ -456,9 +464,9 @@ def build_round_trip_options(
             airline=fare.airline or "Multiple airlines",
             price=fare.price,
             currency=fare.currency,
-            bookingUrl=fare.bookingUrl,
-            deepLink=fare.bookingUrl,
-            affiliateUrl=fare.affiliateUrl,
+            bookingUrl=itinerary_url,
+            deepLink=itinerary_url,
+            affiliateUrl=itinerary_affiliate_url,
             provider="travelpayouts",
             stops=fare.stops,
             durationMinutes=duration,
@@ -476,9 +484,9 @@ def build_round_trip_options(
             airline=fare.airline or "Multiple airlines",
             price=0.0,  # part of the round-trip bundle; total is on the trip
             currency=fare.currency,
-            bookingUrl=fare.bookingUrl,
-            deepLink=fare.bookingUrl,
-            affiliateUrl=fare.affiliateUrl,
+            bookingUrl=itinerary_url,
+            deepLink=itinerary_url,
+            affiliateUrl=itinerary_affiliate_url,
             provider="travelpayouts",
             stops=fare.stops,
             durationMinutes=duration,

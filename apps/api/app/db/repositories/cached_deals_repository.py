@@ -66,6 +66,7 @@ class CachedDealsRepository:
             row.booking_url = fare.bookingUrl
             row.affiliate_url = fare.affiliateUrl
             row.observed_at = now
+            row.price_seen_at = fare.observedAt or row.price_seen_at
             row.expires_at = expires
             written += 1
         self.db.commit()
@@ -145,6 +146,8 @@ def _to_fare(row: CachedRoundTripDB) -> RoundTripFare:
         stops=row.stops,
         bookingUrl=row.booking_url,
         affiliateUrl=row.affiliate_url,
-        observedAt=row.observed_at,
+        # The provider's own sighting when we have it; never our fetch time,
+        # which would tell travellers a stale fare was just seen.
+        observedAt=row.price_seen_at,
         expiresAt=row.expires_at,
     )

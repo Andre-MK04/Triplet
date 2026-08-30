@@ -12,6 +12,7 @@ class SearchTripsInput(TripSearchRequest):
 
 class SearchTripsOutput(BaseModel):
     trips: list[TripOption]
+    relaxationNote: str | None = None
     providerUsed: str | None = None
     providerWarnings: list[str] = []
     cachedResultsUsed: bool = False

@@ -85,6 +85,27 @@ class TravelpayoutsHttpClient:
             },
         )
 
+    def price_calendar(self, origin: str, destination: str, month: str) -> dict[str, Any]:
+        """Cheapest round trip for each departure date of a month on one route.
+
+        The densest per-route source the data API offers. prices_for_dates returns
+        only the handful of round trips that happen to be cached for a month —
+        five for Vienna→Dublin in September, none of them a week long — whereas
+        this returns a fare per departure date, spanning real trip lengths.
+
+        Requires a 3-letter city/airport destination; countries are not accepted.
+        """
+        return self._get(
+            "/v1/prices/calendar",
+            {
+                "origin": origin.upper(),
+                "destination": destination.upper(),
+                "depart_date": month,
+                "calendar_type": "departure_date",
+                "currency": settings.travelpayouts_currency.lower(),
+            },
+        )
+
     def city_directions(self, origin: str, currency: str | None = None) -> dict[str, Any]:
         """Cheapest cached fares from an origin to every popular destination.
 

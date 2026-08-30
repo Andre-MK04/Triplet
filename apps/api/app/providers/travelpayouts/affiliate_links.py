@@ -55,6 +55,10 @@ def build_aviasales_itinerary_url(
             ("children", max(0, children)),
             ("infants", max(0, infants)),
             ("trip_class", trip_class),
+            # Without this, Aviasales prices the page in the visitor's own
+            # currency, so a fare quoted as €90 can appear as $106 — the same
+            # money, but nothing a traveller can reconcile with our number.
+            ("currency", settings.travelpayouts_currency.lower()),
         ]
     )
     affiliate_marker = marker if marker is not None else settings.travelpayouts_marker

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from hashlib import sha1
+import re
 from typing import Any
 from urllib.parse import urlencode
 
@@ -90,7 +91,7 @@ def map_price_row(row: dict[str, Any], currency: str, marker: str | None) -> Fli
     arrival = departure_plus_minutes(departure, duration_minutes)
     airline = str(row.get("airline") or "UNKNOWN").upper()
     link = build_search_link(row.get("link"), marker)
-    observed_at = datetime.utcnow()
+    observed_at = observed_at_from_link(row.get("link"))
     stable = sha1(
         f"{origin}-{destination}-{departure.isoformat()}-{airline}-{price}".encode()
     ).hexdigest()[:12]
@@ -145,8 +146,8 @@ def map_round_trip_rows(payload: dict[str, Any], marker: str | None) -> list[Rou
                 stops=parse_int(row.get("transfers")) or 0,
                 bookingUrl=link,
                 affiliateUrl=link if marker else None,
-                observedAt=datetime.utcnow(),
-                expiresAt=datetime.utcnow() + timedelta(hours=24),
+                observedAt=observed_at_from_link(row.get("link")),
+                expiresAt=parse_datetime(row.get("expires_at")),
             )
         )
     return fares
@@ -181,11 +182,77 @@ def map_city_directions_response(
                 stops=parse_int(row.get("transfers")) or 0,
                 bookingUrl=link,
                 affiliateUrl=link if marker else None,
-                observedAt=datetime.utcnow(),
-                expiresAt=datetime.utcnow() + timedelta(hours=24),
+                observedAt=observed_at_from_link(row.get("link")),
+                expiresAt=parse_datetime(row.get("expires_at")),
             )
         )
     return fares
+
+
+def map_price_calendar_response(
+    payload: dict[str, Any],
+    origin: str,
+    destination: str,
+    marker: str | None,
+) -> list[RoundTripFare]:
+    """Round trips from /v1/prices/calendar, keyed by departure date.
+
+    This is by far the densest per-route source: prices_for_dates returns only a
+    handful of round trips per month (five for Vienna→Dublin in September, none
+    of them a week long), while the calendar returns the cheapest fare for each
+    departure date, covering a real spread of trip lengths.
+
+    Rows carry no booking link, so the caller builds an Aviasales search URL for
+    the exact route and dates instead.
+    """
+    data = payload.get("data") or {}
+    currency = str(payload.get("currency") or settings.travelpayouts_currency).upper()
+    fares: list[RoundTripFare] = []
+    for row in data.values():
+        if not isinstance(row, dict):
+            continue
+        price = parse_float(row.get("price") or row.get("value"))
+        departure = parse_datetime(row.get("departure_at"))
+        return_at = parse_datetime(row.get("return_at"))
+        if price is None or price <= 0 or not departure or not return_at:
+            continue
+        fares.append(
+            RoundTripFare(
+                origin=code_or_none(row.get("origin")) or origin.upper(),
+                destination=code_or_none(row.get("destination")) or destination.upper(),
+                price=price,
+                currency=currency,
+                departureDate=departure.date().isoformat(),
+                returnDate=return_at.date().isoformat(),
+                airline=(str(row.get("airline")).upper() if row.get("airline") else None),
+                stops=parse_int(row.get("transfers")) or 0,
+                bookingUrl=None,
+                affiliateUrl=None,
+                observedAt=None,
+                expiresAt=parse_datetime(row.get("expires_at")),
+            )
+        )
+    return fares
+
+
+def observed_at_from_link(link_path: Any) -> datetime | None:
+    """The date Travelpayouts actually saw this fare, parsed from its own link.
+
+    The data API never returns an observation timestamp, so Triplet used to stamp
+    "now" and the UI then told travellers a days-old cached fare had been observed
+    just now. The provider's link carries ``search_date=DDMMYYYY`` — the day the
+    fare was found — which is the real answer. Returns None when it is absent, and
+    the UI says nothing about age rather than guessing.
+    """
+    if not link_path or not isinstance(link_path, str):
+        return None
+    match = re.search(r"search_date=(\d{8})", link_path)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%d%m%Y")
+    except ValueError:
+        return None
 
 
 def build_search_link(link_path: Any, marker: str | None) -> str | None:
@@ -193,10 +260,15 @@ def build_search_link(link_path: Any, marker: str | None) -> str | None:
         return None
     base = settings.travelpayouts_affiliate_base_url.rstrip("/")
     url = f"{base}{link_path if link_path.startswith('/') else '/' + link_path}"
+    params: dict[str, str] = {}
     if marker:
-        separator = "&" if "?" in url else "?"
-        url = f"{url}{separator}{urlencode({'marker': marker})}"
-    return url
+        params["marker"] = marker
+    # Aviasales prices the landing page in the visitor's own currency unless told
+    # otherwise, so a fare we quote as €90 can greet them as $106 — the same
+    # money, an unrecognisable number. Quote and destination page must match.
+    params["currency"] = settings.travelpayouts_currency.lower()
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}{urlencode(params)}"
 
 
 def departure_plus_minutes(departure: datetime, minutes: int) -> datetime:

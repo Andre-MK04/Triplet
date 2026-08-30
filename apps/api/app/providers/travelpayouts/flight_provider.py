@@ -20,6 +20,7 @@ from app.providers.travelpayouts.client import TravelpayoutsHttpClient
 from app.providers.travelpayouts.mapper import (
     RoundTripFare,
     map_city_directions_response,
+    map_price_calendar_response,
     map_prices_for_dates_response_to_flights,
     map_round_trip_rows,
 )
@@ -179,6 +180,11 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
         request budget that runs out costs extra origins rather than dropping
         destinations the traveller explicitly asked about. Returns [] (never
         raises); respects the per-search request cap.
+
+        A named city or airport is asked twice: the price calendar carries a fare
+        per departure date (so every trip length is represented) while
+        prices_for_dates carries the exact-fare booking links. A country can only
+        be asked the second way.
         """
         if not settings.travelpayouts_api_enabled:
             return []
@@ -199,11 +205,26 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                     limit=TARGETED_ROUTE_LIMIT,
                 )
             except ProviderNoResultsError:
-                continue
+                payload = None
             except ProviderError as exc:
                 self.warnings.append(f"round-trip query failed for {origin}-{destination}: {exc}")
+                payload = None
+            if payload is not None:
+                fares.extend(map_round_trip_rows(payload, settings.travelpayouts_marker))
+
+            if not _is_route_code(destination) or self.requests_attempted >= self.max_requests:
                 continue
-            fares.extend(map_round_trip_rows(payload, settings.travelpayouts_marker))
+            self.requests_attempted += 1
+            try:
+                calendar = self.client.price_calendar(origin, destination, month)
+            except ProviderNoResultsError:
+                continue
+            except ProviderError as exc:
+                self.warnings.append(f"price calendar failed for {origin}-{destination}: {exc}")
+                continue
+            fares.extend(
+                map_price_calendar_response(calendar, origin, destination, settings.travelpayouts_marker)
+            )
         if skipped_origins:
             self.warnings.append(
                 "Checked as many routes as this search allows; "
@@ -290,6 +311,11 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
             self.cached_flights_count,
         )
         return sorted(deduped, key=lambda flight: flight.price)
+
+
+def _is_route_code(destination: str) -> bool:
+    """True for a city/airport code, false for the ISO country codes we also send."""
+    return len(destination.strip()) == 3
 
 
 def plan_route_queries(

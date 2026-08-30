@@ -186,6 +186,7 @@ export function DiscoverClient() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{ text: string; tone: "info" | "warning" } | null>(null);
   const [aiSummary, setAiSummary] = useState("");
+  const [relaxationNote, setRelaxationNote] = useState<string | null>(null);
   const [aiMissingFields, setAiMissingFields] = useState<string[]>([]);
   const [lastPayload, setLastPayload] = useState<TripSearchPayload | null>(null);
 
@@ -255,6 +256,7 @@ export function DiscoverClient() {
     setError("");
     setNotice(null);
     setAiSummary("");
+    setRelaxationNote(null);
     setAiMissingFields([]);
     setAlertStatus(null);
     setSavedAlert(null);
@@ -268,6 +270,7 @@ export function DiscoverClient() {
     try {
       const data = await apiPost<TripSearchResponse>("/trips/search", payload);
       setTrips(data.trips);
+      setRelaxationNote(data.relaxationNote ?? null);
       setLastPayload(payload);
       setNotice(providerNotice(data.providerMetadata, data.trips.length));
     } catch (searchError) {
@@ -283,6 +286,7 @@ export function DiscoverClient() {
     try {
       const data = await apiPost<AISearchResponse>("/ai/search", { message });
       setTrips(data.trips);
+      setRelaxationNote(data.relaxationNote ?? null);
       setAiSummary(data.message);
       setAiMissingFields(data.missingFields ?? []);
       setLastPayload(data.parsedRequest);
@@ -729,6 +733,8 @@ export function DiscoverClient() {
             </div>
           ) : null}
 
+          {!isLoading && relaxationNote ? <Notice tone="warning">{relaxationNote}</Notice> : null}
+
           {!isLoading && notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
 
           {!isLoading && hasSearched && trips.length > 0 ? (
@@ -818,7 +824,8 @@ export function DiscoverClient() {
                 ))}
               </div>
               <p className="pt-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/60">
-                Prices observed at check time and may change · always confirm with the provider
+                Cached market fares, not live availability · the booking site may show a different
+                price · always confirm before booking
               </p>
             </>
           ) : null}

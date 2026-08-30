@@ -60,7 +60,7 @@ type WatchInsights = {
 };
 
 type DashboardBilling = {
-  plan: "free" | "trial" | "pro";
+  plan: "free" | "trial" | "pro" | "owner";
   subscriptionStatus: string;
   trialDaysRemaining: number;
   usage: {
@@ -70,13 +70,19 @@ type DashboardBilling = {
     savedSearchLimit: number;
     maxOriginAirports: number;
     dailyWatchChecks: boolean;
+    unlimited?: boolean;
   };
   canStartTrial: boolean;
   canUpgrade: boolean;
   canManageBilling: boolean;
 };
 
-const PLAN_LABEL: Record<string, string> = { free: "Free", trial: "Triplet Pro trial", pro: "Triplet Pro" };
+const PLAN_LABEL: Record<string, string> = {
+  free: "Free",
+  trial: "Triplet Pro trial",
+  pro: "Triplet Pro",
+  owner: "Triplet Owner",
+};
 
 type DashboardData = {
   user: { email: string; displayName?: string | null };
@@ -214,14 +220,24 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
   );
 }
 
-function UsageMeter({ label, used, limit }: { label: string; used: number; limit: number }) {
-  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+function UsageMeter({
+  label,
+  used,
+  limit,
+  unlimited = false,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  unlimited?: boolean;
+}) {
+  const pct = unlimited ? 0 : limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   return (
     <div className="bg-ink-raised px-5 py-4">
       <p className="font-mono text-[10px] uppercase tracking-label text-mist">{label}</p>
       <p className="mono-num mt-1 font-display text-2xl font-bold text-cloud">
         {used}
-        <span className="text-base font-normal text-mist"> / {limit}</span>
+        <span className="text-base font-normal text-mist"> / {unlimited ? "∞" : limit}</span>
       </p>
       <div className="mt-3 h-0.5 w-full bg-line">
         <div className={"h-full " + (pct >= 100 ? "bg-coral" : "bg-mint")} style={{ width: `${pct}%` }} />
@@ -238,7 +254,11 @@ function PlanTile({ billing, onManage }: { billing: DashboardBilling; onManage: 
         <p className="mt-1 font-display text-2xl font-bold text-cloud">{PLAN_LABEL[billing.plan] ?? "Free"}</p>
       </div>
       <div className="mt-3">
-        {billing.plan === "pro" ? (
+        {billing.plan === "owner" ? (
+          <span className="font-mono text-[11px] uppercase tracking-label text-mist">
+            All limits lifted
+          </span>
+        ) : billing.plan === "pro" ? (
           <button
             type="button"
             onClick={onManage}
@@ -512,7 +532,8 @@ export function DashboardClient() {
             <p className="mt-3 leading-relaxed text-mist">
               Triplet is watching{" "}
               <span className="text-cloud">
-                {data.billing.usage.activeSavedSearches} of {data.billing.usage.savedSearchLimit}
+                {data.billing.usage.activeSavedSearches}
+                {data.billing.usage.unlimited ? "" : ` of ${data.billing.usage.savedSearchLimit}`}
               </span>{" "}
               searches for you
               {data.savedSearches.some((s) => s.lastBestPrice != null) ? (
@@ -533,7 +554,8 @@ export function DashboardClient() {
             <p className="mono-num mt-2 font-mono text-[10px] uppercase tracking-label text-mist/60">
               {PLAN_LABEL[data.billing.plan] ?? "Free plan"}
               {data.billing.plan === "trial" ? ` · ${data.billing.trialDaysRemaining} days left` : ""} · AI searches
-              this month {data.billing.usage.aiSearchesThisMonth}/{data.billing.usage.aiSearchesPerMonth} ·{" "}
+              this month {data.billing.usage.aiSearchesThisMonth}
+              {data.billing.usage.unlimited ? " (unlimited)" : `/${data.billing.usage.aiSearchesPerMonth}`} ·{" "}
               {data.billing.usage.dailyWatchChecks ? "daily" : "weekly"} checks
             </p>
           ) : null}
@@ -545,11 +567,13 @@ export function DashboardClient() {
               label="AI searches / month"
               used={data.billing.usage.aiSearchesThisMonth}
               limit={data.billing.usage.aiSearchesPerMonth}
+              unlimited={data.billing.usage.unlimited}
             />
             <UsageMeter
               label="Saved watches"
               used={data.billing.usage.activeSavedSearches}
               limit={data.billing.usage.savedSearchLimit}
+              unlimited={data.billing.usage.unlimited}
             />
             <PlanTile billing={data.billing} onManage={() => void manageBilling()} />
           </div>

@@ -53,6 +53,7 @@ class AISearchResponse(BaseModel):
     message: str
     parsedRequest: TripSearchRequest | None = None
     trips: list[TripOption] = []
+    relaxationNote: str | None = None
     missingFields: list[str] = []
     confidence: float | None = None
     providerMetadata: ProviderMetadata | None = None

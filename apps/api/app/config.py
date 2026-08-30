@@ -126,6 +126,10 @@ class Settings:
     # demo searches the Vienna region (6 airports), so cap them there rather than
     # at the logged-in Free limit.
     triplet_public_max_origin_airports: int = int(os.getenv("TRIPLET_PUBLIC_MAX_ORIGIN_AIRPORTS", "6"))
+    # Accounts that run and test Triplet itself: every plan limit is lifted for
+    # them. Comma-separated emails, configured per environment — never committed,
+    # so this repository can stay public without naming anyone.
+    triplet_owner_emails: str = os.getenv("TRIPLET_OWNER_EMAILS", "")
     # Free plan: for trying Triplet casually.
     triplet_free_saved_search_limit: int = int(os.getenv("TRIPLET_FREE_SAVED_SEARCH_LIMIT", "1"))
     triplet_free_ai_searches_per_month: int = int(os.getenv("TRIPLET_FREE_AI_SEARCHES_PER_MONTH", "3"))

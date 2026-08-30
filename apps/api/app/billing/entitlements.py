@@ -6,9 +6,21 @@ from app.db.models import UserDB
 # Stripe subscription statuses that grant paid Pro access.
 PRO_STATUSES = {"active", "trialing", "past_due"}
 
+# Owner accounts have no practical cap. A large number rather than infinity keeps
+# every existing comparison and JSON response working unchanged; the "unlimited"
+# flag on the entitlements is what the UI reads, so nobody is shown a count.
+UNLIMITED = 1_000_000_000
+
 
 def csv_values(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def is_owner_email(email: str | None) -> bool:
+    if not email:
+        return False
+    allowed = {value.casefold() for value in csv_values(settings.triplet_owner_emails)}
+    return email.strip().casefold() in allowed
 
 
 def _is_paid_pro(user: UserDB) -> bool:
@@ -26,9 +38,11 @@ def trial_is_active(user: UserDB | None, now: datetime | None = None) -> bool:
 
 
 def get_user_plan(user: UserDB | None, now: datetime | None = None) -> str:
-    """Effective plan. Paid Pro always wins; an unexpired trial beats Free."""
+    """Effective plan. Owner beats everything, then paid Pro, then a live trial."""
     if not user:
         return "free"
+    if is_owner_email(user.email):
+        return "owner"
     if _is_paid_pro(user):
         return "pro"
     if trial_is_active(user, now):
@@ -47,10 +61,23 @@ def trial_days_remaining(user: UserDB | None, now: datetime | None = None) -> in
 def can_start_trial(user: UserDB | None, now: datetime | None = None) -> bool:
     if not user or _is_paid_pro(user) or trial_is_active(user, now):
         return False
+    if is_owner_email(user.email):
+        # Nothing to unlock; a trial would only downgrade what they already have.
+        return False
     return not user.trial_used
 
 
 def _limits_for(plan: str) -> dict:
+    if plan == "owner":
+        return {
+            "plan": "owner",
+            "savedSearchLimit": UNLIMITED,
+            "aiSearchesPerMonth": UNLIMITED,
+            "maxOriginAirports": UNLIMITED,
+            "allowedAlertFrequencies": csv_values(settings.triplet_pro_alert_frequencies),
+            "liveProviderAccess": True,
+            "priorityAlerts": True,
+        }
     if plan == "pro":
         return {
             "plan": "pro",
@@ -84,8 +111,10 @@ def _limits_for(plan: str) -> dict:
 
 
 def get_entitlements(user: UserDB | None, now: datetime | None = None) -> dict:
-    limits = _limits_for(get_user_plan(user, now))
+    plan = get_user_plan(user, now)
+    limits = _limits_for(plan)
     frequencies = limits["allowedAlertFrequencies"]
     limits["dailyWatchChecks"] = "daily" in frequencies
     limits["weeklyWatchChecks"] = "weekly" in frequencies
+    limits["unlimited"] = plan == "owner"
     return limits

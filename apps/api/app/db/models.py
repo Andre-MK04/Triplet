@@ -124,7 +124,12 @@ class CachedRoundTripDB(Base):
     stops: Mapped[int] = mapped_column(Integer, default=0)
     booking_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     affiliate_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    # When Triplet last read this row from the provider — drives cache freshness.
     observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    # When the provider actually saw the fare in the market, when it tells us.
+    # Distinct from observed_at: a fare we fetched a minute ago may have been
+    # found days earlier, and travellers are shown this one, not our fetch time.
+    price_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 

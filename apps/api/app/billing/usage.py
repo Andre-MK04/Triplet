@@ -189,4 +189,5 @@ def billing_usage_summary(db: Session, user: UserDB) -> dict:
         "savedSearchLimit": entitlements["savedSearchLimit"],
         "maxOriginAirports": entitlements["maxOriginAirports"],
         "dailyWatchChecks": entitlements["dailyWatchChecks"],
+        "unlimited": entitlements["unlimited"],
     }

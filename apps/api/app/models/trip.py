@@ -112,6 +112,9 @@ class ProviderMetadata(BaseModel):
 
 class TripSearchResponse(BaseModel):
     trips: list[TripOption]
+    # Set when nothing matched exactly and we fell back to the closest real
+    # fares; says what was loosened so results are never silently different.
+    relaxationNote: str | None = None
     providerUsed: str | None = None
     providerWarnings: list[str] = []
     cachedResultsUsed: bool = False

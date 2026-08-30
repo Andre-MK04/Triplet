@@ -128,6 +128,8 @@ export type ProviderMetadata = {
 
 export type TripSearchResponse = {
   trips: TripOption[];
+  /** Set when nothing matched exactly and the closest real fares are shown instead. */
+  relaxationNote?: string | null;
   providerUsed?: string | null;
   providerWarnings?: string[];
   cachedResultsUsed?: boolean;
@@ -138,6 +140,7 @@ export type AISearchResponse = {
   message: string;
   parsedRequest: TripSearchPayload | null;
   trips: TripOption[];
+  relaxationNote?: string | null;
   missingFields: string[];
   confidence?: number | null;
   providerMetadata?: ProviderMetadata | null;
