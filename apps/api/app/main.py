@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import routes as auth_routes
 from app.config import settings
+from app.security import RateLimitExceeded, limiter_backend_name, validate_for_production
 from app.billing import routes as billing_routes
 from app.providers.registry import LIVE_PROVIDER_NAMES, build_provider
 from app.routers import ai, alerts, airports, countries, geo, health, me, places, providers, tools, travel_map, trips
@@ -69,6 +70,15 @@ def validate_security_settings() -> None:
     if errors:
         raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
 
+    # Rate limits counted per process are not protection once there is more than
+    # one worker, so production says so rather than appearing protected.
+    for problem in validate_for_production():
+        errors.append(problem)
+        logger.error("rate_limit_configuration: %s", problem)
+    if errors and settings.app_env in {"production", "prod"}:
+        raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
+    logger.info("rate_limit_backend=%s", limiter_backend_name())
+
     if settings.flight_provider == "hybrid":
         live_status = build_provider(settings.live_flight_provider).get_provider_status()
         if live_status.accessStatus != "available":
@@ -84,7 +94,31 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Triplet API", version="0.1.0", lifespan=lifespan)
+# Docs are on by default outside production and off inside it, unless the
+# operator turns them on deliberately with EXPOSE_API_DOCS.
+_docs_enabled = settings.expose_api_docs or settings.app_env not in {"production", "prod"}
+
+app = FastAPI(
+    title="Triplet API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Answer an over-budget caller with something they can act on."""
+    return JSONResponse(
+        {"detail": "Too many requests. Please wait a moment and try again."},
+        status_code=429,
+        headers={
+            "Retry-After": str(exc.retry_after_seconds),
+            "Cache-Control": "no-store",
+        },
+    )
 
 app.add_middleware(
     CORSMiddleware,

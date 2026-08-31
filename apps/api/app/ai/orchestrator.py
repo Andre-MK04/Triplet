@@ -23,6 +23,7 @@ from app.ai.schemas import (
 )
 from app.config import settings
 from app.data.flight_places import is_supported_origin
+from app.security import consume_ai_call
 from app.db.models import UserDB
 from app.models import TripSearchRequest
 from app.preferences.resolution import DEFAULT_SPONTANEITY, spontaneity_window
@@ -60,6 +61,23 @@ TRAVEL_MAP_CONTEXT_PATTERNS = (
 
 
 def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: ToolContext) -> AISearchResponse:
+    if len(request.message) > settings.ai_max_message_chars:
+        # Truncate rather than reject: an over-long message is far more often a
+        # paste than an attack, and the traveller still gets a search.
+        request = request.model_copy(
+            update={"message": request.message[: settings.ai_max_message_chars]}
+        )
+    if not consume_ai_call():
+        # The service-wide daily ceiling is reached. Degrade to rule-based
+        # parsing so search keeps working instead of failing outright.
+        return run_rule_based_search(
+            request,
+            registry,
+            context,
+            message_prefix="",
+            fallback_used=True,
+            warnings=["AI is paused for today; used rule-based parsing."],
+        )
     if not settings.ai_enabled:
         return run_rule_based_search(
             request,
@@ -166,7 +184,11 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
 
 
 def run_ai_parse(request: AISearchRequest, registry: ToolRegistry, context: ToolContext) -> AIParseOnlyResponse:
-    if settings.ai_enabled:
+    if len(request.message) > settings.ai_max_message_chars:
+        request = request.model_copy(
+            update={"message": request.message[: settings.ai_max_message_chars]}
+        )
+    if settings.ai_enabled and consume_ai_call():
         try:
             provider = build_ai_provider()
             latest_parse: dict[str, Any] = {}

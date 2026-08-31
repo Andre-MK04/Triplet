@@ -19,7 +19,7 @@ from app.billing.usage import assert_ai_search_allowed, assert_origin_airports_a
 from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
-from app.rate_limit import rate_limit
+from app.security import RateLimitCategory, check_rate_limit
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
 from app.tools.base import ToolContext
@@ -32,12 +32,33 @@ tool_registry = build_default_tool_registry()
 
 
 @router.post("/parse-trip-intent", response_model=ParsedTripIntent)
-def parse_trip_intent_route(request: ParseTripIntentRequest) -> ParsedTripIntent:
+def parse_trip_intent_route(
+    request: ParseTripIntentRequest,
+    http_request: Request,
+    user: UserDB | None = Depends(get_current_user_optional),
+) -> ParsedTripIntent:
+    """Rule-based parsing only — no model is called, so this is a cheap route."""
+    check_rate_limit(RateLimitCategory.CHEAP, http_request, user.id if user else None)
     return parse_trip_intent(request.message)
 
 
 @router.post("/parse", response_model=AIParseOnlyResponse)
-def parse_ai_request(request: AIParseOnlyRequest, db: Session = Depends(get_db)) -> AIParseOnlyResponse:
+def parse_ai_request(
+    request: AIParseOnlyRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB | None = Depends(get_current_user_optional),
+) -> AIParseOnlyResponse:
+    """Parse a request with the model.
+
+    This reaches a language model, so it carries the same limit and quota as
+    /ai/search. It had neither before, which made it a free unlimited way to
+    spend model credit while the endpoint it shadowed was protected.
+    """
+    check_rate_limit(RateLimitCategory.AI, http_request, user.id if user else None)
+    assert_ai_search_allowed(db, user)
+    if user:
+        record_ai_search(db, user)
     return run_ai_parse(AISearchRequest(message=request.message), tool_registry, ToolContext(db=db))
 
 
@@ -48,11 +69,7 @@ def ai_search(
     db: Session = Depends(get_db),
     user: UserDB | None = Depends(get_current_user_optional),
 ) -> AISearchResponse:
-    rate_limit(
-        "ai_search",
-        settings.ai_search_rate_limit_max_attempts,
-        settings.api_rate_limit_window_seconds,
-    )(http_request)
+    check_rate_limit(RateLimitCategory.AI, http_request, user.id if user else None)
     if request.originAirports:
         assert_origin_airports_allowed(user, len(request.originAirports))
     assert_ai_search_allowed(db, user)
@@ -83,7 +100,19 @@ def ai_search(
 
 
 @router.post("/search-preview", response_model=SearchPreviewResponse)
-def search_preview(request: SearchPreviewRequest, db: Session = Depends(get_db)) -> SearchPreviewResponse:
+def search_preview(
+    request: SearchPreviewRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB | None = Depends(get_current_user_optional),
+) -> SearchPreviewResponse:
+    """Parse a request and run the search it describes.
+
+    Parsing is rule-based here, but the search behind it reaches paid flight
+    providers, so it is limited as a search. It was previously unlimited, which
+    made it the cheapest way to spend Triplet's provider budget.
+    """
+    check_rate_limit(RateLimitCategory.SEARCH, http_request, user.id if user else None)
     try:
         return build_search_preview(request.message, tool_registry, ToolContext(db=db))
     except SQLAlchemyError as exc:

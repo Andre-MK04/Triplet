@@ -26,6 +26,13 @@ def database_health() -> dict[str, str]:
 
 @router.get("/ready")
 def readiness() -> dict:
+    """Whether the service can serve traffic.
+
+    Production answers with a verdict and nothing else. The detailed view names
+    the configured flight provider, whether AI is on and how the provider
+    authenticated — a useful map for anyone deciding what to attack, and of no
+    use to a load balancer, which only needs to know whether to route here.
+    """
     from app.providers.registry import LIVE_PROVIDER_NAMES, build_provider
 
     live_name = (
@@ -58,4 +65,7 @@ def readiness() -> dict:
             checks["provider"]["error"] = f"{settings.flight_provider} API access is not configured."
 
     status = "ready" if all(check["ok"] for check in checks.values()) else "degraded"
+    if settings.app_env in {"production", "prod"} and not settings.expose_api_docs:
+        # A load balancer needs the verdict; nobody outside needs the map.
+        return {"status": status}
     return {"status": status, "environment": settings.app_env, "checks": checks}

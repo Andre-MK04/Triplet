@@ -9,7 +9,7 @@ from app.db.models import UserDB
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import TripSearchRequest, TripSearchResponse
 from app.config import settings
-from app.rate_limit import rate_limit
+from app.security import RateLimitCategory, check_rate_limit
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import (
     FlightProviderNotImplementedError,
@@ -30,11 +30,7 @@ def search_trips(
     db: Session = Depends(get_db),
     user: UserDB | None = Depends(get_current_user_optional),
 ) -> TripSearchResponse:
-    rate_limit(
-        "trips_search",
-        settings.trips_search_rate_limit_max_attempts,
-        settings.api_rate_limit_window_seconds,
-    )(http_request)
+    check_rate_limit(RateLimitCategory.SEARCH, http_request, user.id if user else None)
     if request.endDate < request.startDate:
         raise HTTPException(status_code=400, detail="endDate must be on or after startDate")
     if request.maxTripLengthDays < request.minTripLengthDays:

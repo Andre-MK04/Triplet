@@ -125,6 +125,27 @@ class Settings:
     trips_search_rate_limit_max_attempts: int = int(os.getenv("TRIPS_SEARCH_RATE_LIMIT_MAX_ATTEMPTS", "60"))
     ai_search_rate_limit_max_attempts: int = int(os.getenv("AI_SEARCH_RATE_LIMIT_MAX_ATTEMPTS", "20"))
     provider_smoke_test_rate_limit_max_attempts: int = int(os.getenv("PROVIDER_SMOKE_TEST_RATE_LIMIT_MAX_ATTEMPTS", "10"))
+    rate_limit_cheap_per_window: int = int(os.getenv("RATE_LIMIT_CHEAP_PER_WINDOW", "240"))
+    rate_limit_alerts_per_window: int = int(os.getenv("RATE_LIMIT_ALERTS_PER_WINDOW", "10"))
+    # Counters are shared across processes when this is set. Without it each
+    # worker enforces its own budget, which production must not rely on.
+    redis_url: str | None = os.getenv("REDIS_URL") or None
+    # Only trust X-Forwarded-For where a proxy actually sets it; otherwise a
+    # caller could choose their own rate-limit identity.
+    trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "true").lower() == "true"
+    # Declares that this deployment runs exactly one worker on one instance, so
+    # per-process counters really are the whole picture. Production otherwise
+    # requires REDIS_URL: the danger is not the absence of Redis, it is believing
+    # you are protected while each worker enforces its own private budget.
+    rate_limit_allow_in_memory: bool = os.getenv("RATE_LIMIT_ALLOW_IN_MEMORY", "false").lower() == "true"
+    # Interactive API docs describe every route, schema and error to anyone who
+    # asks. Useful locally, an inventory for an attacker in production.
+    expose_api_docs: bool = os.getenv("EXPOSE_API_DOCS", "").lower() == "true"
+    # A ceiling on language-model calls per day across the whole service, so a
+    # bug or an abuser cannot run up an unbounded bill. Reaching it degrades to
+    # the rule-based parser rather than breaking search.
+    ai_daily_request_limit: int = int(os.getenv("AI_DAILY_REQUEST_LIMIT", "2000"))
+    ai_max_message_chars: int = int(os.getenv("AI_MAX_MESSAGE_CHARS", "2000"))
     google_oauth_client_id: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_ID") or None
     google_oauth_client_secret: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET") or None
     apple_oauth_client_id: str | None = os.getenv("APPLE_OAUTH_CLIENT_ID") or None
