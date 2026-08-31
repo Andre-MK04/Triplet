@@ -5,11 +5,12 @@ from app.db.repositories.cached_deals_repository import CachedDealsRepository
 from app.providers.travelpayouts.mapper import RoundTripFare
 
 
-def fare(dest="CPH", price=120.0) -> RoundTripFare:
+def fare(dest="CPH", price=120.0, seen: datetime | None = None) -> RoundTripFare:
     return RoundTripFare(
         origin="VIE", destination=dest, price=price, currency="EUR",
         departureDate="2026-08-05", returnDate="2026-08-10", airline="SK",
         stops=0, bookingUrl="https://aviasales.com/x", affiliateUrl="https://aviasales.com/x?marker=1",
+        observedAt=seen,
     )
 
 
@@ -25,15 +26,45 @@ def test_upsert_and_fresh_deals_roundtrip(db_session):
     assert repo.has_fresh(["ZAG"]) is False  # no deals from that origin
 
 
-def test_upsert_keeps_cheapest_for_same_route_dates(db_session):
+def test_upsert_takes_the_current_price_not_the_cheapest_ever_seen(db_session):
+    """The cache must not keep a bargain the provider has stopped offering.
+
+    Keeping the lowest price ever seen made Triplet quote fares that were gone:
+    one Vienna-Rome trip showed at EUR 48 while the provider and Aviasales both
+    said EUR 95. A later fetch is the provider's current answer, so it wins.
+    """
     repo = CachedDealsRepository(db_session)
     repo.upsert_deals([fare("CPH", 200)])
-    repo.upsert_deals([fare("CPH", 150)])  # cheaper -> replaces
-    repo.upsert_deals([fare("CPH", 300)])  # pricier -> ignored for price
+    repo.upsert_deals([fare("CPH", 150)])  # price dropped
+    repo.upsert_deals([fare("CPH", 300)])  # ...and then rose again
 
     rows = db_session.query(CachedRoundTripDB).filter_by(destination_code="CPH").all()
     assert len(rows) == 1  # deduped on route+dates
-    assert rows[0].price == 150
+    assert rows[0].price == 300
+
+
+def test_upsert_prefers_the_more_recent_sighting_over_the_cheaper_one(db_session):
+    repo = CachedDealsRepository(db_session)
+    old = datetime(2026, 8, 25)
+    new = datetime(2026, 8, 30)
+
+    repo.upsert_deals([fare("CPH", 95, seen=new)])
+    repo.upsert_deals([fare("CPH", 48, seen=old)])  # cheaper, but stale
+
+    row = db_session.query(CachedRoundTripDB).filter_by(destination_code="CPH").one()
+    assert row.price == 95
+    assert row.price_seen_at == new
+
+
+def test_within_one_batch_the_newest_sighting_wins(db_session):
+    repo = CachedDealsRepository(db_session)
+    repo.upsert_deals([
+        fare("CPH", 48, seen=datetime(2026, 8, 25)),
+        fare("CPH", 95, seen=datetime(2026, 8, 30)),
+    ])
+
+    row = db_session.query(CachedRoundTripDB).filter_by(destination_code="CPH").one()
+    assert row.price == 95
 
 
 def test_upsert_survives_duplicate_keys_within_one_batch(db_session):

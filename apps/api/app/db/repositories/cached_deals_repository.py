@@ -34,15 +34,17 @@ class CachedDealsRepository:
         # Dedup the batch first: overlapping query codes (e.g. ARN and the STO metro
         # code) can return the same route+dates twice, and with autoflush off two
         # pending inserts for one unique key would blow up at commit.
-        cheapest: dict[tuple[str, str, str | None, str | None], RoundTripFare] = {}
+        # Newest sighting wins, not cheapest: two rows for one trip are the same
+        # seat at two moments, and the older one is a price that has since moved.
+        best: dict[tuple[str, str, str | None, str | None], RoundTripFare] = {}
         for fare in fares:
             key = (fare.origin.upper(), fare.destination.upper(), fare.departureDate, fare.returnDate)
-            current = cheapest.get(key)
-            if current is None or fare.price < current.price:
-                cheapest[key] = fare
+            current = best.get(key)
+            if current is None or _is_newer(fare, current):
+                best[key] = fare
 
         written = 0
-        for fare in cheapest.values():
+        for fare in best.values():
             departure = _parse_date(fare.departureDate)
             if not departure:
                 continue
@@ -54,8 +56,9 @@ class CachedDealsRepository:
                 .where(CachedRoundTripDB.departure_date == departure)
                 .where(CachedRoundTripDB.return_date == return_date)
             )
-            if row and row.price <= fare.price:
-                # Keep the cheaper existing price but refresh its freshness stamp.
+            if row and _stored_sighting_is_newer(row, fare):
+                # What we hold was seen more recently than what just arrived, so
+                # keep it; only our own freshness stamp moves.
                 row.observed_at = now
                 row.expires_at = expires
                 written += 1
@@ -137,6 +140,35 @@ class CachedDealsRepository:
         result = self.db.execute(delete(CachedRoundTripDB).where(CachedRoundTripDB.observed_at < cutoff))
         self.db.commit()
         return result.rowcount or 0
+
+
+def _is_newer(candidate: RoundTripFare, current: RoundTripFare) -> bool:
+    """Whether ``candidate`` is a more recent sighting of the same trip.
+
+    Deliberately not "is it cheaper". Two rows for one route and dates are the
+    same seat priced at two different moments; taking the cheaper one means
+    quoting a price that has since moved, which is exactly what makes our number
+    disagree with the booking page. Undated rows lose to dated ones, and among
+    equally-dated rows the cheaper wins.
+    """
+    if candidate.observedAt and current.observedAt:
+        if candidate.observedAt != current.observedAt:
+            return candidate.observedAt > current.observedAt
+        return candidate.price < current.price
+    if candidate.observedAt:
+        return True
+    if current.observedAt:
+        return False
+    return candidate.price < current.price
+
+
+def _stored_sighting_is_newer(row: CachedRoundTripDB, fare: RoundTripFare) -> bool:
+    """Whether the stored row was seen more recently than the incoming fare."""
+    if fare.observedAt is None:
+        return row.price_seen_at is not None
+    if row.price_seen_at is None:
+        return False
+    return row.price_seen_at > fare.observedAt
 
 
 def _parse_date(value: str | None) -> date | None:

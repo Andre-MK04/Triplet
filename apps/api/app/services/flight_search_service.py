@@ -408,13 +408,15 @@ def fare_is_too_old(fare, today: date | None = None) -> bool:
 
 
 def merge_duplicate_fares(fares: list) -> list:
-    """Collapse fares for the same route and dates, keeping the best of each field.
+    """Collapse fares for the same route and dates, keeping the current price.
 
-    The same trip can arrive from more than one provider endpoint — the price
+    The same trip arrives from more than one provider endpoint — the price
     calendar covers every departure date, prices_for_dates carries the exact-fare
-    booking link. Keeping the cheaper price *and* the available link means a
-    traveller is never quoted a price whose link we dropped, or sent to a search
-    page when the provider gave us the fare itself.
+    booking link — and the copies can disagree because they were seen days apart.
+    The most recent sighting wins the price, because an older cheaper copy is a
+    price that has since moved and is what makes our number disagree with the
+    booking page. Links are carried across from whichever copy had one, so
+    preferring the newer price never costs the traveller the exact-fare link.
     """
     best: dict[tuple, object] = {}
     order: list[tuple] = []
@@ -425,15 +427,26 @@ def merge_duplicate_fares(fares: list) -> list:
             best[key] = fare
             order.append(key)
             continue
+        winner, loser = (fare, existing) if _fare_is_newer(fare, existing) else (existing, fare)
         updates = {}
-        if fare.price < existing.price:  # type: ignore[attr-defined]
-            updates = fare.model_dump()
-        for field in ("bookingUrl", "affiliateUrl", "observedAt", "expiresAt"):
-            chosen = getattr(fare, field) or getattr(existing, field)
-            if chosen is not None:
-                updates[field] = chosen
-        best[key] = existing.model_copy(update=updates)  # type: ignore[attr-defined]
+        for field in ("bookingUrl", "affiliateUrl", "expiresAt"):
+            if getattr(winner, field) is None and getattr(loser, field) is not None:
+                updates[field] = getattr(loser, field)
+        best[key] = winner.model_copy(update=updates) if updates else winner
     return [best[key] for key in order]
+
+
+def _fare_is_newer(candidate, current) -> bool:
+    """Whether ``candidate`` is a more recent sighting of the same trip."""
+    if candidate.observedAt and current.observedAt:
+        if candidate.observedAt != current.observedAt:
+            return candidate.observedAt > current.observedAt
+        return candidate.price < current.price
+    if candidate.observedAt:
+        return True
+    if current.observedAt:
+        return False
+    return candidate.price < current.price
 
 
 def deduplicate_flights(flights: list[Flight]) -> list[Flight]:

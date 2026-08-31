@@ -136,3 +136,50 @@ def test_trip_falls_back_to_a_route_and_date_search_without_a_provider_link():
 
     assert trip.bookingUrl and "2026-09-30" in trip.bookingUrl
     assert "currency=eur" in trip.bookingUrl
+
+
+def test_duplicate_fares_keep_the_current_price_not_the_stale_bargain():
+    """The mismatch that started this: quoting a price that has since moved.
+
+    Two provider endpoints returned the same Vienna-Rome trip — one seen today at
+    EUR 95, one seen two days ago at EUR 48. Taking the cheaper one meant showing
+    EUR 48 for a trip Aviasales was selling at EUR 96.
+    """
+    from app.services.flight_search_service import merge_duplicate_fares
+
+    stale = RoundTripFare(
+        origin="VIE", destination="ROM", price=48, currency="EUR",
+        departureDate="2026-10-19", returnDate="2026-10-21",
+        observedAt=datetime(2026, 8, 29), bookingUrl="https://aviasales.com/stale",
+    )
+    current = RoundTripFare(
+        origin="VIE", destination="ROM", price=95, currency="EUR",
+        departureDate="2026-10-19", returnDate="2026-10-21",
+        observedAt=datetime(2026, 8, 31),
+    )
+
+    merged = merge_duplicate_fares([stale, current])
+
+    assert len(merged) == 1
+    assert merged[0].price == 95
+    assert merged[0].observedAt == datetime(2026, 8, 31)
+    # The newer copy had no link, so the older copy's is carried across rather
+    # than lost — freshness must not cost the traveller the exact-fare link.
+    assert merged[0].bookingUrl == "https://aviasales.com/stale"
+
+
+def test_an_undated_fare_loses_to_a_dated_one():
+    from app.services.flight_search_service import merge_duplicate_fares
+
+    undated = RoundTripFare(
+        origin="VIE", destination="ROM", price=48, currency="EUR",
+        departureDate="2026-10-19", returnDate="2026-10-21",
+    )
+    dated = RoundTripFare(
+        origin="VIE", destination="ROM", price=95, currency="EUR",
+        departureDate="2026-10-19", returnDate="2026-10-21",
+        observedAt=datetime(2026, 8, 31),
+    )
+
+    assert merge_duplicate_fares([undated, dated])[0].price == 95
+    assert merge_duplicate_fares([dated, undated])[0].price == 95
