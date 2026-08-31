@@ -8,3 +8,16 @@ build/
 .next/
 .venv/
 __pycache__/
+
+# Local databases. SQLite is used for local/dev only; production is PostgreSQL.
+# apps/api/triplet.db was tracked until 2026-09 and held dev accounts — never
+# commit a database, even seeded, because it accumulates real data over time.
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+# Explicitly tracked fixtures, if any are ever needed, go here:
+!apps/api/app/tests/fixtures/*.db
