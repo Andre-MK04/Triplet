@@ -18,7 +18,7 @@ import { ApiError, apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import { PRICE_DISCLAIMER } from "../../lib/price";
-import { clearSearch, loadSearch, minutesSince, saveSearch } from "../../lib/searchSession";
+import { ageSince, clearSearch, loadSearch, saveSearch } from "../../lib/searchSession";
 import type {
   AISearchResponse,
   AirportResult,
@@ -205,7 +205,7 @@ export function DiscoverClient() {
   const [lastPayload, setLastPayload] = useState<TripSearchPayload | null>(null);
   // Set when the list on screen came back from the previous visit rather than a
   // fresh call, so the traveller knows how old the prices are.
-  const [restoredMinutesAgo, setRestoredMinutesAgo] = useState<number | null>(null);
+  const [restoredAge, setRestoredAge] = useState<{ label: string; isAgeing: boolean } | null>(null);
 
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertName, setAlertName] = useState("");
@@ -235,7 +235,7 @@ export function DiscoverClient() {
     setOriginLabels(previous.originLabels);
     if (previous.form) setForm(previous.form as AdvancedForm);
     setHasSearched(true);
-    setRestoredMinutesAgo(minutesSince(previous.savedAt));
+    setRestoredAge(ageSince(previous.savedAt));
     // Mark the deep-link query as already answered so returning to
     // /discover?q=… does not silently run the same search a second time.
     autoSearchedQuery.current = previous.answeredQuery;
@@ -297,7 +297,7 @@ export function DiscoverClient() {
   );
 
   function resetResultState() {
-    setRestoredMinutesAgo(null);
+    setRestoredAge(null);
     setError("");
     setNotice(null);
     setAiSummary("");
@@ -772,12 +772,12 @@ export function DiscoverClient() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                 <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
                   Results · {trips.length} trip{trips.length === 1 ? "" : "s"} identified · best first
-                  {restoredMinutesAgo !== null ? (
+                  {restoredAge ? (
                     <>
                       {" · "}
-                      <span className="text-mist/70">
-                        from your last search
-                        {restoredMinutesAgo > 0 ? ` ${restoredMinutesAgo} min ago` : ""}
+                      <span className={restoredAge.isAgeing ? "text-gold" : "text-mist/70"}>
+                        from your last search {restoredAge.label}
+                        {restoredAge.isAgeing ? " · prices may have moved" : ""}
                       </span>
                       {" · "}
                       <button

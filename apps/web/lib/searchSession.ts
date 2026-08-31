@@ -16,11 +16,17 @@ import type { FlightPlaceResult, TripOption, TripSearchPayload } from "./types";
 const STORAGE_KEY = "triplet-last-search";
 
 /**
- * Fares are recently observed prices that keep ageing while a tab sits open, so
- * a restored list is deliberately short-lived. Long enough to cover reading a
- * trip and coming back; short enough that nobody returns to yesterday's prices.
+ * How long a restored list stays usable.
+ *
+ * Generous on purpose: the store already dies with the tab, and every row shows
+ * its own fare age, so a restored list is never passing off old prices as new.
+ * The cap exists only to stop a laptop left open overnight reopening to
+ * yesterday's search as though it were current.
  */
-const MAX_AGE_MS = 30 * 60 * 1000;
+const MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/** Past this, the restored list is flagged rather than shown quietly. */
+export const AGEING_AFTER_MS = 2 * 60 * 60 * 1000;
 
 export type RestoredSearch = {
   savedAt: number;
@@ -77,7 +83,11 @@ export function clearSearch(): void {
   }
 }
 
-/** How long ago the restored results were fetched, in whole minutes. */
-export function minutesSince(savedAt: number): number {
-  return Math.max(0, Math.floor((Date.now() - savedAt) / 60000));
+/** How long ago the restored results were fetched. */
+export function ageSince(savedAt: number): { label: string; isAgeing: boolean } {
+  const elapsed = Math.max(0, Date.now() - savedAt);
+  const minutes = Math.floor(elapsed / 60000);
+  const label =
+    minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`;
+  return { label, isAgeing: elapsed >= AGEING_AFTER_MS };
 }
