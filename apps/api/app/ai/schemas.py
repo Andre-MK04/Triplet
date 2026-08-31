@@ -37,6 +37,11 @@ class AISearchRequest(BaseModel):
     maxBudget: float | None = None
     maxGroundTransferHours: float | None = None
     tripStyle: Literal["one city", "two nearby cities", "surprise me"] | None = None
+    # The shape of trip the traveller picked in the UI. It wins over anything the
+    # words imply: choosing "multi-city" and then typing a sentence the parser
+    # reads as a plain return trip should still build a multi-city itinerary.
+    tripPlan: Literal["return", "open_jaw", "multi_city"] | None = None
+    routeStops: list[str] | None = None
     directOnly: bool | None = None
     includeBaggage: bool | None = None
 

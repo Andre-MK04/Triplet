@@ -86,6 +86,13 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
         if name not in ALLOWED_AI_TOOLS:
             raise ToolNotFoundError(f"Tool '{name}' is not allowed for AI search.")
         if name == "search_trips":
+            if request.tripPlan:
+                # The traveller picked a trip shape in the UI. That is an explicit
+                # instruction, not a hint, so it overrides whatever the model
+                # inferred from the sentence.
+                arguments = {**arguments, "tripPlan": request.tripPlan}
+                if request.tripPlan != "multi_city":
+                    arguments.pop("routeStops", None)
             search_request = validate_search_request(arguments, context)
             result = registry.run_tool(name, search_request.model_dump(mode="json"), context)
             latest_search["request"] = search_request
@@ -204,10 +211,19 @@ def summarize_search(parsed_request, output) -> str:
             "I couldn't find fares for that search right now. Try widening the dates, "
             "raising the budget, or adding more airports you'd fly from."
         )
-    dests = {t.outboundFlight.destination for t in trips}
-    where = f" to {place_city(next(iter(dests))) or next(iter(dests))}" if len(dests) == 1 else ""
     cheapest = min(t.totalPrice for t in trips)
     plural = "s" if len(trips) != 1 else ""
+    # A chained trip visits several cities; naming only the first would describe
+    # a different trip from the one being shown.
+    stays = trips[0].stays or []
+    if len(stays) > 1:
+        route = " → ".join(stay.city for stay in stays)
+        return (
+            f"Found {len(trips)} way{plural} to do {route}, from €{round(cheapest)} for every "
+            "flight in the chain. Best matches first."
+        )
+    dests = {t.outboundFlight.destination for t in trips}
+    where = f" to {place_city(next(iter(dests))) or next(iter(dests))}" if len(dests) == 1 else ""
     return f"Found {len(trips)} trip idea{plural}{where}, from €{round(cheapest)}. Best matches first."
 
 
@@ -271,6 +287,8 @@ def build_trip_search_request(
     destination_regions = request.destinationRegions or intent.destinationRegions
     destination_continents = request.destinationContinents or intent.destinationContinents
     return_origin_airports = request.returnOriginAirports or intent.returnOriginAirports
+    trip_plan = request.tripPlan or intent.tripPlan or "return"
+    route_stops = request.routeStops or intent.routeStops
     # No explicit/parsed dates → a rolling spontaneity window from today (never
     # a hardcoded calendar year, which silently goes stale).
     default_start, default_end = spontaneity_window(DEFAULT_SPONTANEITY)
@@ -302,6 +320,8 @@ def build_trip_search_request(
         maxBudget=max_budget,
         maxGroundTransferHours=max_transfer,
         tripStyle=trip_style,
+        tripPlan=trip_plan,
+        routeStops=route_stops if trip_plan == "multi_city" else None,
         directOnly=request.directOnly if request.directOnly is not None else intent.directOnly,
         includeBaggage=request.includeBaggage if request.includeBaggage is not None else intent.includeBaggage,
     )

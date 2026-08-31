@@ -65,6 +65,8 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
   const [open, setOpen] = useState(false);
 
   const dest = trip.outboundFlight.destination;
+  const stays = trip.stays ?? [];
+  const isChained = stays.length > 1;
   const destinationCity = trip.destination?.city ?? cityFor(dest);
   const destinationCountry = trip.destination?.country ?? countryFor(dest);
   const overBudget = trip.tags.some((tag) => tag.toLowerCase() === "over budget");
@@ -85,14 +87,26 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
       >
         <span>
           <span className="block font-display text-xl font-bold uppercase leading-tight text-cloud">
-            {destinationCity}
-            {isOpenJaw ? <span className="text-mist"> ⇢ {cityFor(returnFrom)}</span> : null}
+            {isChained ? (
+              stays.map((stay, index) => (
+                <span key={`${stay.code}-${index}`}>
+                  {index > 0 ? <span className="text-mist"> · </span> : null}
+                  {stay.city}
+                </span>
+              ))
+            ) : (
+              <>
+                {destinationCity}
+                {isOpenJaw ? <span className="text-mist"> ⇢ {cityFor(returnFrom)}</span> : null}
+              </>
+            )}
           </span>
           <span className="mt-1 block font-mono text-xs uppercase text-mist">
-            {destinationCountry ? `${destinationCountry} · ` : ""}
-            {trip.destination?.continent ? `${trip.destination.continent} · ` : ""}
-            {dest}
-            {isOpenJaw ? ` → ${returnFrom}` : ""}
+            {isChained
+              ? stays.map((stay) => `${stay.nights}n ${stay.code}`).join(" · ")
+              : `${destinationCountry ? `${destinationCountry} · ` : ""}${
+                  trip.destination?.continent ? `${trip.destination.continent} · ` : ""
+                }${dest}${isOpenJaw ? ` → ${returnFrom}` : ""}`}
           </span>
         </span>
 
@@ -101,7 +115,8 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             {legDate(trip.outboundFlight.departureDateTime)} — {legDate(trip.returnFlight.departureDateTime)}
           </span>
           <span className="mt-1 block font-mono text-[10px] uppercase tracking-label text-mist/70">
-            {trip.nights} nights{isOpenJaw ? " · two cities" : ""}
+            {trip.nights} nights
+            {isChained ? ` · ${stays.length} cities` : isOpenJaw ? " · two cities" : ""}
           </span>
         </span>
 
@@ -146,6 +161,28 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
 
       {open ? (
         <div className="mb-5 border-l-2 border-mint/40 bg-ink-raised px-5 py-4">
+          {trip.segments && trip.segments.length > 0 ? (
+            <ol className="space-y-1.5">
+              {trip.segments.map((segment, index) => (
+                <li key={`${segment.origin}-${segment.destination}-${index}`}>
+                  {segment.kind === "flight" && segment.flight ? (
+                    <LegLine
+                      label={`${index + 1}`}
+                      flight={segment.flight}
+                      showPrice={trip.fareKind !== "round_trip_bundle"}
+                    />
+                  ) : segment.transfer ? (
+                    <p className="font-mono text-xs text-mist">
+                      <span className="text-mist/70">{index + 1}</span> {segment.originCity} ⇢{" "}
+                      {segment.destinationCity} · overland ~{segment.transfer.durationHours}h · ~
+                      {formatPrice(segment.transfer.estimatedCost)} est.
+                      <span className="text-mist/60"> · not in the price</span>
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
           <div className="space-y-1.5">
             <LegLine label="OUT" flight={trip.outboundFlight} showPrice={trip.fareKind !== "round_trip_bundle"} />
             {trip.groundTransfer ? (
@@ -160,6 +197,14 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             ) : null}
             <LegLine label="RET" flight={trip.returnFlight} showPrice={trip.fareKind !== "round_trip_bundle"} />
           </div>
+          )}
+
+          {trip.groundEstimate ? (
+            <p className="mt-3 font-mono text-xs text-mist">
+              Flights {formatPrice(trip.flightCost ?? trip.totalPrice)} · overland roughly{" "}
+              {formatPrice(trip.groundEstimate)} on top, arranged by you.
+            </p>
+          ) : null}
 
           {staleFare ? (
             <p className="mt-4 max-w-2xl font-mono text-xs text-gold">

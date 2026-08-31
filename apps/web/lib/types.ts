@@ -22,6 +22,27 @@ export type Flight = {
   expiresAt?: string | null;
 };
 
+export type TripSegment = {
+  kind: "flight" | "ground";
+  origin: string;
+  destination: string;
+  originCity: string;
+  destinationCity: string;
+  departureDate: string;
+  flight?: Flight | null;
+  transfer?: GroundTransfer | null;
+};
+
+export type CityStay = {
+  code: string;
+  city: string;
+  country: string;
+  countryCode: string;
+  arrivalDate: string;
+  departureDate: string;
+  nights: number;
+};
+
 export type GroundTransfer = {
   fromAirport: string;
   toAirport: string;
@@ -39,10 +60,16 @@ export type ScoreComponent = {
 
 export type TripOption = {
   id: string;
-  tripType: "same_city" | "open_jaw";
+  tripType: "same_city" | "open_jaw" | "multi_city";
   outboundFlight: Flight;
   returnFlight: Flight;
   groundTransfer: GroundTransfer | null;
+  segments?: TripSegment[];
+  stays?: CityStay[];
+  /** Sum of every flight fare — this is what totalPrice reports. */
+  flightCost?: number;
+  /** Rough cost of overland hops, for planning only. Never in totalPrice. */
+  groundEstimate?: number | null;
   totalPrice: number;
   tripLengthDays: number;
   nights: number;
@@ -76,6 +103,9 @@ export type TripOption = {
 
 export type TripStyle = "one city" | "two nearby cities" | "surprise me";
 
+/** The shape of the trip: out and back, a chain of cities, or in one / out another. */
+export type TripPlan = "return" | "multi_city" | "open_jaw";
+
 export type TripSearchPayload = {
   originAirports: string[];
   destinationAirports?: string[] | null;
@@ -93,6 +123,9 @@ export type TripSearchPayload = {
   maxBudget: number;
   maxGroundTransferHours: number;
   tripStyle: TripStyle;
+  tripPlan?: TripPlan;
+  /** Ordered cities for a multi-city itinerary. */
+  routeStops?: string[] | null;
   directOnly?: boolean;
   includeBaggage?: boolean;
 };
