@@ -1,5 +1,5 @@
 import { formatPrice } from "./format";
-import type { TripOption } from "./types";
+import type { PriceHistory, TripOption } from "./types";
 
 /**
  * The single place Triplet turns a price into words.
@@ -101,3 +101,42 @@ export const CHECK_PRICE_LABEL = "Check live price";
 
 export const PRICE_DISCLAIMER =
   "Prices are recently observed fares and may change. Check the airline or agency for current availability.";
+
+
+/**
+ * Whether Triplet's own history justifies calling this a good price, and what
+ * to call it.
+ *
+ * Two gates, both deliberate. Only positive verdicts are surfaced — Triplet is
+ * a discovery product, and telling someone their fare is "very high" helps
+ * nobody find a trip. And nothing is shown below medium confidence, because a
+ * badge drawn from five sightings teaches travellers to distrust the ones drawn
+ * from four hundred.
+ */
+const BADGE_LABELS: Partial<Record<NonNullable<PriceHistory["classification"]>, string>> = {
+  exceptional: "Exceptional fare",
+  great: "Great price",
+  good: "Good price",
+};
+
+export type PriceBadge = { label: string; explanation: string };
+
+export function priceBadge(trip: TripOption): PriceBadge | null {
+  const history = trip.price?.history;
+  if (!history?.available || !history.classification) return null;
+  if (history.confidence !== "medium" && history.confidence !== "high") return null;
+
+  const label = BADGE_LABELS[history.classification];
+  if (!label) return null;
+
+  const range =
+    history.typicalLow != null && history.typicalHigh != null
+      ? `Typical recently observed: ${formatPrice(history.typicalLow)}–${formatPrice(history.typicalHigh)}`
+      : "";
+  return {
+    label,
+    explanation: range
+      ? `${formatPrice(trip.totalPrice)} is lower than most fares Triplet has recorded for similar trips. ${range}.`
+      : `${formatPrice(trip.totalPrice)} is lower than most fares Triplet has recorded for similar trips.`,
+  };
+}

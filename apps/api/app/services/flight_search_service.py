@@ -140,6 +140,7 @@ class FlightSearchService:
                 fares = self._targeted_round_trip_fares(provider, request, scope)
                 if deals_repo and fares:
                     self._cache_deals(deals_repo, fares)
+                self._record_round_trip_observations(fares)
                 self.deals_provider_succeeded = bool(fares)
                 if deals_repo:
                     # A targeted scope can also be satisfied by deals we already
@@ -162,6 +163,7 @@ class FlightSearchService:
             fares = self._open_round_trip_fares(provider, request, cold_cache=not cached)
             if deals_repo and fares:
                 self._cache_deals(deals_repo, fares)
+            self._record_round_trip_observations(fares)
             self.deals_provider_succeeded = bool(fares)
             return cached + self._filter_round_trip_fares(fares, request)
         except ProviderError:
@@ -419,6 +421,51 @@ class FlightSearchService:
             providerWarnings=list(dict.fromkeys(provider.warnings)),
         )
 
+    def _record_round_trip_observations(self, fares: list) -> None:
+        """Remember complete round trips the provider reported.
+
+        These are the strongest evidence Triplet has — the provider priced the
+        whole trip, so no arithmetic of ours is involved — and until now they
+        were the one thing never written to history, because only the one-way
+        candidate list was being recorded.
+        """
+        if not self.db or not fares:
+            return
+        from app.db.repositories.price_observations_repository import PriceObservationsRepository
+        from app.pricing.observation import FareObservation
+
+        observations = []
+        for fare in fares:
+            departure = _parse_iso_date(fare.departureDate)
+            if not departure:
+                continue
+            observations.append(
+                FareObservation(
+                    origin=fare.origin,
+                    destination=fare.destination,
+                    departure_date=departure,
+                    return_date=_parse_iso_date(fare.returnDate),
+                    price=fare.price,
+                    currency=fare.currency,
+                    provider="travelpayouts",
+                    trip_type="return" if fare.returnDate else "one_way",
+                    # The provider's own sighting, never our fetch time.
+                    found_at=fare.observedAt,
+                    stops=fare.stops,
+                    airline=fare.airline,
+                    confidence="indicative",
+                    link_available=bool(fare.bookingUrl or fare.affiliateUrl),
+                )
+            )
+        try:
+            recorded = PriceObservationsRepository(self.db).record_observations(observations)
+            if recorded:
+                logger.info("price_observations recorded=%s kind=round_trip", recorded)
+        except Exception:
+            # History is an asset we build over time, never a reason a search fails.
+            logger.exception("price_observation_recording_failed")
+            self.db.rollback()
+
     def _record_price_observations(self, flights: list[Flight]) -> None:
         if not self.db or not flights:
             return
@@ -429,6 +476,15 @@ class FlightSearchService:
         except Exception:
             # Price history is best-effort; never fail a search over it.
             logger.exception("price_observation_recording_failed")
+
+
+def _parse_iso_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
 
 
 def fare_is_too_old(fare, today: date | None = None) -> bool:

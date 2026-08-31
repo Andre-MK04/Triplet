@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -134,17 +134,48 @@ class CachedRoundTripDB(Base):
 
 
 class PriceObservationDB(Base):
+    """Triplet's own record of fares its data source has reported over time.
+
+    Long-lived on purpose: the 48-hour freshness rule governs whether a cached
+    fare may be shown as a current price, which is a different question from
+    whether a fare from March tells us what this route normally costs. Retention
+    deliberately does not prune this table.
+
+    Describes the market, never a person — no user, session or request identity
+    is recorded here, and the deduplication key excludes them by design.
+    """
+
     __tablename__ = "price_observations"
+    __table_args__ = (
+        # One price event, however many people are shown it. A unique index
+        # rather than a constraint so the same guarantee migrates cleanly on
+        # SQLite as well as Postgres.
+        Index("uq_price_observation_identity", "raw_hash", unique=True),
+        # The comparison engine always narrows by route first, then dates.
+        Index("ix_price_observation_route_date", "origin_code", "destination_code", "departure_date"),
+        Index("ix_price_observation_route_trip", "origin_code", "destination_code", "trip_type"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(80), index=True)
+    #: How this was obtained: cached_provider | live_provider | composite_estimate.
+    #: Statistics use provider observations only.
+    observation_kind: Mapped[str] = mapped_column(String(32), default="cached_provider", index=True)
+    trip_type: Mapped[str] = mapped_column(String(16), default="one_way", index=True)
     origin_code: Mapped[str] = mapped_column(String(8), index=True)
     destination_code: Mapped[str] = mapped_column(String(8), index=True)
     departure_date: Mapped[date] = mapped_column(Date, index=True)
     return_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: Nights away, for comparing like-length trips. Null for one-ways.
+    nights: Mapped[int | None] = mapped_column(Integer, nullable=True)
     observed_price: Mapped[float] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String(8), default="EUR")
+    #: When the provider says it found the price. Null when it does not say.
+    found_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    #: When Triplet received it. Always known; useful for collection debugging.
     observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    stops: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    airline: Mapped[str | None] = mapped_column(String(120), nullable=True)
     confidence: Mapped[str] = mapped_column(String(16), default="indicative")
     link_available: Mapped[bool] = mapped_column(Boolean, default=False)
     raw_hash: Mapped[str] = mapped_column(String(64), index=True)

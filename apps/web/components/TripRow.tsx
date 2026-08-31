@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { AIRPORTS_BY_CODE } from "../lib/airports";
 import { formatPrice } from "../lib/format";
-import { CHECK_PRICE_LABEL, pricePresentation } from "../lib/price";
+import { CHECK_PRICE_LABEL, priceBadge, pricePresentation } from "../lib/price";
 import type { Flight, TripOption } from "../lib/types";
 import { ScoreDial } from "./ScoreDial";
 
@@ -58,6 +58,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
   const dealValue = trip.dealScore ?? trip.score;
   const bookingHref = trip.bookingUrl ?? trip.affiliateUrl ?? trip.providerDeepLink ?? null;
   const price = pricePresentation(trip);
+  const badge = priceBadge(trip);
 
   return (
     <div className="border-b border-line">
@@ -83,6 +84,11 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
               </>
             )}
           </span>
+          {badge ? (
+            <span className="mt-1.5 inline-flex items-center gap-1 border border-mint/40 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-label text-mint">
+              {badge.label}
+            </span>
+          ) : null}
           <span className="mt-1 block font-mono text-xs uppercase text-mist">
             {isChained
               ? stays.map((stay) => `${stay.nights}n ${stay.code}`).join(" · ")
@@ -208,6 +214,9 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             </p>
           ) : null}
 
+          {badge ? (
+            <p className="mb-3 max-w-2xl font-mono text-xs text-mint">{badge.explanation}</p>
+          ) : null}
           {price.isStale ? (
             <p className="mt-4 max-w-2xl font-mono text-xs text-gold">
               This fare was last seen more than two days ago. Aviasales prices what is on sale right

@@ -15,6 +15,7 @@ from app.db.repositories.search_logs_repository import SearchLogsRepository
 from app.db.repositories.transfers_repository import TransfersRepository
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import Flight, TripSearchRequest
+from app.pricing.history import attach_price_history
 from app.services.flight_search_service import FlightSearchService
 from app.services.itinerary_builder import (
     build_itineraries,
@@ -434,6 +435,14 @@ class SearchTripsTool(Tool):
                     round_trip_fares, request, scope, scoring, airports, transfers, flight_result.flights
                 )
             trips = _rescore(trips, request, scoring)
+
+        # What Triplet's own records say about these prices. One query for the
+        # page; silent when there is not enough history to say anything.
+        try:
+            attach_price_history(context.db, trips)
+        except Exception:  # noqa: BLE001 - a badge is never worth a failed search
+            logger.exception("price_history_analysis_failed")
+            context.db.rollback()
 
         try:
             TripSuggestionsRepository(context.db).save_trips(

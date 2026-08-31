@@ -64,6 +64,24 @@ export type PriceKind =
 
 export type PriceFreshness = "fresh" | "recent" | "aging" | "stale" | "unknown";
 
+export type PriceClassification =
+  | "exceptional" | "great" | "good" | "typical" | "high" | "very_high";
+
+export type PriceConfidenceLevel = "insufficient" | "low" | "medium" | "high";
+
+/** What Triplet's own observation history says about a price. */
+export type PriceHistory = {
+  available: boolean;
+  sampleCount: number;
+  classification?: PriceClassification | null;
+  confidence: PriceConfidenceLevel;
+  medianPrice?: number | null;
+  typicalLow?: number | null;
+  typicalHigh?: number | null;
+  percentile?: number | null;
+  basis?: string | null;
+};
+
 /** What a price is and how sure Triplet is of it. Set on the server. */
 export type PriceInfo = {
   amount: number;
@@ -77,6 +95,7 @@ export type PriceInfo = {
   freshness: PriceFreshness;
   freshnessScore: number;
   legCount: number;
+  history?: PriceHistory | null;
 };
 
 export type ScoreComponent = {

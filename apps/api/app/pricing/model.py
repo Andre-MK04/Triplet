@@ -14,6 +14,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.pricing.freshness import Freshness, combine_freshness
+from app.pricing.history import PriceHistory
 
 PriceKind = Literal[
     # One provider observation of a complete round trip. The most trustworthy
@@ -49,6 +50,9 @@ class PriceInfo(BaseModel):
     freshnessScore: int = 40
     #: How many separately priced flights make up the total.
     legCount: int = 1
+    #: What Triplet's own observation history says about this price, when it has
+    #: enough comparable records to say anything at all.
+    history: PriceHistory | None = None
 
 
 def build_price_info(
