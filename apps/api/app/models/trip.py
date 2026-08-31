@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.models.flight import Flight
 from app.models.transfer import GroundTransfer
+from app.pricing.model import PriceInfo
 
 
 class TripSearchRequest(BaseModel):
@@ -116,6 +117,9 @@ class TripOption(BaseModel):
     flightCost: float = 0.0
     #: Rough cost of the ground hops, for planning only — never in totalPrice.
     groundEstimate: float | None = None
+    #: What this price is and how sure we are of it. The canonical model; the
+    #: interface reads this rather than re-deriving age or estimate-ness.
+    price: PriceInfo | None = None
     totalPrice: float
     tripLengthDays: int
     nights: int

@@ -17,6 +17,7 @@ import { EmptyState, Notice } from "../../components/ui/Misc";
 import { ApiError, apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
+import { PRICE_DISCLAIMER } from "../../lib/price";
 import type {
   AISearchResponse,
   AirportResult,
@@ -779,8 +780,7 @@ export function DiscoverClient() {
                 ))}
               </div>
               <p className="pt-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/60">
-                Cached market fares, not live availability · the booking site may show a different
-                price · always confirm before booking
+                {PRICE_DISCLAIMER}
               </p>
             </>
           ) : null}

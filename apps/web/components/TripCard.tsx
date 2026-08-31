@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { airportCity } from "../lib/airports";
 import { confidenceLabel, formatDate, formatDuration, formatPrice, formatTime, timeAgo } from "../lib/format";
+import { CHECK_PRICE_LABEL, pricePresentation } from "../lib/price";
 import type { Flight, ScoreComponent, TripOption } from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
@@ -118,7 +119,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="font-display text-2xl font-bold text-mint">{formatPrice(trip.totalPrice, outbound.currency)}</p>
+          <p className="font-display text-2xl font-bold text-mint">{pricePresentation(trip).primary}</p>
           <p className="text-[11px] text-mist/70">
             {trip.fareKind === "round_trip_bundle"
               ? "round trip"
@@ -214,7 +215,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-full bg-mint px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-110"
             >
-              {trip.bookingLabel || "Check price"} ↗
+              {CHECK_PRICE_LABEL} ↗
             </a>
           ) : (
             <span className="text-xs text-mist/70">No booking link for demo fares</span>

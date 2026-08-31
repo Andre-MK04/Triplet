@@ -4,6 +4,7 @@ from app.config import settings
 from app.data.flight_places import canonical_code, get_place, is_flightable_place, place_matches_filters
 from app.data.geography import PLACES, distance_km, place_city, place_country_code, scope_matches
 from app.models import Airport, DestinationMetadata, Flight, GroundTransfer, TripOption, TripSearchRequest
+from app.pricing import build_price_info
 from app.providers.travelpayouts.affiliate_links import ItinerarySegment, build_aviasales_itinerary_url
 from app.providers.travelpayouts.mapper import RoundTripFare
 from app.services.trip_explainer import build_explanation, build_tags, build_warnings
@@ -157,6 +158,19 @@ def build_trips(
                 tags=[],
                 flightCost=round(outbound.price + return_flight.price, 2),
                 groundEstimate=ground_transfer.estimatedCost if ground_transfer else None,
+                # Two independently observed one-ways added together. Nobody
+                # ever saw this itinerary priced as a whole, so it is an
+                # estimate however real each half is.
+                price=build_price_info(
+                    amount=total_price,
+                    kind=(
+                        "estimated_open_jaw"
+                        if trip_type == "open_jaw"
+                        else "estimated_multi_city"
+                    ),
+                    observed_ats=[outbound.observedAt, return_flight.observedAt],
+                    currency=outbound.currency,
+                ),
                 bookingUrl=itinerary_url or pick_trip_booking_url(outbound, return_flight),
                 bookingLabel="Check price" if itinerary_url else pick_trip_booking_label(outbound, return_flight),
                 affiliateUrl=itinerary_affiliate_url or pick_trip_affiliate_url(outbound, return_flight),
@@ -507,6 +521,14 @@ def build_round_trip_options(
             score=0,
             fareKind="round_trip_bundle",
             flightCost=round(fare.price, 2),
+            # One provider observation of this exact round trip — the strongest
+            # thing we can show, because it is what Aviasales itself recorded.
+            price=build_price_info(
+                amount=fare.price,
+                kind="cached_return",
+                observed_ats=[fare.observedAt],
+                currency=fare.currency,
+            ),
             explanation="",
             warnings=["Round-trip fare; confirm exact times and baggage on the provider site."],
             tags=["Round trip"],

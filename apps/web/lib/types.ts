@@ -55,6 +55,30 @@ export type GroundTransfer = {
   mode: string;
 };
 
+export type PriceKind =
+  | "cached_return"
+  | "cached_one_way"
+  | "estimated_open_jaw"
+  | "estimated_multi_city"
+  | "live";
+
+export type PriceFreshness = "fresh" | "recent" | "aging" | "stale" | "unknown";
+
+/** What a price is and how sure Triplet is of it. Set on the server. */
+export type PriceInfo = {
+  amount: number;
+  currency: string;
+  kind: PriceKind;
+  source: string;
+  isLive: boolean;
+  isEstimate: boolean;
+  observedAt?: string | null;
+  ageHours?: number | null;
+  freshness: PriceFreshness;
+  freshnessScore: number;
+  legCount: number;
+};
+
 export type ScoreComponent = {
   label: string;
   points: number;
@@ -72,6 +96,8 @@ export type TripOption = {
   flightCost?: number;
   /** Rough cost of overland hops, for planning only. Never in totalPrice. */
   groundEstimate?: number | null;
+  /** Canonical price model — read this rather than re-deriving age or estimate-ness. */
+  price?: PriceInfo | null;
   totalPrice: number;
   tripLengthDays: number;
   nights: number;

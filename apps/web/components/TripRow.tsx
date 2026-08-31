@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { AIRPORTS_BY_CODE } from "../lib/airports";
-import { formatPrice, timeAgo } from "../lib/format";
+import { formatPrice } from "../lib/format";
+import { CHECK_PRICE_LABEL, pricePresentation } from "../lib/price";
 import type { Flight, TripOption } from "../lib/types";
 import { ScoreDial } from "./ScoreDial";
 
@@ -32,38 +33,6 @@ function telemetry(flight: Flight): string {
   return flight.airline ? `${stops} · ${flight.airline}` : stops;
 }
 
-const STALE_AFTER_DAYS = 3;
-
-/** The oldest fare in the trip — a total is only as fresh as its stalest leg. */
-function oldestSeenAt(trip: TripOption): string | null {
-  const flights = (trip.segments ?? [])
-    .filter((segment) => segment.kind === "flight" && segment.flight)
-    .map((segment) => segment.flight!);
-  const seen = (flights.length > 0 ? flights : [trip.outboundFlight])
-    .map((flight) => flight.observedAt)
-    .filter((value): value is string => Boolean(value));
-  if (seen.length === 0) return null;
-  return seen.reduce((oldest, value) => (new Date(value) < new Date(oldest) ? value : oldest));
-}
-
-function fareAgeDays(trip: TripOption): number | null {
-  const seen = oldestSeenAt(trip);
-  if (!seen) return null;
-  const days = (Date.now() - new Date(seen).getTime()) / 86_400_000;
-  return Math.max(0, Math.floor(days));
-}
-
-function freshness(trip: TripOption): string {
-  // The day the provider last saw the fare, not when we fetched it — their data
-  // is a cache of what travellers recently searched, so a price can legitimately
-  // be several days old however often we refresh.
-  const seen = oldestSeenAt(trip);
-  const ago = seen ? timeAgo(seen) : null;
-  const multiLeg = (trip.segments ?? []).filter((s) => s.kind === "flight").length > 2;
-  if (!ago) return "price age unknown";
-  return multiLeg ? `oldest price seen ${ago}` : `price seen ${ago}`;
-}
-
 function LegLine({ label, flight, showPrice }: { label: string; flight: Flight; showPrice: boolean }) {
   return (
     <p className="mono-num font-mono text-xs text-cloud">
@@ -88,8 +57,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
   const returnFrom = trip.returnFlight.origin;
   const dealValue = trip.dealScore ?? trip.score;
   const bookingHref = trip.bookingUrl ?? trip.affiliateUrl ?? trip.providerDeepLink ?? null;
-  const ageDays = fareAgeDays(trip);
-  const staleFare = ageDays != null && ageDays > STALE_AFTER_DAYS;
+  const price = pricePresentation(trip);
 
   return (
     <div className="border-b border-line">
@@ -149,20 +117,27 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           ) : null}
           <span
             className={
-              "mono-num block font-display text-3xl font-bold leading-none " +
+              "mono-num block font-display leading-none " +
               (overBudget ? "text-mist/60" : "text-coral")
             }
           >
-            {formatPrice(trip.totalPrice)}
+            <span className="mr-1 align-middle text-xs font-normal uppercase tracking-label text-mist">
+              {price.isEstimate ? "Est. from" : price.confidence === "aging" || price.isStale ? "Recently from" : "from"}
+            </span>
+            <span className="align-middle text-3xl font-bold">
+              {formatPrice(price.isEstimate || !trip.price ? trip.totalPrice : trip.price.amount)}
+            </span>
           </span>
-          <span
-            className={
-              "mt-1 block font-mono text-[10px] uppercase tracking-label " +
-              (staleFare ? "text-gold" : "text-mist/70")
-            }
-          >
-            {freshness(trip)}
-          </span>
+          {price.secondary ? (
+            <span
+              className={
+                "mt-1 block font-mono text-[10px] uppercase tracking-label " +
+                (price.isStale || price.confidence === "aging" ? "text-gold" : "text-mist/70")
+              }
+            >
+              {price.secondary}
+            </span>
+          ) : null}
         </span>
 
         <span
@@ -233,10 +208,16 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             </p>
           ) : null}
 
-          {staleFare ? (
+          {price.isStale ? (
             <p className="mt-4 max-w-2xl font-mono text-xs text-gold">
-              This price was last seen {ageDays} days ago. Aviasales prices what is on sale right now,
-              so check before you count on it.
+              This fare was last seen more than two days ago. Aviasales prices what is on sale right
+              now, so treat this as a lead rather than a quote.
+            </p>
+          ) : null}
+          {price.isEstimate ? (
+            <p className="mt-4 max-w-2xl font-mono text-xs text-mist">
+              Each flight was priced separately and added up — nobody observed this itinerary as a
+              single fare, and booking it as one usually costs more.
             </p>
           ) : null}
 
@@ -260,7 +241,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                 rel="noopener noreferrer"
                 className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint transition-colors hover:text-cloud"
               >
-                {trip.bookingLabel ?? "Check price"} ↗
+                {CHECK_PRICE_LABEL} ↗
               </a>
             ) : (
               <span className="font-mono text-[11px] uppercase tracking-label text-mist/60">

@@ -19,6 +19,8 @@ class ScoringContext:
     route_stats: dict[str, dict] = field(default_factory=dict)
     profile: UserTravelProfileDB | None = None
     country_states: dict[str, str] = field(default_factory=dict)
+    #: Cheapest total in the current result set, for relative-cheapness scoring.
+    cheapest_price: float | None = None
 
 
 def route_key(origin: str, destination: str) -> str:
@@ -98,15 +100,51 @@ def calculate_deal_score(
     add_stops_component(trip, route_distance, add)
     add_confidence_component(trip, add)
 
-    # Fare age is applied after clamping, not as one more component. Cheap trips
-    # routinely score past the ceiling, and a penalty added before the clamp
-    # would vanish there — leaving a week-old price tied with one seen today.
-    final = clamp(score)
-    age_points = fare_age_points(trip)
-    if age_points:
-        components.append(ScoreComponent(label=fare_age_label(trip), points=age_points))
-        final = clamp(final + age_points)
+    # Quality is everything above; freshness and relative cheapness are blended
+    # in afterwards, not added as more components. Cheap trips routinely score
+    # past the ceiling, so a pre-clamp penalty vanished there and left a week-old
+    # price tied with one seen today.
+    quality = clamp(score)
+    freshness = trip.price.freshnessScore if trip.price else UNKNOWN_FRESHNESS_SCORE
+    cheapness = _cheapness_score(trip, context)
+
+    final = clamp(
+        round(
+            quality * QUALITY_WEIGHT
+            + cheapness * CHEAPNESS_WEIGHT
+            + freshness * FRESHNESS_WEIGHT
+        )
+    )
+    components.append(ScoreComponent(label=fare_age_label(trip), points=_delta(freshness, quality)))
     return final, components
+
+
+# A deal is mostly about the trip itself, but a bargain nobody can still buy is
+# not a bargain. Weights chosen so a slightly dearer, much fresher fare wins on
+# near-ties, while a genuinely large price gap still decides the ranking.
+QUALITY_WEIGHT = 0.55
+CHEAPNESS_WEIGHT = 0.15
+FRESHNESS_WEIGHT = 0.30
+UNKNOWN_FRESHNESS_SCORE = 40
+
+
+def _delta(freshness: int, quality: int) -> int:
+    """How far freshness moved this trip from a purely quality-based score."""
+    return int(round((freshness - quality) * FRESHNESS_WEIGHT))
+
+
+def _cheapness_score(trip: TripOption, context: ScoringContext | None) -> int:
+    """How this price compares with the cheapest trip in the same result set.
+
+    The quality score measures price against the traveller's budget, where a EUR
+    40 and a EUR 120 trip both sit far enough under EUR 600 to score identically.
+    That is the right reading of "within budget" and the wrong reading of
+    "cheaper", so relative cheapness is scored separately.
+    """
+    baseline = context.cheapest_price if context else None
+    if not baseline or baseline <= 0 or trip.totalPrice <= 0:
+        return 100
+    return clamp(int(round(100 * baseline / trip.totalPrice)))
 
 
 def add_price_history_component(trip: TripOption, context: ScoringContext | None, add) -> bool:
@@ -173,36 +211,16 @@ def add_confidence_component(trip: TripOption, add) -> None:
         add("Live fares for both flights", 3)
 
 
-def fare_age_points(trip: TripOption, today: date | None = None) -> int:
-    """Score adjustment for how long ago the provider last saw this price.
-
-    Travelpayouts serves fares other travellers searched for in the past week, so
-    two results can differ by days in age. A cheaper but older price is a worse
-    lead than a slightly dearer one seen today — it is likelier to have moved.
-    A ranking signal rather than a filter, because on a thin route the only fare
-    there is may be several days old.
-    """
-    age = fare_age_days(trip, today)
-    if age is None:
-        # No sighting date. Rank below a fare we know is fresh, above one we
-        # know is stale: unknown is not the same as old.
-        return -4
-    if age <= 1:
-        return 0
-    if age <= 3:
-        return -4
-    if age <= 5:
-        return -10
-    return -18
-
-
 def fare_age_label(trip: TripOption, today: date | None = None) -> str:
-    age = fare_age_days(trip, today)
-    if age is None:
+    price = trip.price
+    if price is None or price.ageHours is None:
         return "Price age unknown"
-    if age <= 1:
-        return "Price seen in the last day"
-    return f"Price last seen {age} days ago"
+    hours = price.ageHours
+    if hours < 1:
+        return "Price seen within the hour"
+    if hours < 24:
+        return f"Price seen {int(hours)}h ago"
+    return f"Price seen {int(hours // 24)}d ago"
 
 
 def fare_age_days(trip: TripOption, today: date | None = None) -> int | None:

@@ -1,4 +1,5 @@
 import { formatPrice } from "../lib/format";
+import { CHECK_PRICE_LABEL, pricePresentation } from "../lib/price";
 import type { Flight, TripOption } from "../lib/types";
 
 function legTime(iso: string): string {
@@ -83,11 +84,11 @@ export function BoardingPass({ trip }: { trip: TripOption }) {
           <span className="block font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
             Total fare
           </span>
-          <span className="mono-num mt-2 block font-display text-5xl font-bold leading-none text-coral">
-            {formatPrice(trip.totalPrice, trip.outboundFlight.currency)}
+          <span className="mono-num mt-2 block font-display text-4xl font-bold leading-tight text-coral">
+            {pricePresentation(trip).primary}
           </span>
           <p className="mt-3 font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist">
-            Indicative price · verify before booking
+            {pricePresentation(trip).secondary || "Recently observed fare · verify before booking"}
           </p>
           {bookingHref ? (
             <a
@@ -96,7 +97,7 @@ export function BoardingPass({ trip }: { trip: TripOption }) {
               rel="noopener noreferrer"
               className="mt-6 block bg-mint px-6 py-3.5 text-center font-mono text-[11px] font-semibold uppercase tracking-label text-mint-ink transition-opacity hover:opacity-90"
             >
-              {trip.bookingLabel ?? "Check price"} ↗
+              {CHECK_PRICE_LABEL} ↗
             </a>
           ) : (
             <p className="mt-6 border border-line px-4 py-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/70">

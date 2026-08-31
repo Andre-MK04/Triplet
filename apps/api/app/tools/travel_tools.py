@@ -148,7 +148,7 @@ def build_chained_trips(
                 _finish_itinerary(trip, request, scoring)
                 all_trips.append(trip)
 
-    all_trips.sort(key=lambda trip: (-trip.dealScore, -(trip.fitScore or 0), trip.totalPrice))
+    all_trips = _rescore(all_trips, request, scoring)
     return all_trips[:MAX_CHAINED_RESULTS], (note if all_trips else note)
 
 
@@ -209,6 +209,42 @@ def _proposal_note(request: TripSearchRequest, candidates: list[list[str]]) -> s
     return (
         f"You named a region rather than cities, so Triplet planned the {shape} routes: {routes}. "
         "Only places inside that region were considered."
+    )
+
+
+MIN_RESULTS_BEFORE_DROPPING_STALE = 6
+
+
+def _drop_stale_when_better_exists(trips: list) -> list:
+    """Remove fares older than two days once there are enough fresher ones.
+
+    A five-day-old bargain should not headline a search that also has fares from
+    this morning. But on a thin route the stale fare may be the only evidence
+    that the place is reachable at all, so it survives when little else does —
+    flagged as stale, which the interface shows rather than a firm price.
+    """
+    fresh = [trip for trip in trips if not (trip.price and trip.price.freshness == "stale")]
+    if len(fresh) >= MIN_RESULTS_BEFORE_DROPPING_STALE:
+        return fresh
+    return trips
+
+
+def _rescore(trips: list, request: TripSearchRequest, scoring: ScoringContext) -> list:
+    """Score once the whole result set is known.
+
+    Relative cheapness needs a baseline, and the baseline is the cheapest trip in
+    this search — which does not exist until every candidate has been built.
+    """
+    trips = _drop_stale_when_better_exists(trips)
+    if not trips:
+        return trips
+    scoring.cheapest_price = min(trip.totalPrice for trip in trips if trip.totalPrice > 0)
+    for trip in trips:
+        trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, scoring)
+        trip.score = trip.dealScore
+    return sorted(
+        trips,
+        key=lambda trip: (-trip.dealScore, -(trip.fitScore or 0), trip.totalPrice),
     )
 
 
@@ -397,6 +433,7 @@ class SearchTripsTool(Tool):
                 trips, relaxation_note = nearest_matches(
                     round_trip_fares, request, scope, scoring, airports, transfers, flight_result.flights
                 )
+            trips = _rescore(trips, request, scoring)
 
         try:
             TripSuggestionsRepository(context.db).save_trips(

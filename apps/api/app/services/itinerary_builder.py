@@ -27,6 +27,7 @@ from app.config import settings
 from app.data.flight_places import canonical_code, get_place
 from app.data.geography import distance_km, estimate_duration_minutes, place_city
 from app.models import CityStay, Flight, GroundTransfer, TripOption, TripSearchRequest, TripSegment
+from app.pricing import build_price_info
 from app.providers.travelpayouts.affiliate_links import ItinerarySegment, build_aviasales_itinerary_url
 from app.providers.travelpayouts.mapper import OneWayFare
 
@@ -427,6 +428,15 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
         stays=stays,
         flightCost=round(flight_cost, 2),
         groundEstimate=round(ground_estimate, 2) if has_ground else None,
+        # Every hop priced from its own observation, then added up. Real fares,
+        # real arithmetic — but no one observed this chain as a single price, and
+        # the trip is only as fresh as its oldest leg.
+        price=build_price_info(
+            amount=flight_cost,
+            kind="estimated_open_jaw" if trip_type == "open_jaw" else "estimated_multi_city",
+            observed_ats=[flight.observedAt for flight in flights],
+            currency=flights[0].currency if flights else "EUR",
+        ),
         # Flights only, by design: a ground estimate is for planning, not a quote.
         totalPrice=round(flight_cost, 2),
         tripLengthDays=nights,

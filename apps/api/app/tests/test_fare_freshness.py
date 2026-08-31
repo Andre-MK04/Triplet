@@ -66,7 +66,7 @@ def test_a_fresh_price_outranks_a_cheaper_stale_one():
     stale = build_round_trip_options([fare(400, 6)], request(), enforce_budget=False)[0]
 
     assert fresh.dealScore > stale.dealScore
-    assert any("last seen" in c.label for c in stale.dealScoreBreakdown)
+    assert any("Price seen" in c.label for c in stale.dealScoreBreakdown)
 
 
 def test_unknown_age_ranks_below_a_dated_fresh_price():
@@ -246,3 +246,45 @@ class _FrozenClock:
     @staticmethod
     def combine(*args, **kwargs):
         return _dt.combine(*args, **kwargs)
+
+
+# --- Ranking: freshness matters on near-ties, price still decides big gaps ---
+
+def _ranked(price_a, hours_a, price_b, hours_b):
+    from app.services.trip_builder import build_round_trip_options
+    from app.services.trip_scoring import ScoringContext, calculate_deal_score
+    from app.providers.travelpayouts.mapper import RoundTripFare as RT
+
+    ask = TripSearchRequest(
+        originAirports=["VIE"], destinationAirports=["BCN"],
+        startDate=date(2026, 10, 1), endDate=date(2026, 10, 31),
+        minTripLengthDays=3, maxTripLengthDays=10, maxBudget=600,
+        maxGroundTransferHours=4, tripStyle="one city",
+    )
+    now = datetime.utcnow()
+
+    def one(price, hours):
+        fare = RT(origin="VIE", destination="BCN", price=price, currency="EUR",
+                  departureDate="2026-10-06", returnDate="2026-10-10",
+                  observedAt=now - timedelta(hours=hours))
+        return build_round_trip_options([fare], ask, enforce_budget=False)[0]
+
+    trip_a, trip_b = one(price_a, hours_a), one(price_b, hours_b)
+    context = ScoringContext(cheapest_price=min(trip_a.totalPrice, trip_b.totalPrice))
+    score_a, _ = calculate_deal_score(trip_a, ask, context)
+    score_b, _ = calculate_deal_score(trip_b, ask, context)
+    return score_a, score_b
+
+
+def test_freshness_wins_when_the_prices_are_close():
+    """EUR 41 found 45h ago should not outrank EUR 47 found 2h ago."""
+    stale_bargain, fresh = _ranked(40, 45, 45, 2)
+
+    assert fresh > stale_bargain
+
+
+def test_price_still_wins_when_the_gap_is_large():
+    """Freshness must not make a EUR 120 fare look like the better cheap flight."""
+    cheap, dear_but_fresh = _ranked(40, 20, 120, 2)
+
+    assert cheap > dear_but_fresh
