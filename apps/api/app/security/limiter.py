@@ -13,7 +13,13 @@ cheaper to abuse than its neighbour.
 
 Backend selection is by configuration, never silent: with REDIS_URL set the
 counters are shared, without it they are per-process and the application says so
-at startup. Production refuses to start unprotected — see `validate_for_production`.
+at startup, loudly, every time. See `validate_for_production`.
+
+Missing Redis is a warning rather than a startup failure. A single-worker
+deployment is genuinely protected by per-process counters, and refusing to boot
+over an unset variable trades a small, conditional weakness for a total outage —
+a bad exchange. Deployments that must never run unshared set
+RATE_LIMIT_REQUIRE_SHARED=true and get the hard failure instead.
 """
 
 from __future__ import annotations
@@ -208,17 +214,37 @@ def check_rate_limit(
         raise RateLimitExceeded(retry_after)
 
 
-def validate_for_production() -> list[str]:
-    """Configuration problems that make production protection ineffective."""
-    problems: list[str] = []
+UNSHARED_LIMITS_WARNING = (
+    "REDIS_URL is not set, so rate limits are counted per process. This is adequate "
+    "for a single worker on a single instance, and NOT adequate beyond that: every "
+    "extra worker or instance multiplies the effective limit. Set REDIS_URL to share "
+    "the counters."
+)
+
+
+def check_production_limits() -> str | None:
+    """Warn when limits are per-process in production. Never fatal by default.
+
+    Returns the warning to log, or None when the configuration is sound. This
+    deliberately does not raise: an unset variable must not crash-loop a running
+    service over a weakness that may not even apply to it.
+    """
     if settings.app_env not in {"production", "prod"}:
-        return problems
-    if settings.redis_url or settings.rate_limit_allow_in_memory:
-        return problems
-    problems.append(
-        "REDIS_URL is not set and RATE_LIMIT_ALLOW_IN_MEMORY is not enabled. Rate limits "
-        "would be counted per process, so every additional worker or instance multiplies "
-        "the effective limit. Set REDIS_URL, or set RATE_LIMIT_ALLOW_IN_MEMORY=true to "
-        "declare that this deployment runs a single worker."
-    )
-    return problems
+        return None
+    if settings.redis_url:
+        return None
+    return UNSHARED_LIMITS_WARNING
+
+
+def validate_for_production() -> list[str]:
+    """Configuration problems severe enough to refuse to start.
+
+    Only when the deployment has explicitly said it requires shared counters —
+    a multi-worker service where per-process limits really are ineffective.
+    """
+    if settings.rate_limit_require_shared and not settings.redis_url:
+        return [
+            "RATE_LIMIT_REQUIRE_SHARED is set but REDIS_URL is not. This deployment has "
+            "declared that per-process rate limits are not acceptable for it."
+        ]
+    return []

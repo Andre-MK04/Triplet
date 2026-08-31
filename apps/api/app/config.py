@@ -133,11 +133,10 @@ class Settings:
     # Only trust X-Forwarded-For where a proxy actually sets it; otherwise a
     # caller could choose their own rate-limit identity.
     trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "true").lower() == "true"
-    # Declares that this deployment runs exactly one worker on one instance, so
-    # per-process counters really are the whole picture. Production otherwise
-    # requires REDIS_URL: the danger is not the absence of Redis, it is believing
-    # you are protected while each worker enforces its own private budget.
-    rate_limit_allow_in_memory: bool = os.getenv("RATE_LIMIT_ALLOW_IN_MEMORY", "false").lower() == "true"
+    # Refuse to start rather than run per-process limits. For multi-worker
+    # deployments, where per-process counters really are ineffective. Off by
+    # default: a missing variable must not crash-loop a running service.
+    rate_limit_require_shared: bool = os.getenv("RATE_LIMIT_REQUIRE_SHARED", "false").lower() == "true"
     # Interactive API docs describe every route, schema and error to anyone who
     # asks. Useful locally, an inventory for an attacker in production.
     expose_api_docs: bool = os.getenv("EXPOSE_API_DOCS", "").lower() == "true"

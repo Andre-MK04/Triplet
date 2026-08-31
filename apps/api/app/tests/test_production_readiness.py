@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from app.security import check_production_limits
 from app.main import app, validate_security_settings
 from app.rate_limit import clear_rate_limits, rate_limit
 
@@ -43,9 +44,11 @@ def test_production_validation_accepts_secure_minimum(monkeypatch):
     validate_security_settings()
 
 
-def test_production_refuses_per_process_rate_limits_by_default(monkeypatch):
-    """Believing you are rate limited while each worker counts separately is
-    worse than knowing you are not."""
+def test_missing_redis_warns_but_still_boots(monkeypatch):
+    """A missing variable must never crash-loop a running service.
+
+    Per-process limits are a real weakness beyond one worker, but a total outage
+    is a worse outcome than a conditional one, so this warns and starts."""
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
@@ -58,28 +61,40 @@ def test_production_refuses_per_process_rate_limits_by_default(monkeypatch):
     monkeypatch.setattr(settings, "billing_enabled", False)
     monkeypatch.setattr(settings, "email_provider", "console")
     monkeypatch.setattr(settings, "redis_url", None)
-    monkeypatch.setattr(settings, "rate_limit_allow_in_memory", False)
+    monkeypatch.setattr(settings, "rate_limit_require_shared", False)
+
+    validate_security_settings()
+
+    assert check_production_limits() is not None
+
+
+def test_a_deployment_may_declare_that_it_requires_shared_counters(monkeypatch):
+    """Multi-worker deployments, where per-process limits really are useless,
+    opt in to the hard failure."""
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
+    monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
+    monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
+    monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
+    monkeypatch.setattr(settings, "auth_cookie_secure", True)
+    monkeypatch.setattr(settings, "auth_cookie_samesite", "none")
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "flight_provider", "database")
+    monkeypatch.setattr(settings, "billing_enabled", False)
+    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "redis_url", None)
+    monkeypatch.setattr(settings, "rate_limit_require_shared", True)
 
     with pytest.raises(RuntimeError, match="REDIS_URL"):
         validate_security_settings()
 
 
-def test_a_single_worker_deployment_may_declare_itself(monkeypatch):
+def test_shared_counters_satisfy_the_strict_deployment(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
-    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
-    monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
-    monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
-    monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
-    monkeypatch.setattr(settings, "auth_cookie_secure", True)
-    monkeypatch.setattr(settings, "auth_cookie_samesite", "none")
-    monkeypatch.setattr(settings, "ai_enabled", False)
-    monkeypatch.setattr(settings, "flight_provider", "database")
-    monkeypatch.setattr(settings, "billing_enabled", False)
-    monkeypatch.setattr(settings, "email_provider", "console")
-    monkeypatch.setattr(settings, "redis_url", None)
-    monkeypatch.setattr(settings, "rate_limit_allow_in_memory", True)
+    monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "rate_limit_require_shared", True)
 
-    validate_security_settings()
+    assert check_production_limits() is None
 
 
 def test_readiness_response_has_no_secrets(monkeypatch):

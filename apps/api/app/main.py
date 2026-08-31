@@ -8,7 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import routes as auth_routes
 from app.config import settings
-from app.security import RateLimitExceeded, limiter_backend_name, validate_for_production
+from app.security import (
+    RateLimitExceeded,
+    check_production_limits,
+    limiter_backend_name,
+    validate_for_production,
+)
 from app.billing import routes as billing_routes
 from app.providers.registry import LIVE_PROVIDER_NAMES, build_provider
 from app.routers import ai, alerts, airports, countries, geo, health, me, places, providers, tools, travel_map, trips
@@ -70,13 +75,15 @@ def validate_security_settings() -> None:
     if errors:
         raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
 
-    # Rate limits counted per process are not protection once there is more than
-    # one worker, so production says so rather than appearing protected.
-    for problem in validate_for_production():
-        errors.append(problem)
-        logger.error("rate_limit_configuration: %s", problem)
-    if errors and settings.app_env in {"production", "prod"}:
-        raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
+    # Per-process limits are a real weakness beyond one worker, but not one worth
+    # an outage over: warn on every boot, and fail only where the deployment has
+    # declared it cannot tolerate them.
+    warning = check_production_limits()
+    if warning:
+        logger.warning("rate_limit_configuration: %s", warning)
+    fatal = validate_for_production()
+    if fatal:
+        raise RuntimeError("Production configuration is invalid: " + " ".join(fatal))
     logger.info("rate_limit_backend=%s", limiter_backend_name())
 
     if settings.flight_provider == "hybrid":
