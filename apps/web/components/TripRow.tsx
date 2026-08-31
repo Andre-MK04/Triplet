@@ -32,13 +32,22 @@ function telemetry(flight: Flight): string {
   return flight.airline ? `${stops} · ${flight.airline}` : stops;
 }
 
+const STALE_AFTER_DAYS = 3;
+
+function fareAgeDays(trip: TripOption): number | null {
+  const seen = trip.outboundFlight.observedAt;
+  if (!seen) return null;
+  const days = (Date.now() - new Date(seen).getTime()) / 86_400_000;
+  return Math.max(0, Math.floor(days));
+}
+
 function freshness(trip: TripOption): string {
-  // The provider serves cached market fares and never says when a fare was
-  // actually seen — only we know when we last read it. Saying "observed" implied
-  // a live sighting, so this says what is true: when Triplet checked.
-  const checked = trip.outboundFlight.observedAt;
-  const ago = checked ? timeAgo(checked) : null;
-  return ago ? `cached fare · checked ${ago}` : "cached fare";
+  // This is the day the provider last saw the fare, not when we fetched it —
+  // their data is a cache of what travellers recently searched, so a price can
+  // legitimately be several days old however often we refresh.
+  const seen = trip.outboundFlight.observedAt;
+  const ago = seen ? timeAgo(seen) : null;
+  return ago ? `price seen ${ago}` : "price age unknown";
 }
 
 function LegLine({ label, flight, showPrice }: { label: string; flight: Flight; showPrice: boolean }) {
@@ -63,6 +72,8 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
   const returnFrom = trip.returnFlight.origin;
   const dealValue = trip.dealScore ?? trip.score;
   const bookingHref = trip.bookingUrl ?? trip.affiliateUrl ?? trip.providerDeepLink ?? null;
+  const ageDays = fareAgeDays(trip);
+  const staleFare = ageDays != null && ageDays > STALE_AFTER_DAYS;
 
   return (
     <div className="border-b border-line">
@@ -115,7 +126,12 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           >
             {formatPrice(trip.totalPrice)}
           </span>
-          <span className="mt-1 block font-mono text-[10px] uppercase tracking-label text-mist/70">
+          <span
+            className={
+              "mt-1 block font-mono text-[10px] uppercase tracking-label " +
+              (staleFare ? "text-gold" : "text-mist/70")
+            }
+          >
             {freshness(trip)}
           </span>
         </span>
@@ -144,6 +160,13 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             ) : null}
             <LegLine label="RET" flight={trip.returnFlight} showPrice={trip.fareKind !== "round_trip_bundle"} />
           </div>
+
+          {staleFare ? (
+            <p className="mt-4 max-w-2xl font-mono text-xs text-gold">
+              This price was last seen {ageDays} days ago. Aviasales prices what is on sale right now,
+              so check before you count on it.
+            </p>
+          ) : null}
 
           {trip.explanation ? <p className="mt-4 max-w-2xl text-sm leading-relaxed text-mist">{trip.explanation}</p> : null}
 

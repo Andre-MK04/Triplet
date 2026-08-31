@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import date
 
 from app.data.destination_styles import STYLE_LABELS, destination_styles
 from app.data.geography import distance_km, place_country_code
@@ -97,7 +98,15 @@ def calculate_deal_score(
     add_stops_component(trip, route_distance, add)
     add_confidence_component(trip, add)
 
-    return clamp(score), components
+    # Fare age is applied after clamping, not as one more component. Cheap trips
+    # routinely score past the ceiling, and a penalty added before the clamp
+    # would vanish there — leaving a week-old price tied with one seen today.
+    final = clamp(score)
+    age_points = fare_age_points(trip)
+    if age_points:
+        components.append(ScoreComponent(label=fare_age_label(trip), points=age_points))
+        final = clamp(final + age_points)
+    return final, components
 
 
 def add_price_history_component(trip: TripOption, context: ScoringContext | None, add) -> bool:
@@ -162,6 +171,51 @@ def add_confidence_component(trip: TripOption, add) -> None:
     levels = {trip.outboundFlight.confidenceLevel, trip.returnFlight.confidenceLevel}
     if levels == {"live"}:
         add("Live fares for both flights", 3)
+
+
+def fare_age_points(trip: TripOption, today: date | None = None) -> int:
+    """Score adjustment for how long ago the provider last saw this price.
+
+    Travelpayouts serves fares other travellers searched for in the past week, so
+    two results can differ by days in age. A cheaper but older price is a worse
+    lead than a slightly dearer one seen today — it is likelier to have moved.
+    A ranking signal rather than a filter, because on a thin route the only fare
+    there is may be several days old.
+    """
+    age = fare_age_days(trip, today)
+    if age is None:
+        # No sighting date. Rank below a fare we know is fresh, above one we
+        # know is stale: unknown is not the same as old.
+        return -4
+    if age <= 1:
+        return 0
+    if age <= 3:
+        return -4
+    if age <= 5:
+        return -10
+    return -18
+
+
+def fare_age_label(trip: TripOption, today: date | None = None) -> str:
+    age = fare_age_days(trip, today)
+    if age is None:
+        return "Price age unknown"
+    if age <= 1:
+        return "Price seen in the last day"
+    return f"Price last seen {age} days ago"
+
+
+def fare_age_days(trip: TripOption, today: date | None = None) -> int | None:
+    """Days since the provider last saw this trip's price, if it told us."""
+    seen = [
+        flight.observedAt
+        for flight in (trip.outboundFlight, trip.returnFlight)
+        if flight.observedAt is not None
+    ]
+    if not seen:
+        return None
+    reference = today or date.today()
+    return max(0, (reference - max(seen).date()).days)
 
 
 def calculate_fit_score(

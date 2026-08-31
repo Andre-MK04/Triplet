@@ -235,6 +235,8 @@ class FlightSearchService:
                 continue
             if request.directOnly and (fare.stops or 0) > 0:
                 continue
+            if fare_is_too_old(fare):
+                continue
             filtered.append(fare.model_copy(update={"destination": destination}))
         return merge_duplicate_fares(filtered)
 
@@ -389,6 +391,20 @@ class FlightSearchService:
         except Exception:
             # Price history is best-effort; never fail a search over it.
             logger.exception("price_observation_recording_failed")
+
+
+def fare_is_too_old(fare, today: date | None = None) -> bool:
+    """Whether the provider last saw this price too long ago to quote it.
+
+    A backstop, not the main control: the provider's data tops out around a week
+    old anyway, and fare age is mostly handled by ranking so a thin route can
+    still show the only fare that exists. A fare with no sighting date is kept —
+    unknown age is not the same as known-stale, and the UI says which it is.
+    """
+    if fare.observedAt is None:
+        return False
+    age_days = ((today or date.today()) - fare.observedAt.date()).days
+    return age_days > settings.max_fare_age_days
 
 
 def merge_duplicate_fares(fares: list) -> list:

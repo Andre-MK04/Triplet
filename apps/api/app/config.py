@@ -50,6 +50,20 @@ class Settings:
         os.getenv("TRAVELPAYOUTS_DISCOVERY_LIMIT_PER_ORIGIN", "100")
     )
     travelpayouts_cache_enabled: bool = os.getenv("TRAVELPAYOUTS_CACHE_ENABLED", "true").lower() == "true"
+    # How long a cached deal may be served before we re-read it from the
+    # provider. The scheduled tick re-stamps rows hourly, so this only bites when
+    # the tick is behind or the origin is one it does not warm.
+    deals_serve_ttl_hours: int = int(os.getenv("DEALS_SERVE_TTL_HOURS", "6"))
+    # How long a deal is kept at all. Longer than the serve window so a late tick
+    # does not empty the cache and leave searches with nothing to fall back on.
+    deals_retention_hours: int = int(os.getenv("DEALS_RETENTION_HOURS", "48"))
+    # Refuse to quote a price the provider last saw longer ago than this. Their
+    # data tops out around a week, so this is a backstop, not the main control —
+    # fare age is primarily a ranking signal.
+    max_fare_age_days: int = int(os.getenv("MAX_FARE_AGE_DAYS", "7"))
+    # Origins the hourly tick keeps warm: one provider request each, so this is
+    # the hourly API budget for cache warming.
+    deals_max_warmed_origins: int = int(os.getenv("DEALS_MAX_WARMED_ORIGINS", "40"))
     travelpayouts_currency: str = os.getenv("TRAVELPAYOUTS_CURRENCY", "EUR")
     skyscanner_api_enabled: bool = os.getenv("SKYSCANNER_API_ENABLED", "false").lower() == "true"
     skyscanner_api_key: str | None = os.getenv("SKYSCANNER_API_KEY") or None

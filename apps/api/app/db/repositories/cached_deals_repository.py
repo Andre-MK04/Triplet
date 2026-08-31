@@ -3,24 +3,33 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.models import CachedRoundTripDB
 from app.providers.travelpayouts.mapper import RoundTripFare
 
-# How long a cached deal is considered fresh enough to serve without re-fetching.
-DEFAULT_TTL_HOURS = 24
+
+def serve_ttl_hours() -> int:
+    """How long a cached deal may be served before we re-read it."""
+    return settings.deals_serve_ttl_hours
+
+
+def retention_hours() -> int:
+    """How long a deal is kept before being deleted outright."""
+    return max(settings.deals_retention_hours, settings.deals_serve_ttl_hours)
+
 
 
 class CachedDealsRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def upsert_deals(self, fares: list[RoundTripFare], ttl_hours: int = DEFAULT_TTL_HOURS) -> int:
+    def upsert_deals(self, fares: list[RoundTripFare], ttl_hours: int | None = None) -> int:
         """Insert/refresh cached deals. Dedup on route+dates, keep the cheapest.
 
         Returns the number of rows written (inserted or updated).
         """
         now = datetime.utcnow()
-        expires = now + timedelta(hours=ttl_hours)
+        expires = now + timedelta(hours=ttl_hours or serve_ttl_hours())
 
         # Dedup the batch first: overlapping query codes (e.g. ARN and the STO metro
         # code) can return the same route+dates twice, and with autoflush off two
@@ -72,9 +81,9 @@ class CachedDealsRepository:
         self.db.commit()
         return written
 
-    def fresh_deals(self, origins: list[str], ttl_hours: int = DEFAULT_TTL_HOURS) -> list[RoundTripFare]:
+    def fresh_deals(self, origins: list[str], ttl_hours: int | None = None) -> list[RoundTripFare]:
         """Cached deals from these origins that are still fresh, as RoundTripFares."""
-        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours)
+        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours or serve_ttl_hours())
         codes = [code.upper() for code in origins]
         rows = self.db.scalars(
             select(CachedRoundTripDB)
@@ -84,7 +93,7 @@ class CachedDealsRepository:
         ).all()
         return [_to_fare(row) for row in rows]
 
-    def country_ranking(self, origins: list[str], ttl_hours: int = DEFAULT_TTL_HOURS) -> tuple[str, ...]:
+    def country_ranking(self, origins: list[str], ttl_hours: int | None = None) -> tuple[str, ...]:
         """Countries we have recently seen real fares to, cheapest first.
 
         Used to decide which countries of a large scope ("Asia", "outside
@@ -104,8 +113,8 @@ class CachedDealsRepository:
                 cheapest[place.country_code] = fare.price
         return tuple(code for code, _ in sorted(cheapest.items(), key=lambda item: item[1]))
 
-    def has_fresh(self, origins: list[str], ttl_hours: int = DEFAULT_TTL_HOURS) -> bool:
-        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours)
+    def has_fresh(self, origins: list[str], ttl_hours: int | None = None) -> bool:
+        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours or serve_ttl_hours())
         codes = [code.upper() for code in origins]
         return (
             self.db.scalar(
@@ -117,9 +126,14 @@ class CachedDealsRepository:
             is not None
         )
 
-    def prune_stale(self, ttl_hours: int = DEFAULT_TTL_HOURS) -> int:
-        """Delete deals older than the freshness window. Returns rows deleted."""
-        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours)
+    def prune_stale(self, ttl_hours: int | None = None) -> int:
+        """Delete deals past the retention window. Returns rows deleted.
+
+        Deliberately longer than the serve window: an unserved row is still a
+        useful fallback when the provider is unreachable, and deleting on the
+        serve TTL would empty the cache every time a tick runs late.
+        """
+        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours or retention_hours())
         result = self.db.execute(delete(CachedRoundTripDB).where(CachedRoundTripDB.observed_at < cutoff))
         self.db.commit()
         return result.rowcount or 0
