@@ -73,6 +73,8 @@ class ParsedTripIntent(BaseModel):
     maxBudget: float | None = None
     maxGroundTransferHours: float = 4
     tripStyle: str | None = None
+    tripPlan: str = "return"
+    routeStops: list[str] | None = None
     directOnly: bool = False
     includeBaggage: bool = False
     parsedSearch: TripSearchRequest | None = None

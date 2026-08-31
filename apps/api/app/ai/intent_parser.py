@@ -31,6 +31,10 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
     destination_airports = None if has_broad_scope else parse_destinations(
         text, exclude=set(origin_airports) | set(return_origin_airports or [])
     )
+    route_stops = parse_route_stops(text, exclude=set(origin_airports))
+    trip_plan = parse_trip_plan(text, return_origin_airports, route_stops)
+    if trip_plan != "multi_city":
+        route_stops = None
     exclude_europe = bool(re.search(r"\b(?:outside|beyond|not in) europe\b", text))
     unvisited_only = bool(
         re.search(r"\b(?:unvisited|somewhere new|never visited|haven't visited|have not visited)\b", text)
@@ -72,6 +76,8 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
             maxBudget=max_budget,
             maxGroundTransferHours=4,
             tripStyle=trip_style,
+            tripPlan=trip_plan,
+            routeStops=route_stops,
             directOnly=direct_only,
             includeBaggage=include_baggage,
         )
@@ -100,6 +106,8 @@ def parse_trip_intent(message: str) -> ParsedTripIntent:
         maxBudget=max_budget,
         maxGroundTransferHours=4,
         tripStyle=trip_style,
+        tripPlan=trip_plan,
+        routeStops=route_stops,
         directOnly=direct_only,
         includeBaggage=include_baggage,
         parsedSearch=parsed_search,
@@ -227,6 +235,55 @@ def parse_budget(text: str) -> float | None:
     if not match:
         match = re.search(r"(\d+)\s*(?:€|eur|euros?)", text)
     return float(match.group(1)) if match else None
+
+
+_MULTI_CITY_CUE = re.compile(
+    r"\bmulti[- ]?city\b|\bcity hop\w*\b|\bthen\b|\bafter that\b|\bonwards? to\b",
+    re.IGNORECASE,
+)
+_OPEN_JAW_CUE = re.compile(r"\bopen[- ]?jaw\b", re.IGNORECASE)
+# "Rome then Athens then Istanbul" / "Rome, then Athens and then Istanbul".
+_SEQUENCE_SPLIT = re.compile(r",|\bthen\b|\bafter that\b|\bonwards? to\b|\bnext\b", re.IGNORECASE)
+
+
+def parse_trip_plan(
+    text: str,
+    return_origins: list[str] | None,
+    route_stops: list[str] | None,
+) -> str:
+    """Which shape of trip the words describe.
+
+    Return is the default and stays the default: someone who says "a week in
+    Rome" wants a return trip, and guessing otherwise turns a simple request into
+    an itinerary they did not ask for.
+    """
+    if _OPEN_JAW_CUE.search(text) or return_origins:
+        return "open_jaw"
+    if route_stops and len(route_stops) >= 2 and _MULTI_CITY_CUE.search(text):
+        return "multi_city"
+    return "return"
+
+
+def parse_route_stops(text: str, exclude: set[str] | None = None) -> list[str] | None:
+    """Cities to visit in the order they are named.
+
+    Only a sequence counts. "Rome then Athens" is an itinerary; "Rome or Athens"
+    is two candidates for one trip, and treating the second as a route would
+    invent a journey nobody asked for.
+    """
+    exclude = exclude or set()
+    if not _MULTI_CITY_CUE.search(text):
+        return None
+    stops: list[str] = []
+    for fragment in _SEQUENCE_SPLIT.split(text):
+        # One stop per fragment. A city name can match several places (Barcelona
+        # is in Spain and in Venezuela), and a sequence names one city per step,
+        # so the best match for the step is the only one that belongs in it.
+        for code in resolve_place_names(fragment, limit=4):
+            if code not in exclude and code not in stops:
+                stops.append(code)
+                break
+    return stops[:6] if len(stops) >= 2 else None
 
 
 def parse_trip_style(text: str) -> str | None:

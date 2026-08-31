@@ -120,3 +120,52 @@ def test_parses_worldwide_geographic_and_travel_map_filters():
     assert intent.excludeEurope is True
     assert intent.unvisitedOnly is True
     assert intent.destinationContinents == []
+
+
+def test_a_plain_request_stays_a_return_trip():
+    """The default must hold: naming one place is not asking for an itinerary."""
+    for message in (
+        "a week in rome from vienna in august under 300",
+        "from vienna to rome or athens in august, 5 days under 300",
+        "somewhere warm from vienna in august for 7 days under 400",
+    ):
+        intent = parse_trip_intent(message)
+        assert intent.tripPlan == "return", message
+        assert intent.routeStops is None
+
+
+def test_a_named_sequence_of_cities_is_a_multi_city_trip():
+    intent = parse_trip_intent(
+        "from vienna to rome then athens then istanbul in august for 9-12 days under 400"
+    )
+
+    assert intent.tripPlan == "multi_city"
+    assert intent.routeStops == ["ROM", "ATH", "IST"]
+
+
+def test_multi_city_takes_one_stop_per_step_despite_duplicate_city_names():
+    # Barcelona is a city in Spain and another in Venezuela; a step names one.
+    intent = parse_trip_intent(
+        "a multi city trip from budapest to barcelona then lisbon in august, 8-12 days under 500"
+    )
+
+    assert intent.routeStops == ["BCN", "LIS"]
+
+
+def test_flying_home_from_another_city_is_an_open_jaw_not_a_multi_city():
+    intent = parse_trip_intent(
+        "from budapest to stockholm, then from helsinki back to budapest in august 5 days under 300"
+    )
+
+    assert intent.tripPlan == "open_jaw"
+    assert intent.returnOriginAirports == ["HEL"]
+    assert intent.routeStops is None
+
+
+def test_the_phrase_open_jaw_is_understood_directly():
+    intent = parse_trip_intent(
+        "an open jaw trip from vienna to barcelona home from lisbon in august 6 days under 300"
+    )
+
+    assert intent.tripPlan == "open_jaw"
+    assert intent.returnOriginAirports == ["LIS"]
