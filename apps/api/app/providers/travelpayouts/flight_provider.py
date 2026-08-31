@@ -20,6 +20,7 @@ from app.providers.travelpayouts.client import TravelpayoutsHttpClient
 from app.providers.travelpayouts.mapper import (
     RoundTripFare,
     map_city_directions_response,
+    map_month_matrix_response,
     map_price_calendar_response,
     map_prices_for_dates_response_to_flights,
     map_round_trip_rows,
@@ -126,6 +127,36 @@ class TravelpayoutsAviasalesProvider(FlightProvider):
                 ]
             )
         return fares
+
+    def one_way_legs(self, legs: list[tuple[str, str]], date_range: DateRange) -> dict[tuple[str, str], list]:
+        """Cheapest one-way fare per date for each leg of a multi-city itinerary.
+
+        Every hop is priced independently so the trip total is a real sum of real
+        fares. One request per leg per month; a leg with no data comes back empty
+        and the caller decides whether the itinerary survives without it.
+        """
+        if not settings.travelpayouts_api_enabled:
+            return {}
+        months = months_in_range(date_range)
+        results: dict[tuple[str, str], list] = {}
+        for origin, destination in legs:
+            if origin.strip().upper() == destination.strip().upper():
+                continue
+            fares: list = []
+            for month in months:
+                if self.requests_attempted >= self.max_requests:
+                    break
+                self.requests_attempted += 1
+                try:
+                    payload = self.client.month_matrix(origin, destination, f"{month}-01")
+                except ProviderNoResultsError:
+                    continue
+                except ProviderError as exc:
+                    self.warnings.append(f"one-way lookup failed for {origin}-{destination}: {exc}")
+                    continue
+                fares.extend(map_month_matrix_response(payload, origin, destination))
+            results[(origin.upper(), destination.upper())] = fares
+        return results
 
     def round_trips_in_window(self, origins: list[str], date_range: DateRange) -> list[RoundTripFare]:
         """Cheapest round trips from each origin *within the requested months*.

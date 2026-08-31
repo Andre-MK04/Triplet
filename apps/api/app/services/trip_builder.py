@@ -100,12 +100,10 @@ def build_trips(
                     if ground_transfer.durationHours > request.maxGroundTransferHours:
                         continue
 
-            total_price = round(
-                outbound.price
-                + return_flight.price
-                + (ground_transfer.estimatedCost if ground_transfer else 0),
-                2,
-            )
+            # Flights only. A ground crossing is estimated for planning, but
+            # folding a train fare we never looked up into the trip total makes
+            # the headline price disagree with everything it links to.
+            total_price = round(outbound.price + return_flight.price, 2)
             over_budget = total_price > request.maxBudget
             if over_budget and enforce_budget:
                 # "Anywhere" searches have plenty of in-budget options, so drop
@@ -157,6 +155,8 @@ def build_trips(
                 explanation="",
                 warnings=warnings,
                 tags=[],
+                flightCost=round(outbound.price + return_flight.price, 2),
+                groundEstimate=ground_transfer.estimatedCost if ground_transfer else None,
                 bookingUrl=itinerary_url or pick_trip_booking_url(outbound, return_flight),
                 bookingLabel="Check price" if itinerary_url else pick_trip_booking_label(outbound, return_flight),
                 affiliateUrl=itinerary_affiliate_url or pick_trip_affiliate_url(outbound, return_flight),
@@ -506,6 +506,7 @@ def build_round_trip_options(
             nights=nights,
             score=0,
             fareKind="round_trip_bundle",
+            flightCost=round(fare.price, 2),
             explanation="",
             warnings=["Round-trip fare; confirm exact times and baggage on the provider site."],
             tags=["Round trip"],

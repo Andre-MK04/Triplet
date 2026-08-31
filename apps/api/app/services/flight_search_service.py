@@ -187,6 +187,44 @@ class FlightSearchService:
             fares.extend(discover(request.originAirports))
         return fares
 
+    def one_way_fares_for(
+        self, request: TripSearchRequest, legs: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], list]:
+        """Per-date one-way fares for each hop of a chained itinerary.
+
+        Multi-city and open-jaw trips are priced hop by hop, so each leg needs
+        its own calendar of fares rather than a round-trip bundle. Returns {} when
+        the provider cannot answer, which the caller reads as "this route could
+        not be priced" rather than substituting something else.
+        """
+        if not legs:
+            return {}
+        provider = self.provider
+        if self.provider_name == "hybrid":
+            if self.db is None:
+                return {}
+            try:
+                provider = build_live_provider(self.db)
+            except (UnknownFlightProviderError, ProviderError):
+                return {}
+
+        lookup = getattr(provider, "one_way_legs", None)
+        if not callable(lookup):
+            return {}
+        self.deals_provider_attempted = True
+        # Later hops can fall outside the departure window, so the lookup covers
+        # the window plus a full trip's length beyond it.
+        window = DateRange(
+            start=request.startDate,
+            end=request.endDate + timedelta(days=request.maxTripLengthDays),
+        )
+        try:
+            fares = lookup(legs, window)
+        except ProviderError:
+            return {}
+        self.deals_provider_succeeded = any(fares.values())
+        return fares
+
     def _targeted_round_trip_fares(self, provider, request: TripSearchRequest, scope: DestinationScope):
         """Ask the provider about exactly the places this search named."""
         routes = getattr(provider, "round_trips_for", None)

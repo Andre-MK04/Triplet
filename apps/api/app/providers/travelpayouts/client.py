@@ -106,6 +106,23 @@ class TravelpayoutsHttpClient:
             },
         )
 
+    def month_matrix(self, origin: str, destination: str, month: str) -> dict[str, Any]:
+        """Cheapest one-way fare for each departure date of a month on one route.
+
+        The densest one-way source available, and the basis for pricing a
+        multi-city itinerary hop by hop. ``month`` is any date in the month,
+        formatted YYYY-MM-01.
+        """
+        return self._get(
+            "/v2/prices/month-matrix",
+            {
+                "origin": origin.upper(),
+                "destination": destination.upper(),
+                "month": month,
+                "currency": settings.travelpayouts_currency.lower(),
+            },
+        )
+
     def city_directions(self, origin: str, currency: str | None = None) -> dict[str, Any]:
         """Cheapest cached fares from an origin to every popular destination.
 

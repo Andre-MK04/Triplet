@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from hashlib import sha1
 import re
 from typing import Any
@@ -26,6 +26,23 @@ class RoundTripFare(BaseModel):
     affiliateUrl: str | None = None
     observedAt: datetime | None = None
     expiresAt: datetime | None = None
+
+
+class OneWayFare(BaseModel):
+    """Cheapest one-way fare for a route on one date.
+
+    The building block of multi-city itineraries: each hop is priced on its own,
+    so the trip total is a real sum of real fares rather than a guess.
+    """
+
+    origin: str
+    destination: str
+    departureDate: str
+    price: float
+    currency: str = "EUR"
+    stops: int = 0
+    durationMinutes: int | None = None
+    observedAt: datetime | None = None
 
 
 class TravelpayoutsMappingResult(BaseModel):
@@ -230,6 +247,45 @@ def map_price_calendar_response(
                 affiliateUrl=None,
                 observedAt=None,
                 expiresAt=parse_datetime(row.get("expires_at")),
+            )
+        )
+    return fares
+
+
+def map_month_matrix_response(
+    payload: dict[str, Any],
+    origin: str,
+    destination: str,
+) -> list[OneWayFare]:
+    """One-way fares per departure date from /v2/prices/month-matrix.
+
+    The densest one-way source the data API offers — around 30 dates per route,
+    long-haul included — which is what makes a multi-city itinerary priceable hop
+    by hop. Rows carry ``found_at``, a real timestamp rather than the day-level
+    date the search links give, so these fares report their age precisely.
+    """
+    rows = payload.get("data") or []
+    currency = str(payload.get("currency") or settings.travelpayouts_currency).upper()
+    fares: list[OneWayFare] = []
+    for row in rows:
+        price = parse_float(row.get("value") or row.get("price"))
+        departure = row.get("depart_date")
+        if price is None or price <= 0 or not departure:
+            continue
+        try:
+            date.fromisoformat(str(departure)[:10])
+        except ValueError:
+            continue
+        fares.append(
+            OneWayFare(
+                origin=code_or_none(row.get("origin")) or origin.upper(),
+                destination=code_or_none(row.get("destination")) or destination.upper(),
+                departureDate=str(departure)[:10],
+                price=price,
+                currency=currency,
+                stops=parse_int(row.get("number_of_changes")) or 0,
+                durationMinutes=parse_int(row.get("duration")),
+                observedAt=parse_datetime(row.get("found_at")),
             )
         )
     return fares

@@ -37,6 +37,13 @@ class TripSearchRequest(BaseModel):
     maxBudget: float = Field(gt=0)
     maxGroundTransferHours: float = Field(ge=0)
     tripStyle: Literal["one city", "two nearby cities", "surprise me"]
+    # What shape of trip to build. "return" is the default everywhere: out and
+    # back from the same city. "open_jaw" flies into one city and home from
+    # another, crossing between them on the ground. "multi_city" flies every hop.
+    tripPlan: Literal["return", "open_jaw", "multi_city"] = "return"
+    # Ordered cities to visit, for multi_city. Unlike destinationAirports (a set
+    # of candidates, "any of these"), the order here is the itinerary.
+    routeStops: list[str] | None = Field(default=None, min_length=2, max_length=6)
     # Connections are normal on long-haul routes. Users can still require direct
     # flights explicitly, but the worldwide default must not hide useful trips.
     directOnly: bool = False
@@ -52,6 +59,37 @@ class ScoreComponent(BaseModel):
     points: int
 
 
+class TripSegment(BaseModel):
+    """One move in a trip: a flight we price, or a ground hop we only estimate.
+
+    Multi-city and open-jaw trips are chains of these. Ground segments carry a
+    duration and a rough cost so the traveller can plan, but that cost is never
+    added to the trip total — Triplet prices flights, and a train fare it has not
+    looked up would be a number pretending to be a quote.
+    """
+
+    kind: Literal["flight", "ground"]
+    origin: str
+    destination: str
+    originCity: str
+    destinationCity: str
+    departureDate: date
+    flight: Flight | None = None
+    transfer: GroundTransfer | None = None
+
+
+class CityStay(BaseModel):
+    """A city the traveller sleeps in, and for how long."""
+
+    code: str
+    city: str
+    country: str
+    countryCode: str
+    arrivalDate: date
+    departureDate: date
+    nights: int
+
+
 class DestinationMetadata(BaseModel):
     code: str
     kind: Literal["airport", "city"]
@@ -63,10 +101,18 @@ class DestinationMetadata(BaseModel):
 
 class TripOption(BaseModel):
     id: str
-    tripType: Literal["same_city", "open_jaw"]
+    tripType: Literal["same_city", "open_jaw", "multi_city"]
+    # outboundFlight/returnFlight stay the first and last flights of the trip, so
+    # every existing caller keeps working; `segments` carries the full chain.
     outboundFlight: Flight
     returnFlight: Flight
     groundTransfer: GroundTransfer | None
+    segments: list[TripSegment] = []
+    stays: list[CityStay] = []
+    #: Sum of every flight fare. This is what totalPrice reports.
+    flightCost: float = 0.0
+    #: Rough cost of the ground hops, for planning only — never in totalPrice.
+    groundEstimate: float | None = None
     totalPrice: float
     tripLengthDays: int
     nights: int

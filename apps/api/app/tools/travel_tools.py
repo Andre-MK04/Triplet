@@ -14,8 +14,15 @@ from app.db.repositories.transfers_repository import TransfersRepository
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import Flight, TripSearchRequest
 from app.services.flight_search_service import FlightSearchService
+from app.services.itinerary_builder import build_itineraries, flight_legs, plan_route
 from app.services.trip_builder import build_round_trip_options, build_trips, merge_trip_options
-from app.services.trip_scoring import ScoringContext, route_key
+from app.services.trip_explainer import build_tags
+from app.services.trip_scoring import (
+    ScoringContext,
+    calculate_deal_score,
+    calculate_fit_score,
+    route_key,
+)
 from app.tools.base import Tool, ToolContext
 from app.tools.schemas import (
     EstimateGroundTransferInput,
@@ -37,6 +44,10 @@ MAX_ROUTE_STATS_LOOKUPS = 60
 # many of those to show. Deliberately modest: these are consolation results.
 RELAXED_HORIZON_DAYS = 300
 RELAXED_RESULT_LIMIT = 8
+# A chained itinerary costs one provider request per leg per month, so only the
+# first few origins are planned; each adds a whole route's worth of lookups.
+MAX_CHAINED_ORIGINS = 3
+MAX_CHAINED_RESULTS = 12
 
 
 class UnsupportedFlightPlaceError(ValueError):
@@ -67,6 +78,76 @@ def build_scoring_context(context: ToolContext, flights: list[Flight]) -> Scorin
                 country_states[row.country_code] = "wishlist"
 
     return ScoringContext(route_stats=route_stats, profile=profile, country_states=country_states)
+
+
+def build_chained_trips(
+    request: TripSearchRequest,
+    flight_search: FlightSearchService,
+    scoring: ScoringContext,
+) -> list | None:
+    """Multi-city and open-jaw itineraries, priced hop by hop.
+
+    Returns None when the request is not a chained trip, so the caller falls
+    through to the round-trip path. Returns a (possibly empty) list when it is —
+    an empty result means the route genuinely could not be priced, and quietly
+    substituting a return trip for the multi-city one somebody asked for would
+    be answering a different question.
+    """
+    if request.tripPlan == "return":
+        return None
+
+    all_trips: list = []
+    for origin in request.originAirports[:MAX_CHAINED_ORIGINS]:
+        legs = plan_route(request, origin)
+        if not legs:
+            continue
+        fares = flight_search.one_way_fares_for(request, flight_legs(legs))
+        if not fares:
+            continue
+        for trip in build_itineraries(request, origin, legs, fares):
+            trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, scoring)
+            trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(
+                trip, request, scoring.profile if scoring else None, scoring
+            )
+            trip.score = trip.dealScore
+            trip.explanation = describe_itinerary(trip)
+            trip.tags = build_tags(trip)
+            if trip.totalPrice > request.maxBudget:
+                trip.tags.insert(0, "Over budget")
+                trip.warnings.insert(
+                    0, f"Over your €{request.maxBudget:g} budget at €{trip.totalPrice:g}."
+                )
+            if trip.groundEstimate:
+                trip.warnings.append(
+                    "The overland legs are yours to arrange — the times and costs shown are rough "
+                    "estimates and are not part of the trip price."
+                )
+            all_trips.append(trip)
+
+    all_trips.sort(key=lambda trip: (-trip.dealScore, -(trip.fitScore or 0), trip.totalPrice))
+    return all_trips[:MAX_CHAINED_RESULTS]
+
+
+def describe_itinerary(trip) -> str:
+    """Plain summary of where the traveller goes and what the price covers."""
+    hops = [segment for segment in trip.segments if segment.kind == "flight"]
+    home = trip.segments[0].originCity if trip.segments else trip.outboundFlight.origin
+    cities = [stay.city for stay in trip.stays]
+    route = " → ".join([home, *cities, home]) if cities else trip.outboundFlight.destination
+    nights = ", ".join(f"{stay.nights}n in {stay.city}" for stay in trip.stays)
+    ground = ""
+    if trip.groundEstimate:
+        crossings = [s for s in trip.segments if s.kind == "ground"]
+        first = crossings[0]
+        ground = (
+            f" You cross {first.originCity} → {first.destinationCity} overland"
+            f" (~{first.transfer.durationHours:g}h, roughly €{first.transfer.estimatedCost:g}), "
+            "which is not included in the price."
+        )
+    return (
+        f"{route} over {trip.nights} nights — {nights}. "
+        f"€{round(trip.totalPrice)} covers all {len(hops)} flights.{ground}"
+    )
 
 
 def nearest_matches(
@@ -179,31 +260,35 @@ class SearchTripsTool(Tool):
             scoring=scoring,
             enforce_budget=enforce_budget,
         )
-        # Augment with worldwide round-trip bundles from shared discovery data,
-        # which avoid one-way pairing gaps and give true round-trip prices. Bundles
-        # are same-city by nature, so an explicit multi-city request skips them.
-        round_trip_fares: list = []
-        if request.returnOriginAirports:
-            bundle_trips = []
+        # A chained trip — multi-city, or an open jaw with a named fly-home city —
+        # is priced hop by hop from one-way fares, which a round-trip bundle
+        # cannot express. Its own builder replaces the pairing path entirely.
+        relaxation_note: str | None = None
+        chained = build_chained_trips(request, flight_search, scoring)
+        if chained is not None:
+            trips = chained
+            flight_search.apply_deal_metadata(flight_result.metadata)
         else:
+            # Augment with worldwide round-trip bundles from shared discovery
+            # data, which avoid one-way pairing gaps and give true round-trip
+            # prices. Bundles are same-city by nature.
             round_trip_fares = flight_search.discover_round_trip_fares(request)
             bundle_trips = build_round_trip_options(
                 round_trip_fares, request, scoring, enforce_budget=enforce_budget
             )
             flight_search.apply_deal_metadata(flight_result.metadata)
-        # Naming a place is a request to compare its dates; a broad scope is a
-        # request to compare places, so it keeps fewer options per destination.
-        trips = merge_trip_options(
-            paired_trips,
-            bundle_trips,
-            per_destination_limit=scope.options_per_destination,
-        )
-
-        relaxation_note: str | None = None
-        if not trips and scope.is_targeted and not request.returnOriginAirports:
-            trips, relaxation_note = nearest_matches(
-                round_trip_fares, request, scope, scoring, airports, transfers, flight_result.flights
+            # Naming a place is a request to compare its dates; a broad scope is
+            # a request to compare places, so it keeps fewer per destination.
+            trips = merge_trip_options(
+                paired_trips,
+                bundle_trips,
+                per_destination_limit=scope.options_per_destination,
             )
+
+            if not trips and scope.is_targeted:
+                trips, relaxation_note = nearest_matches(
+                    round_trip_fares, request, scope, scoring, airports, transfers, flight_result.flights
+                )
 
         try:
             TripSuggestionsRepository(context.db).save_trips(
