@@ -169,3 +169,35 @@ def test_the_phrase_open_jaw_is_understood_directly():
 
     assert intent.tripPlan == "open_jaw"
     assert intent.returnOriginAirports == ["LIS"]
+
+
+def test_a_length_is_not_read_as_a_budget():
+    """"maximum 10 days" was parsed as a EUR 10 budget, which failed validation
+    and returned no trips at all for the whole search."""
+    intent = parse_trip_intent(
+        "find me a fun trip to scandinavia for maximum 10 days in september or october"
+    )
+
+    assert intent.maxBudget is None
+    assert (intent.minTripLengthDays, intent.maxTripLengthDays) == (10, 10)
+    assert intent.destinationRegions == ["scandinavia"]
+
+
+def test_real_budgets_still_parse():
+    from app.ai.intent_parser import parse_budget
+
+    assert parse_budget("a trip under 400 euros for 5 days") == 400
+    assert parse_budget("max 300 for a week") == 300
+    assert parse_budget("budget of 250") == 250
+    assert parse_budget("up to 700 eur, 8-12 days") == 700
+    assert parse_budget("8-12 days under €900") == 900
+    # Counts of people are not money either.
+    assert parse_budget("max 3 people under 450") == 450
+
+
+def test_other_units_are_not_budgets():
+    from app.ai.intent_parser import parse_budget
+
+    assert parse_budget("no more than 5 nights") is None
+    assert parse_budget("maximum 2 weeks") is None
+    assert parse_budget("under 3 hours of ground transfer") is None

@@ -1,3 +1,4 @@
+import logging
 from datetime import date, timedelta
 
 from pydantic import BaseModel
@@ -6,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.intent_parser import parse_trip_intent
 from app.data.flight_places import canonical_code, is_flightable_place, is_supported_origin
+from app.data.geography import place_city
 from app.db.models import UserCountryDB, UserTravelProfileDB
 from app.db.repositories.airports_repository import AirportsRepository
 from app.db.repositories.price_observations_repository import PriceObservationsRepository
@@ -14,7 +16,12 @@ from app.db.repositories.transfers_repository import TransfersRepository
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import Flight, TripSearchRequest
 from app.services.flight_search_service import FlightSearchService
-from app.services.itinerary_builder import build_itineraries, flight_legs, plan_route
+from app.services.itinerary_builder import (
+    build_itineraries,
+    flight_legs,
+    plan_route,
+    propose_route_stops,
+)
 from app.services.trip_builder import build_round_trip_options, build_trips, merge_trip_options
 from app.services.trip_explainer import build_tags
 from app.services.trip_scoring import (
@@ -37,6 +44,8 @@ from app.tools.schemas import (
     SearchTripsOutput,
 )
 
+
+logger = logging.getLogger(__name__)
 
 MAX_PERSISTED_SUGGESTIONS = 12
 MAX_ROUTE_STATS_LOOKUPS = 60
@@ -84,48 +93,141 @@ def build_chained_trips(
     request: TripSearchRequest,
     flight_search: FlightSearchService,
     scoring: ScoringContext,
-) -> list | None:
+) -> tuple[list, str | None] | None:
     """Multi-city and open-jaw itineraries, priced hop by hop.
 
     Returns None when the request is not a chained trip, so the caller falls
-    through to the round-trip path. Returns a (possibly empty) list when it is —
-    an empty result means the route genuinely could not be priced, and quietly
-    substituting a return trip for the multi-city one somebody asked for would
-    be answering a different question.
+    through to the round-trip path. Otherwise returns (trips, note) — an empty
+    list means the route genuinely could not be priced, and quietly substituting
+    a return trip for the multi-city one somebody asked for would be answering a
+    different question.
+
+    When the traveller named cities, those are the route. When they named a
+    region — "a multi-city trip to Scandinavia" — the cities are proposed from
+    the ones we can actually reach inside that region, so the answer never
+    wanders outside the place they asked about.
     """
     if request.tripPlan == "return":
         return None
 
+    note: str | None = None
     all_trips: list = []
     for origin in request.originAirports[:MAX_CHAINED_ORIGINS]:
-        legs = plan_route(request, origin)
-        if not legs:
+        candidates, discovered = _routes_for_origin(request, flight_search, origin)
+        if not candidates:
+            if discovered is not None and not discovered:
+                note = note or (
+                    f"We could not find enough places with fares in {discovered_scope_label(flight_search, request)} "
+                    "to build a route. Try a wider date range or a different region."
+                )
             continue
-        fares = flight_search.one_way_fares_for(request, flight_legs(legs))
+        if request.routeStops is None:
+            note = note or _proposal_note(request, candidates)
+
+        legs_by_route = {}
+        wanted: list[tuple[str, str]] = []
+        for stops in candidates:
+            legs = plan_route(request, origin, stops=stops)
+            if not legs:
+                continue
+            legs_by_route[tuple(stops)] = legs
+            for leg in flight_legs(legs):
+                if leg not in wanted:
+                    wanted.append(leg)
+        if not wanted:
+            continue
+
+        # One fetch for every leg any candidate needs: routes overlap heavily, and
+        # paying for the same hop three times would exhaust the request budget
+        # before the third proposal was ever priced.
+        fares = flight_search.one_way_fares_for(request, wanted)
         if not fares:
             continue
-        for trip in build_itineraries(request, origin, legs, fares):
-            trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, scoring)
-            trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(
-                trip, request, scoring.profile if scoring else None, scoring
-            )
-            trip.score = trip.dealScore
-            trip.explanation = describe_itinerary(trip)
-            trip.tags = build_tags(trip)
-            if trip.totalPrice > request.maxBudget:
-                trip.tags.insert(0, "Over budget")
-                trip.warnings.insert(
-                    0, f"Over your €{request.maxBudget:g} budget at €{trip.totalPrice:g}."
-                )
-            if trip.groundEstimate:
-                trip.warnings.append(
-                    "The overland legs are yours to arrange — the times and costs shown are rough "
-                    "estimates and are not part of the trip price."
-                )
-            all_trips.append(trip)
+        for legs in legs_by_route.values():
+            for trip in build_itineraries(request, origin, legs, fares):
+                _finish_itinerary(trip, request, scoring)
+                all_trips.append(trip)
 
     all_trips.sort(key=lambda trip: (-trip.dealScore, -(trip.fitScore or 0), trip.totalPrice))
-    return all_trips[:MAX_CHAINED_RESULTS]
+    return all_trips[:MAX_CHAINED_RESULTS], (note if all_trips else note)
+
+
+def _routes_for_origin(
+    request: TripSearchRequest,
+    flight_search: FlightSearchService,
+    origin: str,
+) -> tuple[list[list[str]], list[str] | None]:
+    """Candidate stop lists for one origin, plus what we found reachable.
+
+    The second value is None when the traveller named the cities themselves (so
+    nothing was discovered), and a list otherwise — empty meaning the region had
+    nothing we could reach.
+    """
+    if request.routeStops:
+        return [list(request.routeStops)], None
+    if request.tripPlan == "open_jaw" and request.destinationAirports and request.returnOriginAirports:
+        return [[request.destinationAirports[0], request.returnOriginAirports[0]]], None
+
+    # Map out the options first: which places inside the requested region do we
+    # actually have fares to? Everything downstream chooses only from these.
+    reachable = _reachable_cities(request, flight_search, origin)
+    return propose_route_stops(request, origin, reachable), reachable
+
+
+def _reachable_cities(
+    request: TripSearchRequest,
+    flight_search: FlightSearchService,
+    origin: str,
+) -> list[str]:
+    """Cities in the requested scope we have seen fares to, cheapest first."""
+    probe = request.model_copy(update={"originAirports": [origin], "tripPlan": "return"})
+    try:
+        fares = flight_search.discover_round_trip_fares(probe)
+    except Exception:  # noqa: BLE001 - discovery must never break the search
+        logger.exception("route_discovery_failed")
+        return []
+    seen: dict[str, float] = {}
+    for fare in fares:
+        code = canonical_code(fare.destination)
+        if code not in seen or fare.price < seen[code]:
+            seen[code] = fare.price
+    return [code for code, _ in sorted(seen.items(), key=lambda item: item[1])]
+
+
+def discovered_scope_label(flight_search: FlightSearchService, request: TripSearchRequest) -> str:
+    try:
+        return flight_search.resolve_scope(request).label
+    except Exception:  # noqa: BLE001
+        return "that region"
+
+
+def _proposal_note(request: TripSearchRequest, candidates: list[list[str]]) -> str:
+    shape = "multi-city" if request.tripPlan == "multi_city" else "open-jaw"
+    routes = "; ".join(
+        " → ".join(place_city(code) or code for code in stops) for stops in candidates[:3]
+    )
+    return (
+        f"You named a region rather than cities, so Triplet planned the {shape} routes: {routes}. "
+        "Only places inside that region were considered."
+    )
+
+
+def _finish_itinerary(trip, request: TripSearchRequest, scoring: ScoringContext) -> None:
+    trip.dealScore, trip.dealScoreBreakdown = calculate_deal_score(trip, request, scoring)
+    trip.fitScore, trip.fitScoreBreakdown = calculate_fit_score(
+        trip, request, scoring.profile if scoring else None, scoring
+    )
+    trip.score = trip.dealScore
+    trip.explanation = describe_itinerary(trip)
+    trip.tags = build_tags(trip)
+    if trip.totalPrice > request.maxBudget:
+        trip.tags.insert(0, "Over budget")
+        trip.warnings.insert(0, f"Over your €{request.maxBudget:g} budget at €{trip.totalPrice:g}.")
+    if trip.groundEstimate:
+        trip.warnings.append(
+            "The overland legs are yours to arrange — the times and costs shown are rough "
+            "estimates and are not part of the trip price."
+        )
 
 
 def describe_itinerary(trip) -> str:
@@ -266,7 +368,7 @@ class SearchTripsTool(Tool):
         relaxation_note: str | None = None
         chained = build_chained_trips(request, flight_search, scoring)
         if chained is not None:
-            trips = chained
+            trips, relaxation_note = chained
             flight_search.apply_deal_metadata(flight_result.metadata)
         else:
             # Augment with worldwide round-trip bundles from shared discovery

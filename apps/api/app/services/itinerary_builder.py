@@ -59,15 +59,25 @@ class DatedLeg:
     fare: OneWayFare | None
 
 
-def plan_route(request: TripSearchRequest, origin: str) -> list[PlannedLeg] | None:
+def plan_route(
+    request: TripSearchRequest,
+    origin: str,
+    stops: list[str] | None = None,
+) -> list[PlannedLeg] | None:
     """The ordered hops of the requested trip, before any dates are chosen.
+
+    ``stops`` overrides whatever the request names, which is how a proposed route
+    is planned: someone who asks for "a multi-city trip to Scandinavia" has given
+    a region, not an itinerary, and the cities are chosen for them.
 
     Returns None when the request does not describe a chain — a plain return trip
     is priced as a single round-trip fare elsewhere, which is cheaper and more
     accurate than summing two one-ways.
     """
     home = canonical_code(origin)
-    if request.tripPlan == "multi_city":
+    if stops is not None:
+        stops = [canonical_code(code) for code in stops]
+    elif request.tripPlan == "multi_city":
         stops = [canonical_code(code) for code in (request.routeStops or [])]
     elif request.tripPlan == "open_jaw":
         into = (request.destinationAirports or [None])[0]
@@ -476,3 +486,126 @@ def _destination_metadata(route: list[DatedLeg]):
     from app.services.trip_builder import destination_metadata
 
     return destination_metadata(route[0].leg.destination)
+
+
+# --- Proposing a route when the traveller named a region rather than cities ---
+
+# How far apart two cities may be and still be crossed overland on an open jaw.
+OPEN_JAW_MAX_KM = 900.0
+# Closer than this and two "stops" are really one destination.
+SAME_PLACE_MAX_KM = 150.0
+# Ceilings on the search: each proposal costs provider requests for its legs.
+MAX_CANDIDATE_CITIES = 5
+MAX_PROPOSED_ROUTES = 3
+
+
+def propose_route_stops(
+    request: TripSearchRequest,
+    origin: str,
+    reachable: list[str],
+) -> list[list[str]]:
+    """Candidate itineraries inside the region the traveller asked about.
+
+    "A multi-city trip to Scandinavia" names a region, not a route. ``reachable``
+    is the set of cities we have actually seen fares to from this origin, already
+    filtered to that region, so a proposal can never wander to Spain — the
+    geographic ask is enforced by only ever choosing from inside it.
+
+    Cities are visited in nearest-neighbour order from home, which keeps a route
+    from doubling back across the map for no reason.
+    """
+    home = canonical_code(origin)
+    # `reachable` arrives best-first — the cities the region actually flies to,
+    # cheapest first. That ranking is what picks WHICH cities; geography only
+    # decides the order to visit them in. Choosing by proximity instead put
+    # Malmö and Kristiansand in a Scandinavian city-hop ahead of Stockholm,
+    # because they happen to sit nearer Vienna.
+    pool = _spread_out(
+        [
+            code
+            for code in dict.fromkeys(canonical_code(city) for city in reachable)
+            if code != home and get_place(code) is not None
+        ]
+    )[:MAX_CANDIDATE_CITIES]
+    if len(pool) < 2:
+        return []
+
+    if request.tripPlan == "open_jaw":
+        return _open_jaw_pairs(home, pool)
+
+    routes: list[list[str]] = []
+    # Three cities is the archetypal city-hop; two is the safe fallback when the
+    # region has thin coverage or a leg turns out to have no fares.
+    for size in (3, 2):
+        if len(pool) >= size:
+            routes.append(_nearest_neighbour_order(home, pool[:size]))
+    if len(pool) >= 4:
+        # One alternative built from the next-best cities, so the proposals are
+        # not all variations on the same opening hop.
+        routes.append(_nearest_neighbour_order(home, pool[1:4]))
+    return _unique_routes(routes)[:MAX_PROPOSED_ROUTES]
+
+
+def _spread_out(pool: list[str], minimum_km: float = SAME_PLACE_MAX_KM) -> list[str]:
+    """Drop cities so close to a better-ranked one that they are the same stop.
+
+    Malmö and Copenhagen are half an hour apart; a route through both is one
+    destination pretending to be two.
+    """
+    kept: list[str] = []
+    for code in pool:
+        if any((distance_km(code, other) or float("inf")) < minimum_km for other in kept):
+            continue
+        kept.append(code)
+    return kept
+
+
+def _open_jaw_pairs(home: str, pool: list[str]) -> list[list[str]]:
+    """City pairs close enough that crossing between them overland is sensible.
+
+    Ranked by how good the two cities are, not by how short the crossing is:
+    sorting on distance alone paired the region's smallest airports, because the
+    obscure ones happen to sit close together.
+    """
+    rank = {code: index for index, code in enumerate(pool)}
+    pairs: list[tuple[int, float, list[str]]] = []
+    for first in pool:
+        for second in pool:
+            if first == second:
+                continue
+            km = distance_km(first, second)
+            if km is None or km > OPEN_JAW_MAX_KM:
+                continue
+            # Fly to the further city and home from the nearer one, so the
+            # overland leg heads back towards home rather than away from it.
+            out_km = distance_km(home, first) or 0.0
+            back_km = distance_km(home, second) or 0.0
+            if out_km < back_km:
+                continue
+            pairs.append((rank[first] + rank[second], km, [first, second]))
+    pairs.sort(key=lambda item: (item[0], item[1]))
+    return _unique_routes([route for _, _, route in pairs])[:MAX_PROPOSED_ROUTES]
+
+
+def _nearest_neighbour_order(home: str, pool: list[str]) -> list[str]:
+    remaining = list(pool)
+    ordered: list[str] = []
+    current = home
+    while remaining:
+        nearest = min(remaining, key=lambda code: distance_km(current, code) or float("inf"))
+        ordered.append(nearest)
+        remaining.remove(nearest)
+        current = nearest
+    return ordered
+
+
+def _unique_routes(routes: list[list[str]]) -> list[list[str]]:
+    seen: set[tuple[str, ...]] = set()
+    unique: list[list[str]] = []
+    for route in routes:
+        key = tuple(route)
+        if len(set(route)) != len(route) or key in seen:
+            continue
+        seen.add(key)
+        unique.append(route)
+    return unique

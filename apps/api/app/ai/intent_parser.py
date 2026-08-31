@@ -230,10 +230,20 @@ def parse_trip_length(text: str) -> tuple[int | None, int | None]:
     return None, None
 
 
+# Units that mean the number is a length, a group size or a distance — anything
+# but money. "for maximum 10 days" was being read as a EUR 10 budget, which then
+# failed validation and sank the whole search.
+_NOT_MONEY = r"(?!\s*(?:day|night|week|month|hour|hr|h\b|km|mile|people|person|pax|adult|passenger|stop|city|cities))"
+
+
 def parse_budget(text: str) -> float | None:
-    match = re.search(r"(?:under|below|max|maximum|budget)\s*(?:€|eur|euros?)?\s*(\d+)", text)
+    match = re.search(
+        r"(?:under|below|max|maximum|budget|up to|no more than)\s*(?:of\s*)?"
+        r"(?:€|eur|euros?|\$|usd)?\s*(\d+)\b" + _NOT_MONEY,
+        text,
+    )
     if not match:
-        match = re.search(r"(\d+)\s*(?:€|eur|euros?)", text)
+        match = re.search(r"(\d+)\s*(?:€|eur|euros?)\b", text)
     return float(match.group(1)) if match else None
 
 

@@ -11,6 +11,7 @@ import pytest
 
 from app.models import TripSearchRequest
 from app.providers.travelpayouts.mapper import OneWayFare
+from app.data.geography import distance_km
 from app.services.itinerary_builder import (
     build_itineraries,
     flight_legs,
@@ -199,3 +200,66 @@ def test_direct_only_drops_fares_with_stops():
     }
 
     assert build_itineraries(request(directOnly=True), "VIE", legs, fares) == []
+
+
+# --- Proposing a route when the traveller named a region, not cities ---
+
+from app.services.itinerary_builder import propose_route_stops  # noqa: E402
+
+# Ordered the way discovery returns them: cheapest/most reachable first.
+SCANDINAVIA = ["STO", "CPH", "OSL", "KRS", "MMA", "AAR", "BGO"]
+
+
+def region_request(**overrides) -> TripSearchRequest:
+    return request(routeStops=None, destinationRegions=["scandinavia"], **overrides)
+
+
+def test_a_region_becomes_a_proposed_city_hop():
+    """"A multi-city trip to Scandinavia" names a region, not an itinerary."""
+    routes = propose_route_stops(region_request(), "VIE", SCANDINAVIA)
+
+    assert routes
+    assert routes[0] == ["CPH", "OSL", "STO"]  # ordered outward from Vienna
+
+
+def test_proposals_pick_the_best_reachable_cities_not_the_nearest_airfields():
+    # Malmö and Kristiansand sit nearer Vienna than Stockholm does; a city hop
+    # that visits them instead is geometrically tidy and useless.
+    routes = propose_route_stops(region_request(), "VIE", SCANDINAVIA)
+
+    assert "STO" in routes[0]
+    assert "MMA" not in routes[0]
+
+
+def test_two_cities_half_an_hour_apart_are_not_two_stops():
+    # Malmö is ~30 km from Copenhagen.
+    routes = propose_route_stops(region_request(), "VIE", ["CPH", "MMA", "OSL", "STO"])
+
+    assert all(not {"CPH", "MMA"} <= set(route) for route in routes)
+
+
+def test_a_proposal_never_leaves_the_region_it_was_asked_about():
+    routes = propose_route_stops(region_request(), "VIE", SCANDINAVIA)
+
+    assert all(code in SCANDINAVIA for route in routes for code in route)
+
+
+def test_open_jaw_proposals_are_crossable_pairs_of_real_cities():
+    routes = propose_route_stops(region_request(tripPlan="open_jaw"), "VIE", SCANDINAVIA)
+
+    assert routes
+    assert routes[0] == ["STO", "CPH"]
+    for first, second in routes:
+        # Close enough to cross overland, and flying out to the further city.
+        assert (distance_km(first, second) or 0) <= 900
+        assert (distance_km("VIE", first) or 0) >= (distance_km("VIE", second) or 0)
+
+
+def test_a_region_with_almost_nothing_reachable_proposes_nothing():
+    assert propose_route_stops(region_request(), "VIE", ["CPH"]) == []
+
+
+def test_explicit_stops_are_never_overridden_by_a_proposal():
+    legs = plan_route(request(routeStops=["BCN", "LIS"]), "VIE")
+
+    assert [leg.destination for leg in legs] == ["BCN", "LIS", "VIE"]
