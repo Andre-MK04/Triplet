@@ -18,6 +18,7 @@ import { ApiError, apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import { PRICE_DISCLAIMER } from "../../lib/price";
+import { clearSearch, loadSearch, minutesSince, saveSearch } from "../../lib/searchSession";
 import type {
   AISearchResponse,
   AirportResult,
@@ -202,6 +203,9 @@ export function DiscoverClient() {
   const [relaxationNote, setRelaxationNote] = useState<string | null>(null);
   const [aiMissingFields, setAiMissingFields] = useState<string[]>([]);
   const [lastPayload, setLastPayload] = useState<TripSearchPayload | null>(null);
+  // Set when the list on screen came back from the previous visit rather than a
+  // fresh call, so the traveller knows how old the prices are.
+  const [restoredMinutesAgo, setRestoredMinutesAgo] = useState<number | null>(null);
 
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertName, setAlertName] = useState("");
@@ -211,9 +215,36 @@ export function DiscoverClient() {
   const [isSavingAlert, setIsSavingAlert] = useState(false);
   const [savedAlert, setSavedAlert] = useState<SavedSearch | null>(null);
 
+  // Coming back from a trip page: put the previous results back rather than
+  // making the traveller search again, which on the AI path would spend another
+  // of their monthly searches to show them what they just had.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    const previous = loadSearch();
+    if (!previous) return;
+    setTrips(previous.trips);
+    setAiMessage(previous.aiMessage);
+    setAiSummary(previous.aiSummary);
+    setAiMissingFields(previous.aiMissingFields);
+    setRelaxationNote(previous.relaxationNote);
+    setNotice(previous.notice);
+    setLastPayload(previous.lastPayload);
+    setDestinationSelections(previous.destinationSelections);
+    setOriginLabels(previous.originLabels);
+    if (previous.form) setForm(previous.form as AdvancedForm);
+    setHasSearched(true);
+    setRestoredMinutesAgo(minutesSince(previous.savedAt));
+    // Mark the deep-link query as already answered so returning to
+    // /discover?q=… does not silently run the same search a second time.
+    autoSearchedQuery.current = previous.answeredQuery;
+  }, []);
+
   // Landing-page hand-off: /discover?q=… prefills the prompt and searches immediately.
   const incomingQuery = searchParams.get("q");
   useEffect(() => {
+    if (!restored.current) return;
     if (!incomingQuery || autoSearchedQuery.current === incomingQuery) return;
     autoSearchedQuery.current = incomingQuery;
     setAiMessage(incomingQuery);
@@ -266,6 +297,7 @@ export function DiscoverClient() {
   );
 
   function resetResultState() {
+    setRestoredMinutesAgo(null);
     setError("");
     setNotice(null);
     setAiSummary("");
@@ -277,16 +309,46 @@ export function DiscoverClient() {
     setIsLoading(true);
   }
 
+  /** Remember this result set so returning from a trip page costs nothing. */
+  function persist(result: {
+    answeredQuery: string | null;
+    aiMessage: string;
+    trips: TripOption[];
+    aiSummary: string;
+    aiMissingFields: string[];
+    relaxationNote: string | null;
+    notice: { text: string; tone: "info" | "warning" } | null;
+    lastPayload: TripSearchPayload | null;
+  }) {
+    if (result.trips.length === 0) {
+      clearSearch();
+      return;
+    }
+    saveSearch({ ...result, form, destinationSelections, originLabels });
+  }
+
   async function runStructuredSearch() {
     resetResultState();
     try {
       const data = await apiPost<TripSearchResponse>("/trips/search", payload);
+      const resultNotice = providerNotice(data.providerMetadata, data.trips.length);
       setTrips(data.trips);
       setRelaxationNote(data.relaxationNote ?? null);
       setLastPayload(payload);
-      setNotice(providerNotice(data.providerMetadata, data.trips.length));
+      setNotice(resultNotice);
+      persist({
+        answeredQuery: null,
+        aiMessage,
+        trips: data.trips,
+        aiSummary: "",
+        aiMissingFields: [],
+        relaxationNote: data.relaxationNote ?? null,
+        notice: resultNotice,
+        lastPayload: payload,
+      });
     } catch (searchError) {
       setTrips([]);
+      clearSearch();
       setError(limitAwareError(searchError));
     } finally {
       setIsLoading(false);
@@ -303,14 +365,26 @@ export function DiscoverClient() {
         originAirports: form.originAirports,
         tripPlan: planOverride ?? form.tripPlan,
       });
+      const resultNotice = providerNotice(data.providerMetadata, data.trips.length);
       setTrips(data.trips);
       setRelaxationNote(data.relaxationNote ?? null);
       setAiSummary(data.message);
       setAiMissingFields(data.missingFields ?? []);
       setLastPayload(data.parsedRequest);
-      setNotice(providerNotice(data.providerMetadata, data.trips.length));
+      setNotice(resultNotice);
+      persist({
+        answeredQuery: message,
+        aiMessage: message,
+        trips: data.trips,
+        aiSummary: data.message,
+        aiMissingFields: data.missingFields ?? [],
+        relaxationNote: data.relaxationNote ?? null,
+        notice: resultNotice,
+        lastPayload: data.parsedRequest,
+      });
     } catch (searchError) {
       setTrips([]);
+      clearSearch();
       setError(limitAwareError(searchError));
     } finally {
       setIsLoading(false);
@@ -698,6 +772,26 @@ export function DiscoverClient() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                 <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
                   Results · {trips.length} trip{trips.length === 1 ? "" : "s"} identified · best first
+                  {restoredMinutesAgo !== null ? (
+                    <>
+                      {" · "}
+                      <span className="text-mist/70">
+                        from your last search
+                        {restoredMinutesAgo > 0 ? ` ${restoredMinutesAgo} min ago` : ""}
+                      </span>
+                      {" · "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (aiMessage.trim().length >= 8) void performAiSearch(aiMessage);
+                          else void runStructuredSearch();
+                        }}
+                        className="font-semibold text-mint underline-offset-2 transition-colors hover:underline"
+                      >
+                        Search again
+                      </button>
+                    </>
+                  ) : null}
                 </p>
                 <Button variant="secondary" size="sm" onClick={() => setAlertOpen((open) => !open)}>
                   {alertOpen ? "Hide alert form" : "Watch this search"}
