@@ -139,31 +139,54 @@ def _cheapest_fare_per_date(
     legs: list[PlannedLeg],
     fares_by_leg: dict[tuple[str, str], list[OneWayFare]],
     request: TripSearchRequest,
+    now: datetime | None = None,
 ) -> dict[int, dict[date, OneWayFare]] | None:
     """For each flight leg, the cheapest fare available on each date.
+
+    Fresh fares are preferred, and the reason is specific to chained trips.
+    Taking the cheapest fare on a route selects *for* stale prices — one that has
+    since risen still sits in the cache at its old value, so it wins on price
+    precisely because it is out of date. On Vienna→Stockholm the cheapest fare
+    was EUR 26 and 63 hours old while the cheapest fare seen that day was EUR 34.
+    A return trip carries that error once; a four-leg itinerary compounds it, and
+    the total we quote drifts far from what the booking page will say.
+
+    A leg with nothing recent falls back to whatever it has, because a thin route
+    with an older price is still a real answer — the age is reported either way.
 
     None when a flight leg has no fares at all: an itinerary missing a hop cannot
     be priced, and inventing that hop is exactly what this must not do.
     """
+    reference = now or datetime.utcnow()
+    cutoff = reference - timedelta(hours=settings.itinerary_leg_fare_max_age_hours)
     per_leg: dict[int, dict[date, OneWayFare]] = {}
     for index, leg in enumerate(legs):
         if leg.is_ground:
             continue
-        best: dict[date, OneWayFare] = {}
-        for fare in fares_by_leg.get((leg.origin, leg.destination), []):
-            if request.directOnly and (fare.stops or 0) > 0:
-                continue
-            try:
-                departure = date.fromisoformat(fare.departureDate[:10])
-            except ValueError:
-                continue
-            current = best.get(departure)
-            if current is None or fare.price < current.price:
-                best[departure] = fare
+        usable = [
+            fare
+            for fare in fares_by_leg.get((leg.origin, leg.destination), [])
+            if not (request.directOnly and (fare.stops or 0) > 0)
+        ]
+        recent = [fare for fare in usable if fare.observedAt and fare.observedAt >= cutoff]
+        best = _cheapest_by_date(recent) or _cheapest_by_date(usable)
         if not best:
             return None
         per_leg[index] = best
     return per_leg
+
+
+def _cheapest_by_date(fares: list[OneWayFare]) -> dict[date, OneWayFare]:
+    best: dict[date, OneWayFare] = {}
+    for fare in fares:
+        try:
+            departure = date.fromisoformat(fare.departureDate[:10])
+        except ValueError:
+            continue
+        current = best.get(departure)
+        if current is None or fare.price < current.price:
+            best[departure] = fare
+    return best
 
 
 def _best_dated_routes(
@@ -361,6 +384,12 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
         flight = _to_flight(dated)
         flights.append(flight)
         flight_cost += flight.price
+        leg_url = build_aviasales_itinerary_url(
+            [ItinerarySegment(leg.origin, leg.destination, dated.departure)]
+        )
+        flight.bookingUrl = leg_url
+        flight.deepLink = leg_url
+        flight.affiliateUrl = leg_url if leg_url and settings.travelpayouts_marker else None
         segments.append(
             TripSegment(
                 kind="flight",
@@ -370,6 +399,7 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
                 destinationCity=place_city(leg.destination) or leg.destination,
                 departureDate=dated.departure,
                 flight=flight,
+                bookingUrl=leg_url,
             )
         )
 

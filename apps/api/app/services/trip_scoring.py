@@ -206,16 +206,23 @@ def fare_age_label(trip: TripOption, today: date | None = None) -> str:
 
 
 def fare_age_days(trip: TripOption, today: date | None = None) -> int | None:
-    """Days since the provider last saw this trip's price, if it told us."""
-    seen = [
-        flight.observedAt
-        for flight in (trip.outboundFlight, trip.returnFlight)
-        if flight.observedAt is not None
-    ]
+    """Days since the provider last saw this trip's price, if it told us.
+
+    Reports the OLDEST leg, not the newest. A trip's price is a sum, so it is
+    only as trustworthy as its weakest part: quoting a four-leg itinerary as
+    "seen an hour ago" because one hop was refreshed recently would hide the
+    three-day-old fare doing most of the damage.
+    """
+    flights = [
+        segment.flight
+        for segment in trip.segments
+        if segment.kind == "flight" and segment.flight is not None
+    ] or [trip.outboundFlight, trip.returnFlight]
+    seen = [flight.observedAt for flight in flights if flight.observedAt is not None]
     if not seen:
         return None
     reference = today or date.today()
-    return max(0, (reference - max(seen).date()).days)
+    return max(0, (reference - min(seen).date()).days)
 
 
 def calculate_fit_score(

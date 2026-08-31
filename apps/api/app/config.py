@@ -61,6 +61,12 @@ class Settings:
     # data tops out around a week, so this is a backstop, not the main control —
     # fare age is primarily a ranking signal.
     max_fare_age_days: int = int(os.getenv("MAX_FARE_AGE_DAYS", "7"))
+    # Multi-city totals are a SUM of legs, so each leg's staleness compounds — and
+    # picking the cheapest fare per leg actively selects for stale ones, because a
+    # price that has since risen still sits in the cache at its old value. Legs
+    # prefer fares seen inside this window; a leg with nothing that fresh falls
+    # back to what it has rather than dropping the route.
+    itinerary_leg_fare_max_age_hours: int = int(os.getenv("ITINERARY_LEG_FARE_MAX_AGE_HOURS", "24"))
     # Origins the hourly tick keeps warm: one provider request each, so this is
     # the hourly API budget for cache warming.
     deals_max_warmed_origins: int = int(os.getenv("DEALS_MAX_WARMED_ORIGINS", "40"))

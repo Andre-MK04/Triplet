@@ -228,6 +228,12 @@ def _finish_itinerary(trip, request: TripSearchRequest, scoring: ScoringContext)
             "The overland legs are yours to arrange — the times and costs shown are rough "
             "estimates and are not part of the trip price."
         )
+    if len([s for s in trip.segments if s.kind == "flight"]) > 2:
+        trip.warnings.append(
+            "This total is each flight bought as its own one-way ticket. Booking the whole "
+            "itinerary as a single multi-city fare usually costs more — check the legs "
+            "individually to see the price quoted here."
+        )
 
 
 def describe_itinerary(trip) -> str:

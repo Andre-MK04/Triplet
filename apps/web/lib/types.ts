@@ -31,6 +31,8 @@ export type TripSegment = {
   departureDate: string;
   flight?: Flight | null;
   transfer?: GroundTransfer | null;
+  /** Where to check this hop's own price — a chain is priced as separate tickets. */
+  bookingUrl?: string | null;
 };
 
 export type CityStay = {

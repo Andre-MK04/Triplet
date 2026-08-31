@@ -76,6 +76,9 @@ class TripSegment(BaseModel):
     departureDate: date
     flight: Flight | None = None
     transfer: GroundTransfer | None = None
+    #: Where to check this hop's own price. A chained trip is priced as separate
+    #: one-way tickets, so each one has to be checkable on its own.
+    bookingUrl: str | None = None
 
 
 class CityStay(BaseModel):

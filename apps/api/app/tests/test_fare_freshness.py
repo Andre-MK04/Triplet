@@ -124,3 +124,125 @@ def test_the_hourly_refresh_covers_airports_people_actually_chose(db_session):
 
 def test_warming_is_bounded_so_the_hourly_api_cost_stays_predictable(db_session):
     assert len(origins_to_warm(db_session, limit=3)) == 3
+
+
+# --- Chained trips: staleness compounds, and cheapest selects for stale ---
+
+from datetime import datetime as _dt  # noqa: E402
+
+from app.providers.travelpayouts.mapper import OneWayFare  # noqa: E402
+from app.services.itinerary_builder import build_itineraries, plan_route  # noqa: E402
+from app.services.trip_scoring import fare_age_days  # noqa: E402
+
+
+def leg_fare(origin, destination, day, price, hours_old) -> OneWayFare:
+    return OneWayFare(
+        origin=origin, destination=destination, departureDate=f"2026-10-{day:02d}",
+        price=price, currency="EUR", stops=0,
+        observedAt=_dt(2026, 8, 31, 12) - timedelta(hours=hours_old),
+    )
+
+
+def chain_request(**overrides) -> TripSearchRequest:
+    values = dict(
+        originAirports=["VIE"], startDate=date(2026, 10, 1), endDate=date(2026, 10, 10),
+        minTripLengthDays=4, maxTripLengthDays=14, maxBudget=1000, maxGroundTransferHours=6,
+        tripStyle="surprise me", tripPlan="multi_city", routeStops=["BCN", "LIS"],
+    )
+    values.update(overrides)
+    return TripSearchRequest(**values)
+
+
+def test_a_leg_prefers_a_fresh_fare_over_a_cheaper_stale_one(monkeypatch):
+    """The bargain on a route is usually the fare that has since risen.
+
+    Vienna-Stockholm's cheapest was EUR 26 and 63 hours old while the cheapest
+    seen that day was EUR 34. Summed across a chain, choosing the stale one every
+    time is what pushed a quoted EUR 112 trip to EUR 148 on the booking page.
+    """
+    monkeypatch.setattr(settings, "itinerary_leg_fare_max_age_hours", 24)
+    monkeypatch.setattr("app.services.itinerary_builder.datetime", _FrozenClock)
+    ask = chain_request()
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "BCN"): [leg_fare("VIE", "BCN", d, 26, 63) for d in range(1, 20)]
+        + [leg_fare("VIE", "BCN", d, 34, 3) for d in range(1, 20)],
+        ("BCN", "LIS"): [leg_fare("BCN", "LIS", d, 30, 5) for d in range(1, 26)],
+        ("LIS", "VIE"): [leg_fare("LIS", "VIE", d, 46, 6) for d in range(1, 26)],
+    }
+
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+
+    assert trip.totalPrice == 110  # 34 + 30 + 46, not 26 + 30 + 46
+    assert all(
+        segment.flight.observedAt >= _dt(2026, 8, 30, 12)
+        for segment in trip.segments
+        if segment.kind == "flight"
+    )
+
+
+def test_a_leg_with_nothing_fresh_still_uses_what_it_has(monkeypatch):
+    """A thin route with an older price is still a real answer."""
+    monkeypatch.setattr(settings, "itinerary_leg_fare_max_age_hours", 24)
+    monkeypatch.setattr("app.services.itinerary_builder.datetime", _FrozenClock)
+    ask = chain_request()
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "BCN"): [leg_fare("VIE", "BCN", d, 34, 3) for d in range(1, 26)],
+        ("BCN", "LIS"): [leg_fare("BCN", "LIS", d, 30, 90) for d in range(1, 26)],  # all stale
+        ("LIS", "VIE"): [leg_fare("LIS", "VIE", d, 46, 6) for d in range(1, 26)],
+    }
+
+    trips = build_itineraries(ask, "VIE", legs, fares)
+
+    assert trips and trips[0].totalPrice == 110
+
+
+def test_a_chained_trip_reports_the_age_of_its_stalest_leg(monkeypatch):
+    monkeypatch.setattr(settings, "itinerary_leg_fare_max_age_hours", 400)
+    monkeypatch.setattr("app.services.itinerary_builder.datetime", _FrozenClock)
+    ask = chain_request()
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "BCN"): [leg_fare("VIE", "BCN", d, 34, 1) for d in range(1, 26)],
+        ("BCN", "LIS"): [leg_fare("BCN", "LIS", d, 30, 96) for d in range(1, 26)],  # 4 days
+        ("LIS", "VIE"): [leg_fare("LIS", "VIE", d, 46, 2) for d in range(1, 26)],
+    }
+
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+
+    # Not the freshest leg's one hour: the total is only as good as its worst part.
+    assert fare_age_days(trip, today=date(2026, 8, 31)) == 4
+
+
+def test_a_chained_trip_says_its_total_is_separate_tickets():
+    from app.tools.travel_tools import _finish_itinerary
+    from app.services.trip_scoring import ScoringContext
+
+    ask = chain_request()
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "BCN"): [leg_fare("VIE", "BCN", d, 34, 1) for d in range(1, 26)],
+        ("BCN", "LIS"): [leg_fare("BCN", "LIS", d, 30, 1) for d in range(1, 26)],
+        ("LIS", "VIE"): [leg_fare("LIS", "VIE", d, 46, 1) for d in range(1, 26)],
+    }
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+    _finish_itinerary(trip, ask, ScoringContext())
+
+    assert any("own one-way ticket" in warning for warning in trip.warnings)
+    # Every hop is checkable on its own, since that is what was priced.
+    assert all(
+        segment.bookingUrl for segment in trip.segments if segment.kind == "flight"
+    )
+
+
+class _FrozenClock:
+    """Pins "now" so fare ages in these tests are deterministic."""
+
+    @staticmethod
+    def utcnow():
+        return _dt(2026, 8, 31, 12)
+
+    @staticmethod
+    def combine(*args, **kwargs):
+        return _dt.combine(*args, **kwargs)

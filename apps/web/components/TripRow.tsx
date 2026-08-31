@@ -34,20 +34,34 @@ function telemetry(flight: Flight): string {
 
 const STALE_AFTER_DAYS = 3;
 
+/** The oldest fare in the trip — a total is only as fresh as its stalest leg. */
+function oldestSeenAt(trip: TripOption): string | null {
+  const flights = (trip.segments ?? [])
+    .filter((segment) => segment.kind === "flight" && segment.flight)
+    .map((segment) => segment.flight!);
+  const seen = (flights.length > 0 ? flights : [trip.outboundFlight])
+    .map((flight) => flight.observedAt)
+    .filter((value): value is string => Boolean(value));
+  if (seen.length === 0) return null;
+  return seen.reduce((oldest, value) => (new Date(value) < new Date(oldest) ? value : oldest));
+}
+
 function fareAgeDays(trip: TripOption): number | null {
-  const seen = trip.outboundFlight.observedAt;
+  const seen = oldestSeenAt(trip);
   if (!seen) return null;
   const days = (Date.now() - new Date(seen).getTime()) / 86_400_000;
   return Math.max(0, Math.floor(days));
 }
 
 function freshness(trip: TripOption): string {
-  // This is the day the provider last saw the fare, not when we fetched it —
-  // their data is a cache of what travellers recently searched, so a price can
-  // legitimately be several days old however often we refresh.
-  const seen = trip.outboundFlight.observedAt;
+  // The day the provider last saw the fare, not when we fetched it — their data
+  // is a cache of what travellers recently searched, so a price can legitimately
+  // be several days old however often we refresh.
+  const seen = oldestSeenAt(trip);
   const ago = seen ? timeAgo(seen) : null;
-  return ago ? `price seen ${ago}` : "price age unknown";
+  const multiLeg = (trip.segments ?? []).filter((s) => s.kind === "flight").length > 2;
+  if (!ago) return "price age unknown";
+  return multiLeg ? `oldest price seen ${ago}` : `price seen ${ago}`;
 }
 
 function LegLine({ label, flight, showPrice }: { label: string; flight: Flight; showPrice: boolean }) {
@@ -166,11 +180,24 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
               {trip.segments.map((segment, index) => (
                 <li key={`${segment.origin}-${segment.destination}-${index}`}>
                   {segment.kind === "flight" && segment.flight ? (
-                    <LegLine
-                      label={`${index + 1}`}
-                      flight={segment.flight}
-                      showPrice={trip.fareKind !== "round_trip_bundle"}
-                    />
+                    <span className="flex flex-wrap items-baseline gap-x-3">
+                      <LegLine
+                        label={`${index + 1}`}
+                        flight={segment.flight}
+                        showPrice={trip.fareKind !== "round_trip_bundle"}
+                      />
+                      {segment.bookingUrl ? (
+                        <a
+                          href={segment.bookingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="font-mono text-[10px] uppercase tracking-label text-mint transition-colors hover:text-cloud"
+                        >
+                          Check ↗
+                        </a>
+                      ) : null}
+                    </span>
                   ) : segment.transfer ? (
                     <p className="font-mono text-xs text-mist">
                       <span className="text-mist/70">{index + 1}</span> {segment.originCity} ⇢{" "}
