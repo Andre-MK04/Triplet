@@ -39,6 +39,9 @@ CLASSIFICATION_BANDS: tuple[tuple[float, Classification], ...] = (
     (100, "very_high"),
 )
 
+# Confidence levels a traveller may actually be shown a badge for.
+DISPLAYABLE_CONFIDENCE: frozenset[Confidence] = frozenset({"medium", "high"})
+
 # Trips of wildly different lengths are not comparable prices.
 NIGHT_BUCKETS: tuple[tuple[int, int], ...] = ((1, 3), (4, 6), (7, 10), (11, 16), (17, 30), (31, 365))
 # How far either side of the departure date still counts as the same travel period.
@@ -221,12 +224,22 @@ def attach_price_history(db, trips: list) -> int:
 
 
 def _analyse_trip(trip, rows: list[tuple[float, date, int | None, int | None]]) -> PriceHistory:
-    """Walk the comparison ladder until a rung has enough evidence."""
+    """Choose the most specific comparison that still carries conviction.
+
+    Stopping at the first rung with a bare minimum of evidence sounds right and
+    is not: a narrow rung matching seven fares yields a verdict too weak to show,
+    while the same route overall might have ninety and answer confidently. The
+    ladder is walked in full, and the most specific rung reaching displayable
+    confidence wins. If none does, the most specific usable rung is returned
+    anyway — the verdict is then marked low-confidence and stays off the card,
+    but it is still recorded for debugging and ranking.
+    """
     departure = trip.outboundFlight.departureDateTime.date()
     window_start, window_end = date_window(departure)
     bucket = nights_bucket(trip.nights)
     is_direct = (trip.outboundFlight.stops or 0) == 0
 
+    fallback: PriceHistory | None = None
     for level in COMPARISON_LEVELS:
         prices = [
             price
@@ -240,6 +253,10 @@ def _analyse_trip(trip, rows: list[tuple[float, date, int | None, int | None]]) 
             and (not level.match_stops or row_stops is None or ((row_stops == 0) == is_direct))
         ]
         summary = summarise(trip.totalPrice, prices, level.name)
-        if summary.available:
+        if not summary.available:
+            continue
+        if summary.confidence in DISPLAYABLE_CONFIDENCE:
             return summary
-    return PriceHistory(available=False, sampleCount=0)
+        if fallback is None:
+            fallback = summary
+    return fallback or PriceHistory(available=False, sampleCount=0)
