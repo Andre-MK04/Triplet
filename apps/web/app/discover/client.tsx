@@ -438,7 +438,10 @@ export function DiscoverClient() {
         tone: "success",
         text: user
           ? "Saved! Triplet is now watching this search — see it on your dashboard."
-          : "Alert saved. Check the manage link to edit or unsubscribe anytime.",
+          // An anonymous watch is not watching anything yet: it waits for the
+          // address to confirm it. Saying "saved" would promise alerts that
+          // will never arrive if the email is ignored.
+          : `Check ${alertEmail || "your email"} to confirm this watch. Triplet starts watching once you do.`,
       });
     } catch (saveError) {
       setAlertStatus({ tone: "error", text: limitAwareError(saveError) });
