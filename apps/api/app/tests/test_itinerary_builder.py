@@ -263,3 +263,76 @@ def test_explicit_stops_are_never_overridden_by_a_proposal():
     legs = plan_route(request(routeStops=["BCN", "LIS"]), "VIE")
 
     assert [leg.destination for leg in legs] == ["BCN", "LIS", "VIE"]
+
+
+# --- What the trip detail page needs to render a chain honestly -------------
+
+def test_a_chain_carries_every_city_it_visits():
+    """The detail page named only the first flight's destination, so
+    "Rome then Athens then Istanbul" was presented as "Rome"."""
+    ask = request(routeStops=["FCO", "ATH", "IST"], minTripLengthDays=8, maxTripLengthDays=12)
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "FCO"): spread("VIE", "FCO", 60),
+        ("FCO", "ATH"): spread("FCO", "ATH", 45),
+        ("ATH", "IST"): spread("ATH", "IST", 55),
+        ("IST", "VIE"): spread("IST", "VIE", 90),
+    }
+
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+
+    assert [stay.code for stay in trip.stays] == ["FCO", "ATH", "IST"]
+    assert len([s for s in trip.segments if s.kind == "flight"]) == 4
+
+
+def test_every_leg_of_a_chain_can_be_priced_on_its_own():
+    """Independently priced legs are separate purchases, so each needs its own
+    place to check the live fare."""
+    ask = request(routeStops=["FCO", "ATH"], minTripLengthDays=6, maxTripLengthDays=10)
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "FCO"): spread("VIE", "FCO", 60),
+        ("FCO", "ATH"): spread("FCO", "ATH", 45),
+        ("ATH", "VIE"): spread("ATH", "VIE", 70),
+    }
+
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+
+    flights = [s for s in trip.segments if s.kind == "flight"]
+    assert len(flights) == 3
+    assert all(segment.bookingUrl for segment in flights), "a leg with no way to check its price"
+
+
+def test_a_chain_total_is_the_sum_of_its_legs_and_says_so():
+    """A summed total must not be presented as one protected ticket."""
+    ask = request(routeStops=["FCO", "ATH"], minTripLengthDays=6, maxTripLengthDays=10)
+    legs = plan_route(ask, "VIE")
+    fares = {
+        ("VIE", "FCO"): spread("VIE", "FCO", 60),
+        ("FCO", "ATH"): spread("FCO", "ATH", 45),
+        ("ATH", "VIE"): spread("ATH", "VIE", 70),
+    }
+
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+
+    assert trip.totalPrice == 175
+    # The price model marks it as assembled rather than observed as one fare.
+    assert trip.price is None or trip.price.isEstimate or trip.price.legCount == 3
+
+
+def test_open_jaw_keeps_the_ground_crossing_outside_the_fare():
+    """The crossing is the traveller's own arrangement; pricing it as part of
+    the trip would misstate what the money buys."""
+    ask = request(
+        tripPlan="open_jaw", routeStops=None,
+        destinationAirports=["STO"], returnOriginAirports=["HEL"],
+    )
+    legs = plan_route(ask, "BUD")
+    fares = {("BUD", "STO"): spread("BUD", "STO", 80), ("HEL", "BUD"): spread("HEL", "BUD", 90)}
+
+    trip = build_itineraries(ask, "BUD", legs, fares)[0]
+
+    ground = [s for s in trip.segments if s.kind == "ground"]
+    assert len(ground) == 1
+    assert trip.totalPrice == 170, "the ground hop leaked into the fare"
+    assert trip.groundEstimate and trip.groundEstimate > 0, "the crossing lost its estimate"

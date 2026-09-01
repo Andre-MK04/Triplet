@@ -67,9 +67,17 @@ export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
   const isOpenJaw = trip.tripType === "open_jaw";
   const destCity = airportCity(trip.outboundFlight.destination);
   const returnCity = airportCity(trip.returnFlight.origin);
-  const headline = isOpenJaw
-    ? `${destCity} & ${returnCity}, ${nightsPhrase(trip.nights)}.`
-    : `${destCity}, ${nightsPhrase(trip.nights)}.`;
+
+  // A chain has to name every city it visits. Reading only the first and last
+  // flight turned "Rome, then Athens, then Istanbul" into "Rome" — the trip the
+  // traveller asked for, described as one they did not.
+  const chainCities = (trip.stays ?? []).map((stay) => stay.city || airportCity(stay.code));
+  const headline =
+    chainCities.length > 1
+      ? `${chainCities.join(" → ")}, ${nightsPhrase(trip.nights)}.`
+      : isOpenJaw
+        ? `${destCity} & ${returnCity}, ${nightsPhrase(trip.nights)}.`
+        : `${destCity}, ${nightsPhrase(trip.nights)}.`;
 
   const beforeYouBook = [
     trip.fareKind === "round_trip_bundle"
