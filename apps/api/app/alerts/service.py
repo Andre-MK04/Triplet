@@ -3,7 +3,7 @@ import smtplib
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.alerts.email import EmailProviderError, build_email_provider
@@ -381,13 +381,20 @@ class SavedSearchService:
 
     def list_due_saved_searches(self, now: datetime | None = None) -> list[SavedSearchDB]:
         now = now or datetime.utcnow()
-        rows = self.db.scalars(
-            select(SavedSearchDB).where(
-                SavedSearchDB.is_active.is_(True),
-                # An address that never confirmed is not a subscriber.
-                SavedSearchDB.email_verified_at.is_not(None),
-            )
-        ).all()
+        query = select(SavedSearchDB).where(
+            SavedSearchDB.is_active.is_(True),
+            # An address that never confirmed is not a subscriber.
+            SavedSearchDB.email_verified_at.is_not(None),
+        )
+        if self.db.bind is not None and self.db.bind.dialect.name == "postgresql":
+            # Overlapping runs are the normal case for a scheduler whose ticks
+            # take longer than its interval. SKIP LOCKED lets a second runner
+            # take different watches rather than queue behind the first or race
+            # it. The duplicate *send* is already impossible — see
+            # _claim_notification_slot — this stops the duplicate *work*, which
+            # costs real provider calls.
+            query = query.with_for_update(skip_locked=True)
+        rows = self.db.scalars(query).all()
         return [row for row in rows if self._is_due(row, now)]
 
     def run_due_alerts(self) -> list[AlertRunResponse]:
@@ -414,9 +421,13 @@ class SavedSearchService:
                 row.last_best_price = best_price
                 row.last_best_trip_id = best_trip.id
 
-            if should_notify:
+            # Claim the notification slot before sending, not after. Deciding to
+            # send and recording that it was sent used to be separated by the
+            # send itself, with nothing committed in between — so two runners
+            # could both read the same last_notified_at, both pass the cooldown,
+            # and both email the same traveller the same deal.
+            if should_notify and self._claim_notification_slot(row):
                 self._send_delivery(row, run, output)
-                row.last_notified_at = datetime.utcnow()
                 notification_sent = True
 
             run.status = "success" if trips else "no_results"
@@ -550,6 +561,39 @@ class SavedSearchService:
             return True
         interval = timedelta(days=7 if row.frequency == "weekly" else 1)
         return row.last_checked_at <= now - interval
+
+    def _claim_notification_slot(self, row: SavedSearchDB) -> bool:
+        """Take exclusive right to notify this watch now. False if someone else has it.
+
+        One conditional UPDATE, committed immediately so a concurrent runner
+        sees it: the cooldown is re-tested in the same statement that stamps it,
+        which no interleaving can get between. Works identically on PostgreSQL
+        and SQLite because it relies on row-level atomicity rather than on any
+        dialect's locking syntax.
+
+        A failed send deliberately keeps the claim rather than releasing it. We
+        cannot tell whether the provider accepted the message before failing, and
+        a missed alert is recoverable on the next run while a duplicate is not.
+        """
+        now = datetime.utcnow()
+        cutoff = now - timedelta(hours=settings.alerts_min_hours_between_notifications)
+        claimed = self.db.execute(
+            update(SavedSearchDB)
+            .where(SavedSearchDB.id == row.id)
+            .where(
+                or_(
+                    SavedSearchDB.last_notified_at.is_(None),
+                    SavedSearchDB.last_notified_at < cutoff,
+                )
+            )
+            .values(last_notified_at=now)
+        ).rowcount
+        self.db.commit()
+        if claimed:
+            row.last_notified_at = now
+            return True
+        logger.info("alert_notification_already_claimed saved_search_id=%s", row.id)
+        return False
 
     def _should_notify(self, row: SavedSearchDB, best_price: float) -> bool:
         if row.last_notified_at:
