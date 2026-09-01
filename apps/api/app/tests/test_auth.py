@@ -294,3 +294,86 @@ def test_oauth_callback_sets_auth_cookies(db_session, monkeypatch):
     set_cookie = response.headers.get("set-cookie", "")
     assert ACCESS_COOKIE_NAME in set_cookie
     assert REFRESH_COOKIE_NAME in set_cookie
+
+
+# --- How an account actually signs in --------------------------------------
+
+def test_an_email_account_reports_that_it_has_a_password(db_session):
+    client = make_client(db_session)
+    response = client.post("/auth/signup", json=signup_payload())
+    app.dependency_overrides.clear()
+
+    body = response.json()["user"]
+    assert body["hasPassword"] is True
+    assert body["connectedProviders"] == []
+
+
+def test_a_provider_account_reports_that_it_has_none(db_session):
+    """The account page used to ask such a user for a "current password" that
+    had never existed, with no explanation of why it could not work."""
+    from uuid import uuid4
+
+    from app.auth.security import unusable_password_hash
+    from app.auth.service import auth_user_response
+    from app.db.models import UserDB, UserOAuthAccountDB
+
+    user = UserDB(
+        id=str(uuid4()),
+        email="oauth@example.com",
+        password_hash=unusable_password_hash(),
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(
+        UserOAuthAccountDB(
+            id=str(uuid4()), user_id=user.id, provider="google", provider_user_id="g-1"
+        )
+    )
+    db_session.commit()
+    db_session.refresh(user)
+
+    body = auth_user_response(user)
+
+    assert body.hasPassword is False
+    assert body.connectedProviders == ["google"]
+
+
+def test_a_provider_account_that_later_set_a_password_reports_both(db_session):
+    """Setting a password through the emailed reset flow is allowed, and the
+    interface should then offer changing it rather than the provider notice."""
+    from uuid import uuid4
+
+    from app.auth.security import hash_password
+    from app.auth.service import auth_user_response
+    from app.db.models import UserDB, UserOAuthAccountDB
+
+    user = UserDB(
+        id=str(uuid4()),
+        email="both@example.com",
+        password_hash=hash_password("Str0ng-pass!x"),
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(
+        UserOAuthAccountDB(
+            id=str(uuid4()), user_id=user.id, provider="google", provider_user_id="g-2"
+        )
+    )
+    db_session.commit()
+    db_session.refresh(user)
+
+    body = auth_user_response(user)
+
+    assert body.hasPassword is True
+    assert body.connectedProviders == ["google"]
+
+
+def test_an_unusable_password_marker_never_counts_as_a_password():
+    from app.auth.security import has_usable_password, unusable_password_hash
+
+    class Row:
+        password_hash = unusable_password_hash()
+
+    assert has_usable_password(Row()) is False

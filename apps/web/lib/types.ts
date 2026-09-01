@@ -233,12 +233,22 @@ export type AISearchResponse = {
   };
 };
 
+/** How a provider identifies itself, for interface copy. */
+export function providerName(provider: string): string {
+  const known: Record<string, string> = { google: "Google", apple: "Apple", github: "GitHub" };
+  return known[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
 export type AuthUser = {
   id: string;
   email: string;
   displayName?: string | null;
   isVerified: boolean;
   createdAt: string;
+  /** False for an account created through a provider that never set a password. */
+  hasPassword?: boolean;
+  /** Providers linked to this account, e.g. ["google"]. */
+  connectedProviders?: string[];
 };
 
 export type AuthResponse = {

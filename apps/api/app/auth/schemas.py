@@ -33,6 +33,13 @@ class AuthUserResponse(BaseModel):
     displayName: str | None = None
     isVerified: bool
     createdAt: datetime
+    #: False for an account created through a provider that has never set a
+    #: password. Without this the account page showed a "current password" form
+    #: that such a user could never fill in, and no explanation of why.
+    hasPassword: bool = True
+    #: Providers linked to this account, e.g. ["google"]. Lets the interface say
+    #: how someone actually signs in rather than assuming it was email.
+    connectedProviders: list[str] = []
 
 
 class AuthResponse(BaseModel):

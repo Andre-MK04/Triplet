@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field, Input } from "../../components/ui/Input";
 import { EmptyState, Notice, Spinner } from "../../components/ui/Misc";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
+import { providerName } from "../../lib/types";
 
 type AccountBilling = {
   plan: string;
@@ -139,6 +140,26 @@ export default function AccountPage() {
         </section>
 
         <section className="border-t border-line py-8">
+          {/* An account created through a provider has no password to change,
+              so it was being asked for a "current password" that never
+              existed. It is told how it actually signs in, and offered the
+              email-verified reset flow if it wants a password as well. */}
+          {user.hasPassword === false ? (
+            <div className="space-y-4">
+              <span className={sectionLabel}>Signing in</span>
+              <p className="text-sm leading-relaxed text-mist">
+                You sign in with{" "}
+                <strong className="text-cloud">
+                  {(user.connectedProviders ?? []).map(providerName).join(" and ") || "a connected account"}
+                </strong>
+                , so there is no Triplet password to change. You can add one if you would rather sign
+                in with an email and password too — we will email you a link to set it.
+              </p>
+              <ButtonLink href="/reset-password" variant="secondary">
+                Set a Triplet password
+              </ButtonLink>
+            </div>
+          ) : (
           <form onSubmit={changePassword} className="space-y-5">
             <span className={sectionLabel}>Password</span>
             <Field label="Current password">
@@ -160,6 +181,7 @@ export default function AccountPage() {
             </Field>
             <Button type="submit">Change password</Button>
           </form>
+          )}
         </section>
 
         <section className="border-t border-line py-8">

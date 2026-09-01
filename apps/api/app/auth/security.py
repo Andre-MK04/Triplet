@@ -22,6 +22,17 @@ def unusable_password_hash() -> str:
     return f"{UNUSABLE_PASSWORD_PREFIX}{secrets.token_urlsafe(32)}"
 
 
+def has_usable_password(user) -> bool:
+    """Whether this account can be signed into with a password at all.
+
+    An account created through a provider carries an unusable placeholder
+    instead of a hash, so asking it for a "current password" asks for something
+    that has never existed.
+    """
+    password_hash = getattr(user, "password_hash", None)
+    return bool(password_hash) and not password_hash.startswith(UNUSABLE_PASSWORD_PREFIX)
+
+
 def validate_password_strength(password: str, email: str | None = None) -> str | None:
     if len(password) < settings.auth_password_min_length:
         return f"Password must be at least {settings.auth_password_min_length} characters."

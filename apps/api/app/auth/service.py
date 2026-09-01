@@ -10,6 +10,7 @@ from app.auth.security import (
     create_access_token,
     create_refresh_token,
     create_reset_token,
+    has_usable_password,
     hash_password,
     needs_rehash,
     hash_token,
@@ -229,4 +230,9 @@ def auth_user_response(user: UserDB) -> AuthUserResponse:
         displayName=user.display_name,
         isVerified=user.is_verified,
         createdAt=user.created_at,
+        hasPassword=has_usable_password(user),
+        # Sorted so the interface renders them in a stable order.
+        connectedProviders=sorted(
+            {account.provider for account in (user.oauth_accounts or [])}
+        ),
     )
