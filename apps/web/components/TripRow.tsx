@@ -72,7 +72,11 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           a button and the only live-price link lived inside the panel it
           opened, which put the main conversion action behind a disclosure and
           would have meant nesting an anchor inside a button to fix naively. */}
-      <div className="flex items-stretch gap-2">
+      {/* Stacked on a phone, side by side from small up. Beside the row, the
+          link is shrink-0 and takes its natural width, which on a 375px screen
+          left about 110px per grid column — narrow enough that a price badge
+          or a long city name spilled into its neighbour. */}
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row">
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
@@ -96,7 +100,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             )}
           </span>
           {badge ? (
-            <span className="mt-1.5 inline-flex items-center gap-1 border border-mint/40 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-label text-mint">
+            <span className="mt-1.5 inline-flex items-center gap-1 border border-mint/40 px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
               {badge.label}
             </span>
           ) : null}
@@ -113,7 +117,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           <span className="mono-num block font-mono text-sm text-cloud">
             {legDate(trip.outboundFlight.departureDateTime)} — {legDate(trip.returnFlight.departureDateTime)}
           </span>
-          <span className="mt-1 block font-mono text-[10px] uppercase tracking-label text-mist/70">
+          <span className="mt-1 block font-mono text-[11px] uppercase tracking-label text-mist/70">
             {trip.nights} nights
             {isChained ? ` · ${stays.length} cities` : isOpenJaw ? " · two cities" : ""}
           </span>
@@ -128,7 +132,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
 
         <span className="text-right">
           {overBudget ? (
-            <span className="mb-1 inline-block border border-coral/40 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-label text-coral">
+            <span className="mb-1 inline-block border border-coral/40 px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-label text-coral">
               Over budget
             </span>
           ) : null}
@@ -148,7 +152,10 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           {price.secondary ? (
             <span
               className={
-                "mt-1 block font-mono text-[10px] uppercase tracking-label " +
+                // How old the fare is decides how much of the price to
+                // believe, so it is read at the same size as the labels around
+                // it rather than shrunk into decoration.
+                "mt-1 block font-mono text-[11px] uppercase tracking-label " +
                 (price.isStale || price.confidence === "aging" ? "text-gold" : "text-mist/70")
               }
             >
@@ -177,7 +184,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             // Named for this specific trip so a screen reader hears which row
             // it belongs to rather than a wall of identical links.
             aria-label={`${CHECK_PRICE_LABEL} for ${routeLabel}`}
-            className="my-2 flex shrink-0 items-center px-3 text-center font-mono text-[11px] font-semibold uppercase leading-tight tracking-label text-mint transition-colors hover:bg-mint hover:text-mint-ink sm:px-4"
+            className="mb-4 flex shrink-0 items-center justify-center border border-mint/30 px-3 py-2.5 text-center font-mono text-[11px] font-semibold uppercase leading-tight tracking-label text-mint transition-colors hover:bg-mint hover:text-mint-ink sm:my-2 sm:mb-2 sm:border-0 sm:px-4 sm:py-0"
           >
             {CHECK_PRICE_LABEL} ↗
           </a>
@@ -203,7 +210,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(event) => event.stopPropagation()}
-                          className="font-mono text-[10px] uppercase tracking-label text-mint transition-colors hover:text-cloud"
+                          className="font-mono text-[11px] uppercase tracking-label text-mint transition-colors hover:text-cloud"
                         >
                           Check ↗
                         </a>

@@ -38,7 +38,7 @@ function Leg({ label, flight }: { label: string; flight: Flight }) {
         </span>
       </div>
       <div className="text-center">
-        <span className="block font-mono text-[9px] uppercase tracking-label text-mist">{durationLabel(flight)}</span>
+        <span className="block font-mono text-[10px] uppercase tracking-label text-mist">{durationLabel(flight)}</span>
         <span aria-hidden className="mx-auto my-1.5 block h-px w-full max-w-32 bg-line" />
         <span aria-hidden className="font-mono text-xs text-mint">→</span>
       </div>

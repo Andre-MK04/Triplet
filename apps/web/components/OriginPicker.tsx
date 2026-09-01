@@ -61,7 +61,7 @@ export function OriginPicker({
           Your origin airports
           <span className="ml-2 text-mist">({selected.length})</span>
         </span>
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-label text-mist">
+        <span className="shrink-0 font-mono text-[11px] uppercase tracking-label text-mist">
           {open ? "Close" : summary}
         </span>
       </button>

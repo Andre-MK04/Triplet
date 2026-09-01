@@ -143,7 +143,7 @@ function PriceHistoryChart({ insights, budget }: { insights: WatchInsights; budg
           className="text-coral/50"
           strokeDasharray="5 5"
         />
-        <text x={width - padX} y={Math.max(12, y(budget) - 6)} textAnchor="end" className="fill-coral font-mono text-[9px]">
+        <text x={width - padX} y={Math.max(12, y(budget) - 6)} textAnchor="end" className="fill-coral font-mono text-[10px]">
           BUDGET {formatPrice(budget)}
         </text>
         {points.length > 1 ? (
@@ -184,7 +184,7 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
           ],
         ].map(([label, value]) => (
           <div key={label} className="bg-ink-raised px-3 py-3">
-            <p className="font-mono text-[9px] uppercase tracking-label text-mist/60">{label}</p>
+            <p className="font-mono text-[11px] uppercase tracking-label text-mist/70">{label}</p>
             <p className="mono-num mt-1 font-mono text-sm font-semibold text-cloud">{value}</p>
           </div>
         ))}
@@ -193,7 +193,7 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
       <div className="mt-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mist">Price history</p>
-          <p className="font-mono text-[9px] uppercase tracking-label text-mist/60">
+          <p className="font-mono text-[10px] uppercase tracking-label text-mist/60">
             {insights.totalChecks} checks · {insights.notificationCount} alerts · {TRIGGER_LABELS[insights.alertTriggerMode] ?? insights.alertTriggerMode}
           </p>
         </div>
@@ -206,11 +206,11 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
           <div className="mt-2 divide-y divide-line border-t border-line">
             {insights.deliveries.slice(0, 4).map((delivery) => (
               <div key={`${delivery.sentAt}-${delivery.subject}`} className="grid gap-1 py-2.5 sm:grid-cols-[5rem_1fr_auto] sm:items-center sm:gap-3">
-                <span className={`font-mono text-[9px] uppercase tracking-label ${delivery.status === "sent" ? "text-mint" : "text-coral"}`}>
+                <span className={`font-mono text-[11px] uppercase tracking-label ${delivery.status === "sent" ? "text-mint" : "text-coral"}`}>
                   {delivery.status}
                 </span>
                 <span className="truncate text-xs text-cloud">{delivery.subject}</span>
-                <span className="font-mono text-[9px] uppercase tracking-label text-mist/60">{timeAgo(delivery.sentAt)}</span>
+                <span className="font-mono text-[11px] uppercase tracking-label text-mist/70">{timeAgo(delivery.sentAt)}</span>
               </div>
             ))}
           </div>
@@ -346,7 +346,9 @@ function SavedWatchRow({
         {search.originAirports.map(airportCity).join(", ")} · {search.startDate} → {search.endDate} ·{" "}
         {search.minTripLengthDays}–{search.maxTripLengthDays} days · under {formatPrice(search.maxBudget)}
       </p>
-      <p className="mono-num mt-1 font-mono text-[10px] uppercase tracking-[0.06em] text-mist/60">
+      {/* When a watch last ran and what it found is the whole point of the
+          row, so it is read at label size rather than shrunk below it. */}
+      <p className="mono-num mt-1 font-mono text-[11px] uppercase leading-relaxed tracking-[0.06em] text-mist/70">
         {search.frequency} checks · checked {checked ?? "never"} · notified {notified ?? "never"} · best{" "}
         {search.lastBestPrice ? formatPrice(search.lastBestPrice) : "not yet"}
       </p>
@@ -661,7 +663,7 @@ export function DashboardClient() {
                     <p className="mt-2 text-sm text-mist">{data.travelProfile.homeLocation || "Home base not set"}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {data.travelProfile.originAirports.map((code) => (
-                        <span key={code} className="border border-line px-2 py-1 font-mono text-[9px] uppercase tracking-label text-cloud">
+                        <span key={code} className="border border-line px-2 py-1 font-mono text-[10px] uppercase tracking-label text-cloud">
                           {code}
                         </span>
                       ))}

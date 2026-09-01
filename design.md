@@ -162,8 +162,13 @@ font-mono text-[10px–11px] font-semibold uppercase tracking-[0.12em] text-mist
 - Price headline on a card: `font-display text-2xl font-bold text-mint`.
 - Body copy: `text-sm` / `text-base`, `leading-relaxed`, color `text-mist` for
   secondary, `text-cloud` for primary.
-- Buttons: mono, uppercase, tracked, sizes `text-[10px]` (sm) / `text-[11px]`
-  (md) / `text-xs` (lg) — see §5.
+- Buttons: mono, uppercase, tracked, sizes `text-[11px]` (sm and md) /
+  `text-xs` (lg) — see §5.
+- **11px is the floor for anything meaningful or interactive.** Fare age,
+  warnings, watch status, dates, price explanations, legal text and every
+  button label sit at 11px or above. 10px is reserved for genuinely secondary
+  chrome: field labels beside their values, footer legal lines, section
+  eyebrows. Nothing in the interface is below 10px.
 - Numbers that align in a column or represent a live metric get
   `font-variant-numeric: tabular-nums` (`.mono-num` utility class).
 
@@ -218,7 +223,7 @@ base: inline-flex items-center justify-center gap-2, rounded-none,
 
 | Size | Padding | Font size |
 |---|---|---|
-| `sm` | `px-3.5 py-2` | 10px |
+| `sm` | `px-3.5 py-2` | 11px |
 | `md` | `px-5 py-2.5` | 11px |
 | `lg` | `px-7 py-3.5` | 12px (`text-xs`) |
 

@@ -19,8 +19,11 @@ const variants: Record<Variant, string> = {
   danger: "border border-coral/40 bg-transparent text-coral hover:bg-coral/10",
 };
 
+// 11px is the floor for anything a person presses. A 10px tracked uppercase
+// label is legible enough sitting still on a desktop and genuinely hard on a
+// phone, and every small button in the app used to sit below it.
 const sizes: Record<Size, string> = {
-  sm: "px-3.5 py-2 text-[10px]",
+  sm: "px-3.5 py-2 text-[11px]",
   md: "px-5 py-2.5 text-[11px]",
   lg: "px-7 py-3.5 text-xs",
 };

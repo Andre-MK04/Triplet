@@ -101,13 +101,13 @@ function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
       <dl className="px-5 py-2">
         {rows.map(([label, value]) => (
           <div key={label} className="border-b border-line py-3 last:border-b-0">
-            <dt className="font-mono text-[9px] uppercase tracking-label text-mist/70">{label}</dt>
+            <dt className="font-mono text-[10px] uppercase tracking-label text-mist/70">{label}</dt>
             <dd className="mono-num mt-1 font-mono text-xs uppercase text-cloud">{value}</dd>
           </div>
         ))}
       </dl>
       <div className="border-t border-dashed border-line px-5 py-3">
-        <p className="font-mono text-[9px] uppercase tracking-label text-mist/50">Powers alerts &amp; every search</p>
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist/50">Powers alerts &amp; every search</p>
       </div>
     </aside>
   );

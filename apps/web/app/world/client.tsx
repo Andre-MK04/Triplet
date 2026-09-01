@@ -90,7 +90,7 @@ function TravelStats({ map }: { map: TravelMapResponse }) {
         ["Wishlist", String(stats.wishlistCountries)],
       ].map(([label, value], index) => (
         <div key={label} className={(index ? "border-t border-line sm:border-l sm:border-t-0 " : "") + "px-4 py-4"}>
-          <p className="font-mono text-[9px] uppercase tracking-label text-mist">{label}</p>
+          <p className="font-mono text-[10px] uppercase tracking-label text-mist">{label}</p>
           <p className="mono-num mt-1 font-display text-2xl font-bold text-cloud">{value}</p>
         </div>
       ))}
@@ -100,7 +100,7 @@ function TravelStats({ map }: { map: TravelMapResponse }) {
 
 function Legend() {
   return (
-    <div className="flex flex-wrap gap-x-5 gap-y-2 font-mono text-[9px] uppercase tracking-label text-mist" aria-label="Travel map legend">
+    <div className="flex flex-wrap gap-x-5 gap-y-2 font-mono text-[10px] uppercase tracking-label text-mist" aria-label="Travel map legend">
       <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-mint" />Visited</span>
       <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-coral" />Lived</span>
       <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-gold" />Wishlist</span>
@@ -132,7 +132,7 @@ function CountryPanel({
     <aside className="fixed inset-x-0 bottom-0 z-50 max-h-[74vh] overflow-y-auto border-t border-line bg-ink-raised p-5 shadow-2xl lg:static lg:z-auto lg:max-h-[680px] lg:border lg:shadow-none">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[9px] uppercase tracking-label text-mist">{metadata.continent} · {metadata.code}</p>
+          <p className="font-mono text-[10px] uppercase tracking-label text-mist">{metadata.continent} · {metadata.code}</p>
           <h2 id="country-panel-title" className="mt-1 font-display text-3xl font-bold text-cloud">{metadata.name}</h2>
           <p className="mt-2 font-mono text-[10px] font-semibold uppercase tracking-label text-mint">
             {STATUS_LABEL[status]}
@@ -171,15 +171,15 @@ function CountryPanel({
               <article key={visit.id} className="border-b border-line py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-mono text-[9px] uppercase tracking-label text-mist">
+                    <p className="font-mono text-[10px] uppercase tracking-label text-mist">
                       {visit.kind === "lived" ? "Lived here" : "Visit"}
                     </p>
                     <p className="mt-1 text-sm font-medium text-cloud">{visitPeriod(visit)}</p>
                     {visit.note ? <p className="mt-1 text-sm leading-relaxed text-mist">{visit.note}</p> : null}
                   </div>
                   <div className="flex gap-3">
-                    <button type="button" onClick={() => onEditVisit(visit)} className="font-mono text-[9px] uppercase text-mist hover:text-mint">Edit</button>
-                    <button type="button" onClick={() => onDeleteVisit(visit)} className="font-mono text-[9px] uppercase text-coral hover:text-cloud">Delete</button>
+                    <button type="button" onClick={() => onEditVisit(visit)} className="font-mono text-[11px] uppercase text-mist hover:text-mint">Edit</button>
+                    <button type="button" onClick={() => onDeleteVisit(visit)} className="font-mono text-[11px] uppercase text-coral hover:text-cloud">Delete</button>
                   </div>
                 </div>
               </article>
@@ -189,16 +189,16 @@ function CountryPanel({
           </div>
           <div className="mt-4 flex flex-wrap gap-4">
             {country.lived ? (
-              <button type="button" onClick={() => onUpdate({ lived: false })} className="font-mono text-[9px] uppercase tracking-label text-mist hover:text-coral">
+              <button type="button" onClick={() => onUpdate({ lived: false })} className="font-mono text-[10px] uppercase tracking-label text-mist hover:text-coral">
                 Clear lived status
               </button>
             ) : (
-              <button type="button" onClick={() => onUpdate({ lived: true })} className="font-mono text-[9px] uppercase tracking-label text-mist hover:text-mint">
+              <button type="button" onClick={() => onUpdate({ lived: true })} className="font-mono text-[10px] uppercase tracking-label text-mist hover:text-mint">
                 Mark as lived
               </button>
             )}
             {!country.visits.length ? (
-              <button type="button" onClick={() => onUpdate({ visited: false })} className="font-mono text-[9px] uppercase tracking-label text-mist hover:text-coral">
+              <button type="button" onClick={() => onUpdate({ visited: false })} className="font-mono text-[10px] uppercase tracking-label text-mist hover:text-coral">
                 Mark unvisited
               </button>
             ) : null}
@@ -258,7 +258,7 @@ function VisitEditor({
       <form onSubmit={(event) => { event.preventDefault(); onSave(); }}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[9px] uppercase tracking-label text-mint">Travel memory</p>
+            <p className="font-mono text-[10px] uppercase tracking-label text-mint">Travel memory</p>
             <h2 id="visit-editor-title" className="mt-1 font-display text-2xl font-bold text-cloud">{draft.id ? "Edit" : "Add"} · {countryName}</h2>
           </div>
           <button type="button" onClick={onClose} className="p-2 text-mist hover:text-cloud" aria-label="Close visit editor">×</button>
@@ -318,7 +318,7 @@ function AddCountries({
     <Dialog open onClose={onClose} labelledBy="add-countries-title" size="lg">
       <div className="flex max-h-[80vh] flex-col">
         <div className="flex items-start justify-between border-b border-line pb-4">
-          <div><p className="font-mono text-[9px] uppercase tracking-label text-mint">Browse and add</p><h2 id="add-countries-title" className="mt-1 font-display text-2xl font-bold text-cloud">Countries</h2></div>
+          <div><p className="font-mono text-[10px] uppercase tracking-label text-mint">Browse and add</p><h2 id="add-countries-title" className="mt-1 font-display text-2xl font-bold text-cloud">Countries</h2></div>
           <button type="button" onClick={onClose} className="p-2 text-mist hover:text-cloud" aria-label="Close country picker">×</button>
         </div>
         <div className="grid gap-4 border-b border-line py-4 sm:grid-cols-[1fr_180px]">
@@ -334,9 +334,9 @@ function AddCountries({
               <div key={country.code} className="flex items-center gap-3 border-b border-line px-3 py-3 hover:bg-mint/5">
                 <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
                   <input type="checkbox" checked={checked} onChange={() => setSelected((current) => { const next = new Set(current); checked ? next.delete(country.code) : next.add(country.code); return next; })} className="h-4 w-4 shrink-0 accent-[rgb(var(--mint))]" />
-                  <span className="min-w-0"><span className="block truncate font-display font-semibold text-cloud">{country.name}</span><span className="font-mono text-[9px] uppercase tracking-label text-mist">{country.code} · {statusByCode.get(country.code) ? STATUS_LABEL[statusByCode.get(country.code)!] : country.continent}</span></span>
+                  <span className="min-w-0"><span className="block truncate font-display font-semibold text-cloud">{country.name}</span><span className="font-mono text-[10px] uppercase tracking-label text-mist">{country.code} · {statusByCode.get(country.code) ? STATUS_LABEL[statusByCode.get(country.code)!] : country.continent}</span></span>
                 </label>
-                <button type="button" onClick={() => onOpenCountry(country.code)} className="shrink-0 font-mono text-[9px] uppercase tracking-label text-mist hover:text-mint" aria-label={`Open ${country.name}`}>
+                <button type="button" onClick={() => onOpenCountry(country.code)} className="shrink-0 font-mono text-[10px] uppercase tracking-label text-mist hover:text-mint" aria-label={`Open ${country.name}`}>
                   Open
                 </button>
               </div>
@@ -475,7 +475,7 @@ export function TravelMapClient() {
         {loading || !catalog || !travelMap ? <div className="flex min-h-[560px] items-center justify-center"><Spinner label="Drawing your world…" /></div> : (
           <>
             <div className="mt-9"><TravelStats map={travelMap} /></div>
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-4"><Legend /><p className="font-mono text-[9px] uppercase tracking-label text-mist/60">Private to your account</p></div>
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-4"><Legend /><p className="font-mono text-[10px] uppercase tracking-label text-mist/60">Private to your account</p></div>
             {!travelMap.countries.length ? <div className="mt-8 border-y border-line py-6 text-center"><h2 className="font-display text-2xl font-bold text-cloud">Map your world</h2><p className="mt-2 text-sm text-mist">Start with a few countries. Dates can always come later.</p><Button className="mt-4" size="sm" onClick={() => setAddCountriesOpen(true)}>Start adding countries</Button></div> : null}
             <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="relative min-w-0 overflow-visible">
@@ -497,10 +497,10 @@ export function TravelMapClient() {
                 </div>
               </div>
               <div className="hidden lg:block">
-                {selectedMetadata ? <CountryPanel metadata={selectedMetadata} country={selectedCountry} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /> : <div className="border border-line p-8"><p className="font-mono text-[9px] uppercase tracking-label text-mint">Explore</p><h2 className="mt-2 font-display text-2xl font-bold text-cloud">Select a country</h2><p className="mt-3 text-sm leading-relaxed text-mist">Rotate the globe, or browse the same countries as a searchable list.</p></div>}
+                {selectedMetadata ? <CountryPanel metadata={selectedMetadata} country={selectedCountry} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /> : <div className="border border-line p-8"><p className="font-mono text-[10px] uppercase tracking-label text-mint">Explore</p><h2 className="mt-2 font-display text-2xl font-bold text-cloud">Select a country</h2><p className="mt-3 text-sm leading-relaxed text-mist">Rotate the globe, or browse the same countries as a searchable list.</p></div>}
               </div>
             </div>
-            <section className="mt-12 border-t border-line pt-7"><div className="flex items-baseline justify-between gap-4"><div><p className="font-mono text-[9px] uppercase tracking-label text-mint">Continents</p><h2 className="mt-1 font-display text-2xl font-bold text-cloud">Progress, without pressure.</h2></div><span className="font-mono text-[9px] uppercase tracking-label text-mist">{travelMap.stats.continentsVisited} explored</span></div><div className="mt-5 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">{travelMap.stats.continentProgress.map((continent) => <div key={continent.name} className="border-b border-line py-4"><div className="flex justify-between"><span className="text-sm font-medium text-cloud">{continent.name}</span><span className="mono-num font-mono text-xs text-mist">{continent.visited} / {continent.total}</span></div><div className="mt-2 h-px bg-line"><div className="h-px bg-mint" style={{ width: `${continent.total ? Math.min(100, (continent.visited / continent.total) * 100) : 0}%` }} /></div></div>)}</div></section>
+            <section className="mt-12 border-t border-line pt-7"><div className="flex items-baseline justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-label text-mint">Continents</p><h2 className="mt-1 font-display text-2xl font-bold text-cloud">Progress, without pressure.</h2></div><span className="font-mono text-[10px] uppercase tracking-label text-mist">{travelMap.stats.continentsVisited} explored</span></div><div className="mt-5 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">{travelMap.stats.continentProgress.map((continent) => <div key={continent.name} className="border-b border-line py-4"><div className="flex justify-between"><span className="text-sm font-medium text-cloud">{continent.name}</span><span className="mono-num font-mono text-xs text-mist">{continent.visited} / {continent.total}</span></div><div className="mt-2 h-px bg-line"><div className="h-px bg-mint" style={{ width: `${continent.total ? Math.min(100, (continent.visited / continent.total) * 100) : 0}%` }} /></div></div>)}</div></section>
           </>
         )}
       </div>

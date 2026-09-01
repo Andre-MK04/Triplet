@@ -217,12 +217,12 @@ export function TravelMapGlobe({
       {activeCode && metadata.get(activeCode) ? (
         <div className="pointer-events-none absolute left-3 top-3 border border-line bg-ink/90 px-3 py-2 shadow-lg backdrop-blur sm:left-5 sm:top-5">
           <p className="font-display text-sm font-semibold text-cloud">{metadata.get(activeCode)?.name}</p>
-          <p className="mt-0.5 font-mono text-[9px] uppercase tracking-label text-mist">
+          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-label text-mist">
             {countryStates[activeCode]?.primaryStatus ?? "Select to update"}
           </p>
         </div>
       ) : null}
-      <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] uppercase tracking-label text-mist/70">
+      <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] uppercase tracking-label text-mist/70">
         Drag to rotate · tap a country
       </p>
     </div>

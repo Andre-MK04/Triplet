@@ -45,7 +45,7 @@ export function ScoreDial({ value, tone = "gold", size = 40, label }: ScoreDialP
         </span>
       </span>
       {label ? (
-        <span className="font-mono text-[9px] uppercase tracking-label text-mist">{label}</span>
+        <span className="font-mono text-[11px] uppercase tracking-label text-mist">{label}</span>
       ) : null}
     </span>
   );

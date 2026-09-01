@@ -886,7 +886,7 @@ export function DiscoverClient() {
                   </motion.div>
                 ))}
               </motion.div>
-              <p className="pt-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/60">
+              <p className="pt-3 text-center font-mono text-[11px] uppercase leading-relaxed tracking-label text-mist/70">
                 {PRICE_DISCLAIMER}
               </p>
             </>
