@@ -6,6 +6,7 @@ import { AppShell } from "../../../components/AppShell";
 import { useAuth } from "../../../components/AuthContext";
 import { BoardingPass } from "../../../components/BoardingPass";
 import { ItineraryPlanner } from "../../../components/ItineraryPlanner";
+import { PriceHistoryPanel } from "../../../components/PriceHistoryPanel";
 import { ScoreDial } from "../../../components/ScoreDial";
 import { ButtonLink } from "../../../components/ui/Button";
 import { EmptyState, Spinner } from "../../../components/ui/Misc";
@@ -135,6 +136,8 @@ export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
             </div>
           ) : null}
         </section>
+
+        <PriceHistoryPanel trip={trip} />
 
         {/* Before you book */}
         <section className="border-t border-line pt-8">

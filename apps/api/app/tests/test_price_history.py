@@ -284,3 +284,72 @@ def test_a_broken_history_lookup_does_not_break_the_search(db_session, monkeypat
     # The search completed; trips simply carry no history verdict.
     assert result.trips is not None
     assert all((trip.price is None or trip.price.history is None) for trip in result.trips)
+
+
+# -------------------------------------------- what may never be compared
+
+def test_one_way_and_round_trip_observations_are_kept_apart(db_session):
+    """A one-way fare is not a cheap round trip.
+
+    Pooling them would let a route with many one-ways drag the round-trip
+    typical range down, and every round trip on it would then look like a
+    bargain against a number that describes a different product.
+    """
+    repository = PriceObservationsRepository(db_session)
+    repository.record_observations(
+        [observation(trip_type="return", price=400.0, found_at=FOUND + timedelta(minutes=i))
+         for i in range(8)]
+        + [observation(trip_type="one_way", return_date=None, price=90.0,
+                       found_at=FOUND + timedelta(hours=1, minutes=i))
+           for i in range(8)]
+    )
+
+    found = repository.route_observations([("VIE", "JFK", "return"), ("VIE", "JFK", "one_way")])
+
+    return_prices = [row[0] for row in found[("VIE", "JFK", "return")]]
+    one_way_prices = [row[0] for row in found[("VIE", "JFK", "one_way")]]
+    assert set(return_prices) == {400.0}
+    assert set(one_way_prices) == {90.0}
+    assert not set(return_prices) & set(one_way_prices)
+
+
+def test_a_route_with_only_one_way_history_yields_no_round_trip_comparison(db_session):
+    """The dangerous direction: plenty of evidence, none of it applicable."""
+    repository = PriceObservationsRepository(db_session)
+    repository.record_observations(
+        [observation(trip_type="one_way", return_date=None, price=90.0,
+                     found_at=FOUND + timedelta(minutes=i)) for i in range(30)]
+    )
+
+    found = repository.route_observations([("VIE", "JFK", "return")])
+
+    assert not found.get(("VIE", "JFK", "return"))
+
+
+def test_an_open_jaw_total_is_never_measured_against_return_history(db_session):
+    """An open-jaw total is two separately observed fares added together.
+
+    Comparing that against single-ticket round-trip history would be comparing
+    two different things, so it is excluded from classification entirely rather
+    than compared and caveated.
+    """
+    from app.pricing.history import CLASSIFIABLE_KINDS
+
+    assert "estimated_open_jaw" not in CLASSIFIABLE_KINDS
+    assert "estimated_multi_city" not in CLASSIFIABLE_KINDS
+    assert CLASSIFIABLE_KINDS == {"cached_return", "cached_one_way"}
+
+
+def test_observations_never_mix_across_routes(db_session):
+    repository = PriceObservationsRepository(db_session)
+    repository.record_observations(
+        [observation(destination="JFK", price=400.0, found_at=FOUND + timedelta(minutes=i))
+         for i in range(6)]
+        + [observation(destination="BCN", price=80.0, found_at=FOUND + timedelta(minutes=i))
+           for i in range(6)]
+    )
+
+    found = repository.route_observations([("VIE", "JFK", "return"), ("VIE", "BCN", "return")])
+
+    assert {row[0] for row in found[("VIE", "JFK", "return")]} == {400.0}
+    assert {row[0] for row in found[("VIE", "BCN", "return")]} == {80.0}
