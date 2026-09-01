@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -69,3 +69,20 @@ def readiness() -> dict:
         # A load balancer needs the verdict; nobody outside needs the map.
         return {"status": status}
     return {"status": status, "environment": settings.app_env, "checks": checks}
+
+
+@router.get("/auth/csrf")
+def csrf_token(response: Response) -> dict[str, str]:
+    """Hand the frontend a CSRF token.
+
+    In production the frontend is proxied same-origin, so it simply reads the
+    cookie. Local development talks to the API cross-origin, where the cookie is
+    not readable from the page — so the token is also returned in the body,
+    which a credentialed fetch can read. Both paths get the same token, and it
+    is not a credential on its own.
+    """
+    from app.security import csrf
+
+    token = csrf.issue_token()
+    csrf.set_cookie(response, token)
+    return {"token": token}

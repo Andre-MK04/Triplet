@@ -20,12 +20,57 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
+const CSRF_COOKIE = "triplet_csrf";
+const CSRF_HEADER = "X-CSRF-Token";
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Read the CSRF token the API issued.
+ *
+ * The cookie is deliberately not HttpOnly: echoing it back in a header is the
+ * whole mechanism, and a page on another origin cannot read it. The token grants
+ * nothing on its own — it only proves the request came from a Triplet page.
+ */
+function csrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+let cachedToken: string | null = null;
+
+/**
+ * The token to echo back on a state-changing request.
+ *
+ * Production proxies the API same-origin, so the cookie is readable and this
+ * costs nothing. Local development talks cross-origin, where the page cannot
+ * read a cookie set on the API's host — so the token is fetched once and kept
+ * in memory instead. Both modes end up presenting the same value.
+ */
+async function csrfToken(): Promise<string | null> {
+  const fromCookie = csrfCookie();
+  if (fromCookie) return fromCookie;
+  if (cachedToken) return cachedToken;
+  try {
+    const response = await fetch(`${apiBaseUrl}/auth/csrf`, { credentials: "include" });
+    if (!response.ok) return null;
+    cachedToken = ((await response.json()) as { token: string }).token;
+    return cachedToken;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const token = UNSAFE_METHODS.has(method) ? await csrfToken() : null;
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
     credentials: "include",
     ...init,
     headers: {
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { [CSRF_HEADER]: token } : {}),
       ...init?.headers,
     },
   });

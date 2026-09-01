@@ -85,3 +85,35 @@ def trip_data(db_session):
         "flights": FlightsRepository(db_session).list_all_mock_flights(),
         "transfers": TransfersRepository(db_session).list_transfers(),
     }
+
+
+@pytest.fixture(autouse=True)
+def browser_like_csrf(request, monkeypatch):
+    """Make TestClient carry a CSRF token the way a real browser does.
+
+    The frontend api client attaches the token to every state-changing request
+    automatically, so a test that drives the API through TestClient should do
+    the same or it is testing the absence of a header rather than its subject.
+
+    Tests that are specifically about CSRF enforcement opt out with
+    @pytest.mark.raw_csrf and drive the headers themselves.
+    """
+    if request.node.get_closest_marker("raw_csrf"):
+        return
+
+    from starlette.testclient import TestClient
+
+    from app.security.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, issue_token
+
+    original = TestClient.request
+    token = issue_token()
+
+    def with_csrf(self, method, url, **kwargs):
+        if str(method).upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+            headers = dict(kwargs.get("headers") or {})
+            headers.setdefault(CSRF_HEADER_NAME, token)
+            kwargs["headers"] = headers
+            self.cookies.set(CSRF_COOKIE_NAME, token)
+        return original(self, method, url, **kwargs)
+
+    monkeypatch.setattr(TestClient, "request", with_csrf)

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import routes as auth_routes
 from app.config import settings
+from app.security import csrf
 from app.security import (
     RateLimitExceeded,
     check_production_limits,
@@ -161,7 +162,22 @@ async def security_headers_and_origin_check(request: Request, call_next):
             headers={"X-Request-ID": request_id},
         )
 
+    # Origin checking above is kept as defence in depth, but it can only reject
+    # an Origin it can see — a request arriving without the header passes it.
+    # The CSRF token closes that, and covers only cookie-authenticated requests.
+    csrf_error = csrf.check(request)
+    if csrf_error:
+        return JSONResponse(
+            {"detail": csrf_error},
+            status_code=403,
+            headers={"X-Request-ID": request_id},
+        )
+
     response = await call_next(request)
+
+    # Make sure a browser session always has a usable token in hand.
+    if csrf.CSRF_COOKIE_NAME not in request.cookies:
+        csrf.set_cookie(response, csrf.issue_token())
     response.headers.setdefault("X-Request-ID", request_id)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
