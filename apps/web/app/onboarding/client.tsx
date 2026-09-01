@@ -70,10 +70,13 @@ const OPEN_JAW = [
 ] as const;
 
 const NOTIFICATIONS = [
-  { value: "instant_email", label: "Email me deals as they appear" },
-  { value: "weekly_digest", label: "Weekly digest" },
-  { value: "urgent_only", label: "Urgent deals only" },
-  { value: "push_later", label: "Push (coming with the app)" },
+  { value: "instant_email", label: "Email me deals as they appear", available: true },
+  { value: "weekly_digest", label: "Weekly digest", available: true },
+  { value: "urgent_only", label: "Urgent deals only", available: true },
+  // Shown so the roadmap is visible, but not selectable: Triplet cannot deliver
+  // a push notification, and storing it as a live preference would mean
+  // choosing to be told about deals and then never being told.
+  { value: "push_later", label: "Push notifications · Coming soon", available: false },
 ] as const;
 
 const COMFORT_MODES = ["off", "prefer", "require"] as const;
@@ -559,8 +562,13 @@ export function OnboardingClient() {
           {NOTIFICATIONS.map((option) => (
             <Chip
               key={option.value}
-              selected={p.notificationFrequency === option.value}
-              onClick={() => update("notificationFrequency", option.value)}
+              selected={option.available && p.notificationFrequency === option.value}
+              disabled={!option.available}
+              onClick={
+                option.available
+                  ? () => update("notificationFrequency", option.value)
+                  : undefined
+              }
             >
               {option.label}
             </Chip>

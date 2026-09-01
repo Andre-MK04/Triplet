@@ -137,3 +137,19 @@ def test_travel_profiles_are_per_user(db_session):
     assert response.json()["homeLocation"] != "Vienna"
 
     app.dependency_overrides.clear()
+
+
+def test_push_cannot_be_stored_as_an_active_preference(db_session):
+    """Triplet cannot deliver a push notification.
+
+    Saving it would record someone asking to be told about deals and then never
+    being told, so it falls back to the digest until there is an app to push to.
+    """
+    client = make_client(db_session)
+    signup(client)
+
+    client.put("/me/travel-profile", json=profile_payload(notificationFrequency="push_later"))
+    response = client.get("/me/travel-profile")
+    app.dependency_overrides.clear()
+
+    assert response.json()["notificationFrequency"] != "push_later"

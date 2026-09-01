@@ -113,7 +113,14 @@ def upsert_travel_profile(
     row.spontaneity = request.spontaneity
     row.comfort_rules = list(request.comfortRules)
     row.open_jaw_willingness = request.openJawWillingness
-    row.notification_frequency = request.notificationFrequency
+    # Push delivery does not exist yet. Accepting it as a live preference would
+    # record someone choosing to be told about deals and then never telling
+    # them; fall back to the email digest until there is an app to push to.
+    row.notification_frequency = (
+        "weekly_digest"
+        if request.notificationFrequency == "push_later"
+        else request.notificationFrequency
+    )
     row.excluded_airlines = request.excludedAirlines
     row.preferred_months = request.preferredMonths
     # Profile v2 fields.

@@ -760,7 +760,11 @@ export function DiscoverClient() {
               <p className="mt-1 max-w-3xl text-sm leading-relaxed text-cloud">{aiSummary}</p>
               {aiMissingFields.length > 0 ? (
                 <p className="mt-1.5 font-mono text-xs text-gold">
-                  Assumed defaults for: {aiMissingFields.join(", ")} — switch to Advanced to adjust.
+                  {/* The Advanced tab this used to point at was removed when
+                      search was unified; the control is now the disclosure
+                      below the search box. */}
+                  Assumed defaults for: {aiMissingFields.join(", ")} — open “Dates, budget,
+                  destination” to adjust.
                 </p>
               ) : null}
             </div>

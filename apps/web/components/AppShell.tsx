@@ -185,7 +185,7 @@ export function Footer() {
             always confirm the final fare with the provider.
           </p>
           <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist/70">
-            Your data lives in the EU.
+            Account data hosted in the EU
           </p>
         </div>
         {footerGroups.map((group) => (
@@ -204,10 +204,10 @@ export function Footer() {
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 font-mono text-[10px] uppercase tracking-label text-mist/60 sm:px-6">
           <span>© {new Date().getFullYear()} Triplet — does not sell or book flights</span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-1.5 w-1.5 bg-mint" aria-hidden />
-            Systems nominal
-          </span>
+          {/* No live status claim: nothing here was ever connected to system
+              state, so a green dot reading "Systems nominal" asserted health
+              Triplet was not measuring. A real status page can earn one back. */}
+          <span>Flight discovery system</span>
         </div>
       </div>
     </footer>
