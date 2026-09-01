@@ -9,6 +9,7 @@ import { Autocomplete } from "../../components/Autocomplete";
 import { useAuth } from "../../components/AuthContext";
 import { OriginPicker } from "../../components/OriginPicker";
 import { TripPlanChoice } from "../../components/TripPlanChoice";
+import { ParsedSearchSummary } from "../../components/ParsedSearchSummary";
 import { ResultsToolbar } from "../../components/ResultsToolbar";
 import { TripRow } from "../../components/TripRow";
 import { Button } from "../../components/ui/Button";
@@ -20,6 +21,7 @@ import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import { PRICE_DISCLAIMER } from "../../lib/price";
 import { ageSince, clearSearch, loadSearch, saveSearch } from "../../lib/searchSession";
+import { MAX_BUDGET_CEILING, type ParsedChipKey } from "../../lib/parsedSearch";
 import { isSortKey, sortTrips, type SortKey } from "../../lib/sorting";
 import type {
   AISearchResponse,
@@ -350,24 +352,25 @@ export function DiscoverClient() {
     saveSearch({ ...result, form, destinationSelections, originLabels });
   }
 
-  async function runStructuredSearch() {
+  async function runStructuredSearch(override?: TripSearchPayload) {
+    const searchPayload = override ?? payload;
     resetResultState();
     try {
-      const data = await apiPost<TripSearchResponse>("/trips/search", payload);
+      const data = await apiPost<TripSearchResponse>("/trips/search", searchPayload);
       const resultNotice = providerNotice(data.providerMetadata, data.trips.length);
       setTrips(data.trips);
       setRelaxationNote(data.relaxationNote ?? null);
-      setLastPayload(payload);
+      setLastPayload(searchPayload);
       setNotice(resultNotice);
       persist({
         answeredQuery: null,
         aiMessage,
         trips: data.trips,
-        aiSummary: "",
+        aiSummary: override ? aiSummary : "",
         aiMissingFields: [],
         relaxationNote: data.relaxationNote ?? null,
         notice: resultNotice,
-        lastPayload: payload,
+        lastPayload: searchPayload,
       });
     } catch (searchError) {
       setTrips([]);
@@ -471,6 +474,52 @@ export function DiscoverClient() {
     } finally {
       setIsSavingAlert(false);
     }
+  }
+
+  /**
+   * Drop a constraint the AI got wrong and search again.
+   *
+   * Re-runs through /trips/search rather than /ai/search: the interpretation is
+   * already in hand, so there is nothing left to interpret, and charging
+   * someone an AI search to fix the AI's mistake would discourage the exact
+   * correction this summary exists to invite.
+   */
+  function removeParsedConstraint(key: ParsedChipKey) {
+    if (!lastPayload) return;
+    const corrected: TripSearchPayload = { ...lastPayload };
+
+    if (key === "destination") {
+      corrected.destinationAirports = null;
+      corrected.destinationCountries = [];
+      corrected.destinationRegions = [];
+      corrected.destinationContinents = [];
+    } else if (key === "budget") {
+      // Budget is required by the API, so "no ceiling" is the highest the plan
+      // allows rather than an absent field.
+      corrected.maxBudget = MAX_BUDGET_CEILING;
+    } else if (key === "direct") {
+      corrected.directOnly = false;
+    } else if (key === "outsideEurope") {
+      corrected.excludeEurope = false;
+    } else if (key === "unvisited") {
+      corrected.unvisitedOnly = false;
+    } else {
+      return; // Structural constraints are shown but never dropped.
+    }
+
+    setForm((current) => ({
+      ...current,
+      destinationAirports: corrected.destinationAirports ?? [],
+      destinationCountries: corrected.destinationCountries ?? [],
+      destinationRegions: corrected.destinationRegions ?? [],
+      destinationContinents: corrected.destinationContinents ?? [],
+      excludeEurope: corrected.excludeEurope ?? false,
+      unvisitedOnly: corrected.unvisitedOnly ?? false,
+      directOnly: corrected.directOnly ?? false,
+      maxBudget: corrected.maxBudget ?? current.maxBudget,
+    }));
+    if (key === "destination") setDestinationSelections([]);
+    void runStructuredSearch(corrected);
   }
 
   function toggleAirport(code: string) {
@@ -830,6 +879,14 @@ export function DiscoverClient() {
           {!isLoading && relaxationNote ? <Notice tone="warning">{relaxationNote}</Notice> : null}
 
           {!isLoading && notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
+
+          {!isLoading && hasSearched ? (
+            <ParsedSearchSummary
+              parsed={lastPayload}
+              onRemove={removeParsedConstraint}
+              isBusy={isLoading}
+            />
+          ) : null}
 
           {!isLoading && hasSearched && trips.length > 0 ? (
             <>
