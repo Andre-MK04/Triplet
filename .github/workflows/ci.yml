@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push supersedes an in-flight run on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Tests
+        # The suite builds its schema from metadata against in-memory SQLite and
+        # never reaches a real provider — conftest pins every provider off, so a
+        # CI run cannot spend credit or hit a live API.
+        run: python -m pytest -q
+
+      - name: Migrations apply from empty
+        # Guards the failure that is invisible until deploy: a migration that
+        # imports, passes review, and then breaks against a real database.
+        env:
+          DATABASE_URL: postgresql+psycopg://triplet:triplet@localhost:5432/triplet
+        run: python -m alembic upgrade head
+
+      - name: Migrations are linear
+        # Two branches each adding a head is the classic merge accident, and it
+        # only surfaces when a deploy refuses to run.
+        run: |
+          heads=$(python -m alembic heads | grep -c "(head)" || true)
+          if [ "$heads" -ne 1 ]; then
+            echo "Expected exactly one migration head, found $heads:"
+            python -m alembic heads
+            exit 1
+          fi
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: triplet
+          POSTGRES_PASSWORD: triplet
+          POSTGRES_DB: triplet
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - run: npm ci
+
+      - name: Types
+        # The static gate for the frontend. ESLint is not configured in this
+        # repo — `next lint` was removed in Next 16 — so adding it here would
+        # mean either a linter with no config or a wall of findings nobody has
+        # triaged. TypeScript in strict mode already catches the class of bug
+        # that would break a build.
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    # Advisory: a new CVE in a transitive dependency should tell us, not block
+    # an unrelated fix from merging. Read it, do not ignore it.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Python dependencies
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r apps/api/requirements.txt --desc
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Node dependencies
+        working-directory: apps/web
+        run: npm audit --audit-level=high
+
+  secrets:
+    name: Secret and database scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No database files are tracked
+        # apps/api/triplet.db was tracked in a public repository until 2026-09.
+        # This is the check that stops it, or anything like it, coming back.
+        run: |
+          found=$(git ls-files | grep -iE '\.(db|sqlite3?)(-shm|-wal)?$' || true)
+          if [ -n "$found" ]; then
+            echo "Database files must never be committed:"
+            echo "$found"
+            exit 1
+          fi
+
+      - name: No .env files are tracked
+        run: |
+          found=$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.example$' || true)
+          if [ -n "$found" ]; then
+            echo "Environment files must never be committed:"
+            echo "$found"
+            exit 1
+          fi

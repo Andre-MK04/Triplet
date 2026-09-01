@@ -4,6 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.security import check_production_limits
+
+#: Long enough for HMAC-SHA256, as production now requires.
+PRODUCTION_SECRET = "t" * 48
 from app.main import app, validate_security_settings
 from app.security import reset_rate_limits as clear_rate_limits
 
@@ -29,7 +32,7 @@ def test_production_validation_rejects_insecure_defaults(monkeypatch):
 
 def test_production_validation_accepts_secure_minimum(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
-    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
+    monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
     monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
@@ -50,7 +53,7 @@ def test_missing_redis_warns_but_still_boots(monkeypatch):
     Per-process limits are a real weakness beyond one worker, but a total outage
     is a worse outcome than a conditional one, so this warns and starts."""
     monkeypatch.setattr(settings, "app_env", "production")
-    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
+    monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
     monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
@@ -72,7 +75,7 @@ def test_a_deployment_may_declare_that_it_requires_shared_counters(monkeypatch):
     """Multi-worker deployments, where per-process limits really are useless,
     opt in to the hard failure."""
     monkeypatch.setattr(settings, "app_env", "production")
-    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
+    monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
     monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
@@ -158,7 +161,7 @@ def test_interactive_docs_are_closed_in_production(monkeypatch):
 
 def _production_base(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
-    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
+    monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
     monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
@@ -208,3 +211,26 @@ def test_unknown_provider_is_rejected(monkeypatch):
 
     with pytest.raises(RuntimeError, match="not a supported provider"):
         validate_security_settings()
+
+
+def test_a_short_app_secret_is_refused_in_production(monkeypatch):
+    """APP_SECRET signs session tokens with HMAC-SHA256.
+
+    A key shorter than the hash output can be brute forced offline by anyone
+    holding a single token, which yields the ability to mint sessions for any
+    account. Production checked only that it was not the literal dev default.
+    """
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "app_secret", "short-but-not-dev")
+
+    with pytest.raises(RuntimeError, match="APP_SECRET must be at least"):
+        validate_security_settings()
+
+
+def test_a_long_app_secret_is_accepted(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "app_secret", "x" * 48)
+
+    validate_security_settings()

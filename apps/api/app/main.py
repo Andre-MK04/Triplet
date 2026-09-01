@@ -28,6 +28,10 @@ insecure_dev_secret = "dev-secret-change-me"
 logger = logging.getLogger(__name__)
 
 
+#: RFC 7518 §3.2 — an HMAC-SHA256 key should be at least the hash length.
+MIN_APP_SECRET_BYTES = 32
+
+
 def validate_security_settings() -> None:
     if settings.app_env.lower() != "production":
         return
@@ -35,6 +39,16 @@ def validate_security_settings() -> None:
     errors = []
     if settings.app_secret == insecure_dev_secret:
         errors.append("APP_SECRET must be changed in production.")
+    elif len(settings.app_secret.encode()) < MIN_APP_SECRET_BYTES:
+        # This signs session tokens with HMAC-SHA256, and RFC 7518 §3.2 wants a
+        # key at least as long as the hash output. A short secret is brute
+        # forceable offline by anyone holding one token, which yields the
+        # ability to mint sessions for any account.
+        errors.append(
+            f"APP_SECRET must be at least {MIN_APP_SECRET_BYTES} bytes "
+            f"(currently {len(settings.app_secret.encode())}). "
+            "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+        )
     if not settings.database_url:
         errors.append("DATABASE_URL is required in production.")
     if not settings.frontend_url.startswith("https://"):
