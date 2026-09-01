@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
 import { Button, ButtonLink } from "../../components/ui/Button";
+import { Dialog } from "../../components/ui/Dialog";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
 import { Notice, Spinner } from "../../components/ui/Misc";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
@@ -132,7 +133,7 @@ function CountryPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-mono text-[9px] uppercase tracking-label text-mist">{metadata.continent} · {metadata.code}</p>
-          <h2 className="mt-1 font-display text-3xl font-bold text-cloud">{metadata.name}</h2>
+          <h2 id="country-panel-title" className="mt-1 font-display text-3xl font-bold text-cloud">{metadata.name}</h2>
           <p className="mt-2 font-mono text-[10px] font-semibold uppercase tracking-label text-mint">
             {STATUS_LABEL[status]}
           </p>
@@ -253,11 +254,8 @@ function VisitEditor({
   onSave: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="visit-editor-title">
-      <form
-        className="max-h-[90vh] w-full max-w-xl overflow-y-auto border border-line bg-ink-raised p-5 shadow-2xl sm:p-7"
-        onSubmit={(event) => { event.preventDefault(); onSave(); }}
-      >
+    <Dialog open onClose={onClose} labelledBy="visit-editor-title" size="lg">
+      <form onSubmit={(event) => { event.preventDefault(); onSave(); }}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-label text-mint">Travel memory</p>
@@ -285,7 +283,7 @@ function VisitEditor({
           <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save memory"}</Button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -317,19 +315,19 @@ function AddCountries({
   );
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/70 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="add-countries-title">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col border border-line bg-ink-raised shadow-2xl">
-        <div className="flex items-start justify-between border-b border-line p-5 sm:p-6">
-          <div><p className="font-mono text-[9px] uppercase tracking-label text-mint">Quick add</p><h2 id="add-countries-title" className="mt-1 font-display text-2xl font-bold text-cloud">Add countries</h2></div>
+    <Dialog open onClose={onClose} labelledBy="add-countries-title" size="lg">
+      <div className="flex max-h-[80vh] flex-col">
+        <div className="flex items-start justify-between border-b border-line pb-4">
+          <div><p className="font-mono text-[9px] uppercase tracking-label text-mint">Browse and add</p><h2 id="add-countries-title" className="mt-1 font-display text-2xl font-bold text-cloud">Countries</h2></div>
           <button type="button" onClick={onClose} className="p-2 text-mist hover:text-cloud" aria-label="Close country picker">×</button>
         </div>
-        <div className="grid gap-4 border-b border-line p-5 sm:grid-cols-[1fr_180px] sm:p-6">
+        <div className="grid gap-4 border-b border-line py-4 sm:grid-cols-[1fr_180px]">
           <Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search country or ISO code…" aria-label="Search countries" />
           <Select value={status} onChange={(event) => setStatus(event.target.value as typeof status)} aria-label="Country status to add">
             <option value="visited">Visited</option><option value="lived">Lived</option><option value="wishlist">Wishlist</option>
           </Select>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto py-2">
           {visible.map((country) => {
             const checked = selected.has(country.code);
             return (
@@ -346,12 +344,12 @@ function AddCountries({
           })}
           {!visible.length ? <p className="p-8 text-center text-sm text-mist">No matching country.</p> : null}
         </div>
-        <div className="flex items-center justify-between border-t border-line p-5 sm:p-6">
+        <div className="flex items-center justify-between border-t border-line pt-4">
           <p className="font-mono text-[10px] uppercase tracking-label text-mist">{selected.size} selected</p>
           <Button disabled={!selected.size || saving} onClick={() => onSave(Array.from(selected), status)}>{saving ? "Saving…" : "Add to my world"}</Button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -481,17 +479,56 @@ export function TravelMapClient() {
             {!travelMap.countries.length ? <div className="mt-8 border-y border-line py-6 text-center"><h2 className="font-display text-2xl font-bold text-cloud">Map your world</h2><p className="mt-2 text-sm text-mist">Start with a few countries. Dates can always come later.</p><Button className="mt-4" size="sm" onClick={() => setAddCountriesOpen(true)}>Start adding countries</Button></div> : null}
             <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="relative min-w-0 overflow-visible">
-                <TravelMapGlobe catalog={catalog.countries} countries={travelMap.countries} selectedCode={selectedCode} onSelect={setSelectedCode} />
+                {/* The globe is a canvas: it cannot be focused or tabbed
+                    through, and it never announces what it shows. It is
+                    labelled as decorative and the button beneath opens the same
+                    countries as a searchable list — not a lesser fallback, the
+                    same content by another route. */}
+                <div aria-hidden>
+                  <TravelMapGlobe catalog={catalog.countries} countries={travelMap.countries} selectedCode={selectedCode} onSelect={setSelectedCode} />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+                  <p className="font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist/70">
+                    {travelMap.stats.countriesVisited} visited · {travelMap.stats.wishlistCountries} on your list
+                  </p>
+                  <Button variant="secondary" size="sm" onClick={() => setAddCountriesOpen(true)}>
+                    Browse countries as a list
+                  </Button>
+                </div>
               </div>
               <div className="hidden lg:block">
-                {selectedMetadata ? <CountryPanel metadata={selectedMetadata} country={selectedCountry} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /> : <div className="border border-line p-8"><p className="font-mono text-[9px] uppercase tracking-label text-mint">Explore</p><h2 className="mt-2 font-display text-2xl font-bold text-cloud">Select a country</h2><p className="mt-3 text-sm leading-relaxed text-mist">Rotate the globe or use Add countries for a quick, keyboard-friendly list.</p></div>}
+                {selectedMetadata ? <CountryPanel metadata={selectedMetadata} country={selectedCountry} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /> : <div className="border border-line p-8"><p className="font-mono text-[9px] uppercase tracking-label text-mint">Explore</p><h2 className="mt-2 font-display text-2xl font-bold text-cloud">Select a country</h2><p className="mt-3 text-sm leading-relaxed text-mist">Rotate the globe, or browse the same countries as a searchable list.</p></div>}
               </div>
             </div>
             <section className="mt-12 border-t border-line pt-7"><div className="flex items-baseline justify-between gap-4"><div><p className="font-mono text-[9px] uppercase tracking-label text-mint">Continents</p><h2 className="mt-1 font-display text-2xl font-bold text-cloud">Progress, without pressure.</h2></div><span className="font-mono text-[9px] uppercase tracking-label text-mist">{travelMap.stats.continentsVisited} explored</span></div><div className="mt-5 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">{travelMap.stats.continentProgress.map((continent) => <div key={continent.name} className="border-b border-line py-4"><div className="flex justify-between"><span className="text-sm font-medium text-cloud">{continent.name}</span><span className="mono-num font-mono text-xs text-mist">{continent.visited} / {continent.total}</span></div><div className="mt-2 h-px bg-line"><div className="h-px bg-mint" style={{ width: `${continent.total ? Math.min(100, (continent.visited / continent.total) * 100) : 0}%` }} /></div></div>)}</div></section>
           </>
         )}
       </div>
-      {selectedMetadata ? <><button type="button" className="fixed inset-0 z-40 bg-ink/55 lg:hidden" onClick={() => setSelectedCode(null)} aria-label="Close country details" /><div className="lg:hidden"><CountryPanel metadata={selectedMetadata} country={selectedCountry} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /></div></> : null}
+      {/* On small screens the country panel covers the page, so it is a modal
+          and is built as one. It used to be a bare backdrop button with a panel
+          beside it: nothing trapped focus, Escape did nothing, and a screen
+          reader could tab straight through to the globe underneath. */}
+      {selectedMetadata ? (
+        <div className="lg:hidden">
+          <Dialog
+            open
+            onClose={() => setSelectedCode(null)}
+            labelledBy="country-panel-title"
+            size="md"
+          >
+            <CountryPanel
+              metadata={selectedMetadata}
+              country={selectedCountry}
+              busy={busy}
+              onClose={() => setSelectedCode(null)}
+              onUpdate={(patch) => void updateCountry(patch)}
+              onAddVisit={(kind) => openVisit(kind)}
+              onEditVisit={(visit) => openVisit(visit.kind, visit)}
+              onDeleteVisit={(visit) => void deleteVisit(visit)}
+            />
+          </Dialog>
+        </div>
+      ) : null}
       {addCountriesOpen && catalog && travelMap ? <AddCountries catalog={catalog.countries} countries={travelMap.countries} saving={busy} onClose={() => setAddCountriesOpen(false)} onOpenCountry={(code) => { setSelectedCode(code); setAddCountriesOpen(false); }} onSave={(codes, status) => void saveBulk(codes, status)} /> : null}
       {visitDraft && selectedMetadata ? <VisitEditor countryName={selectedMetadata.name} draft={visitDraft} saving={busy} onChange={setVisitDraft} onClose={() => setVisitDraft(null)} onSave={() => void saveVisit()} /> : null}
     </AppShell>
