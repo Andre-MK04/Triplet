@@ -7,12 +7,15 @@ service as a whole has a daily model ceiling, so a loop or a distributed abuser
 cannot run up an unbounded bill overnight.
 """
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.database import get_db
 from app.main import app
+from app.security.limiter import Budget
 from app.security import (
     RateLimitCategory,
     RateLimitExceeded,
@@ -147,3 +150,68 @@ def test_a_limited_response_is_not_cached(client):
     response = client.post("/ai/search", json={"message": "a week in Rome from Vienna"})
 
     assert response.headers.get("Cache-Control") == "no-store"
+
+
+# --- Redis degradation ------------------------------------------------------
+
+class BrokenRedis:
+    """A Redis that has stopped answering."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def incr(self, key):
+        self.calls += 1
+        raise ConnectionError("redis is down")
+
+    def expire(self, key, seconds):
+        raise ConnectionError("redis is down")
+
+    def scan_iter(self, pattern):
+        raise ConnectionError("redis is down")
+
+
+def test_a_redis_outage_degrades_to_local_limits_rather_than_none():
+    """Failing fully open would hand an attacker unlimited spend on the
+    expensive endpoints exactly when the infrastructure is already unhealthy."""
+    from app.security.limiter import _RedisBackend
+
+    backend = _RedisBackend(BrokenRedis())
+    budget = Budget(max_attempts=3, window_seconds=60)
+    now = time.time()
+
+    results = [backend.hit("ai:ip:1.2.3.4", budget, now) for _ in range(5)]
+
+    assert results[:3] == [0, 0, 0]
+    assert all(r > 0 for r in results[3:]), "protection vanished during the outage"
+
+
+def test_a_sick_redis_is_not_hammered_on_every_request():
+    from app.security.limiter import _RedisBackend
+
+    redis = BrokenRedis()
+    backend = _RedisBackend(redis)
+    budget = Budget(max_attempts=100, window_seconds=60)
+    now = time.time()
+
+    for _ in range(20):
+        backend.hit("ai:ip:1.2.3.4", budget, now)
+
+    # One failed probe opens the circuit; the rest are served locally.
+    assert redis.calls == 1
+    assert backend.degraded
+
+
+def test_the_circuit_reopens_after_the_cooldown():
+    from app.security.limiter import REDIS_RETRY_COOLDOWN_SECONDS, _RedisBackend
+
+    redis = BrokenRedis()
+    backend = _RedisBackend(redis)
+    budget = Budget(max_attempts=100, window_seconds=60)
+    now = time.time()
+    backend.hit("k", budget, now)
+    assert redis.calls == 1
+
+    backend.hit("k", budget, now + REDIS_RETRY_COOLDOWN_SECONDS + 1)
+
+    assert redis.calls == 2, "the limiter never tried Redis again"

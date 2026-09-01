@@ -8,20 +8,26 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:800
 // blocking between vercel.app and railway.app can't break auth this way.
 const apiProxyTarget = process.env.API_PROXY_TARGET;
 
-// 'unsafe-inline'/'unsafe-eval' concessions: Next.js dev tooling and hydration need inline
-// scripts without a nonce setup; styles are injected inline by Tailwind/Framer Motion.
-// connect-src is limited to self + the Triplet API. No third-party origins.
-// emrldtp.cc is the Travelpayouts Drive affiliate-attribution script (required for
-// the affiliate marker to earn commission). Nothing else third-party is allowed.
-// Scheme-less so its follow-up chunk requests work on http in local dev; on an
-// https deployment the browser only allows https for it anyway.
+// Triplet loads no third-party scripts. Affiliate commission is earned through
+// the `marker` query parameter that the API puts into every Aviasales booking
+// URL it builds (see providers/travelpayouts/affiliate_links.py), so the
+// Travelpayouts Drive script was never what carried attribution — it was
+// third-party behavioural JS on every page for nothing, with the power to
+// rewrite outbound links. It is gone, and so is its CSP origin.
+//
+// 'unsafe-inline' remains for the pre-paint theme script and for styles that
+// Tailwind and Framer Motion inject inline. 'unsafe-eval' is development-only:
+// Next.js needs it for dev tooling and React Refresh, and nothing in a
+// production build does.
+const isDev = process.env.NODE_ENV !== "production";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   // A relative API base (proxy mode) is already covered by 'self'.
-  `connect-src 'self' ${apiBaseUrl.startsWith("http") ? apiBaseUrl + " " : ""}emrldtp.cc`,
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' emrldtp.cc",
+  `connect-src 'self'${apiBaseUrl.startsWith("http") ? " " + apiBaseUrl : ""}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: emrldtp.cc",
+  "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   "object-src 'none'",

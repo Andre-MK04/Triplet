@@ -31,9 +31,13 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     title: "Where your data lives",
     body: (
       <p>
-        Your data is stored in a PostgreSQL database hosted in the EU/EEA (Amsterdam) on
-        infrastructure that encrypts data at rest. Access requires credentials held only by our
-        backend services. Passwords and tokens are stored only as one-way hashes.
+        Triplet&apos;s primary account database is a PostgreSQL instance hosted in the EU/EEA
+        (Amsterdam), on infrastructure that encrypts data at rest. Access requires credentials
+        held only by our backend services, and passwords and tokens are stored only as one-way
+        hashes. Some service providers we rely on — flight data, email delivery, and payments
+        when paid plans are enabled — may process limited information outside the EU/EEA under
+        their own contractual and legal safeguards, so we do not claim that every piece of data
+        stays inside the EU at all times.
       </p>
     ),
   },
@@ -42,10 +46,13 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     body: (
       <p>
         Flight prices come from <strong className="text-cloud">Travelpayouts / Aviasales</strong>. When you open a
-        deal, we pass an affiliate marker so Triplet may earn a commission; their site sets its own
-        cookies under its policy. When paid plans are enabled, subscription payments are handled by
-        <strong className="text-cloud"> Stripe</strong> — card details never touch our servers. We use no advertising
-        or analytics trackers; the only third-party script is Travelpayouts&apos; affiliate attribution.
+        deal we add an affiliate marker to the link itself, so Triplet may earn a commission at no
+        extra cost to you; once you follow that link their site applies its own policy and cookies.
+        Commission does not affect how Triplet ranks results. When paid plans are enabled,
+        subscription payments are handled by <strong className="text-cloud">Stripe</strong> — card details never
+        touch our servers. <strong className="text-cloud">Triplet loads no third-party scripts at all</strong>: no
+        advertising, no analytics, and no affiliate tracking script. Attribution travels in the
+        booking link, not in code running on your browser.
       </p>
     ),
   },
@@ -80,7 +87,7 @@ export function PrivacyClient() {
           <h1 className="font-display text-4xl font-bold text-cloud">Privacy policy</h1>
           <p className="mx-auto mt-3 max-w-xl text-mist">
             Plain-language, GDPR-aligned. The short version: we collect the minimum to find you
-            trips, store it securely in the EU, never sell it, and let you export or delete it anytime.
+            trips, store it securely, never sell it, and let you export or delete it anytime.
           </p>
         </header>
         {SECTIONS.map((section) => (

@@ -88,3 +88,36 @@ def test_a_malformed_segment_yields_no_link_rather_than_a_broken_one():
     assert build_aviasales_itinerary_url([ItinerarySegment("VIE", "VIE", date(2026, 10, 6))]) is None
     assert build_aviasales_itinerary_url([ItinerarySegment("VIENNA", "BCN", date(2026, 10, 6))]) is None
     assert build_aviasales_itinerary_url([]) is None
+
+
+# --- Attribution does not depend on any third-party script ------------------
+
+def test_commission_rides_on_the_url_not_on_a_tracking_script(monkeypatch):
+    """The Travelpayouts Drive script was removed from the web app.
+
+    That is only safe because attribution is carried by the `marker` parameter
+    Triplet writes into the booking URL itself. If this ever stops being true,
+    removing Drive would silently cost real commission — so it is asserted.
+    """
+    monkeypatch.setattr(settings, "travelpayouts_marker", "547063")
+
+    url = build_aviasales_itinerary_url(
+        [
+            ItinerarySegment(origin="VIE", destination="BCN", departure_date="2026-10-06"),
+            ItinerarySegment(origin="BCN", destination="VIE", departure_date="2026-10-10"),
+        ]
+    )
+
+    assert url is not None
+    assert "marker=547063" in url
+
+
+def test_booking_links_are_https(monkeypatch):
+    """Production affiliate links must never be downgraded to http."""
+    monkeypatch.setattr(settings, "travelpayouts_marker", "547063")
+
+    url = build_aviasales_itinerary_url(
+        [ItinerarySegment(origin="VIE", destination="BCN", departure_date="2026-10-06")]
+    )
+
+    assert url is not None and url.startswith("https://")

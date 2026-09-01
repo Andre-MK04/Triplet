@@ -35,6 +35,9 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# How long to keep counting locally after a Redis failure before trying again.
+REDIS_RETRY_COOLDOWN_SECONDS = 30.0
+
 
 class RateLimitCategory(str, Enum):
     """What kind of work an endpoint does, which is what its budget follows."""
@@ -115,8 +118,17 @@ class _RedisBackend:
 
     def __init__(self, client) -> None:
         self._redis = client
+        # When Redis is unreachable the limiter degrades to per-process counting
+        # rather than to no counting at all. Failing fully open would hand an
+        # attacker unlimited spend on the expensive endpoints at exactly the
+        # moment the infrastructure is already unhealthy.
+        self._local = _InMemoryBackend()
+        self._unhealthy_until = 0.0
 
     def hit(self, key: str, budget: Budget, now: float) -> int:
+        if now < self._unhealthy_until:
+            return self._local.hit(key, budget, now)
+
         window_start = int(now // budget.window_seconds) * budget.window_seconds
         slot = f"triplet:rl:{key}:{window_start}"
         try:
@@ -124,16 +136,26 @@ class _RedisBackend:
             if used == 1:
                 self._redis.expire(slot, budget.window_seconds + 1)
         except Exception:
-            # A limiter outage must not take the API down with it. Log loudly and
-            # let the request through: availability beats a perfect count, and
-            # the failure is visible rather than silent.
-            logger.exception("rate_limit_backend_unavailable key=%s", key)
-            return 0
+            # Stop hammering a sick Redis on every request, and keep counting
+            # locally until the circuit reopens.
+            self._unhealthy_until = now + REDIS_RETRY_COOLDOWN_SECONDS
+            logger.warning(
+                "rate_limit_redis_unavailable falling_back=in-memory retry_in=%ss",
+                REDIS_RETRY_COOLDOWN_SECONDS,
+            )
+            return self._local.hit(key, budget, now)
+
         if used > budget.max_attempts:
             return int(window_start + budget.window_seconds - now) + 1
         return 0
 
+    @property
+    def degraded(self) -> bool:
+        return time.time() < self._unhealthy_until
+
     def clear(self) -> None:
+        self._local.clear()
+        self._unhealthy_until = 0.0
         try:
             for key in self._redis.scan_iter("triplet:rl:*"):
                 self._redis.delete(key)
