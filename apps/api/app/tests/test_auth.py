@@ -74,7 +74,9 @@ def test_signup_stores_password_hash_not_plaintext(db_session):
     assert response.status_code == 200
     assert user.password_hash
     assert user.password_hash != "Strong-pass-123!"
-    assert user.password_hash.startswith("pbkdf2_sha256$")
+    # Argon2id for everything new; legacy PBKDF2 hashes are upgraded at login
+    # instead (see test_password_hashing.py).
+    assert user.password_hash.startswith("$argon2id$")
 
 
 def test_signup_rejects_weak_password(db_session):

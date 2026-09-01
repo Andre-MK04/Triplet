@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from app.config import settings
 
@@ -39,15 +41,19 @@ def validate_password_strength(password: str, email: str | None = None) -> str |
     return None
 
 
+# Argon2id is the current default. PBKDF2-SHA256 hashes predate it and are still
+# accepted at login, then quietly upgraded — see needs_rehash. Nothing here is
+# hand-rolled: argon2-cffi is the reference binding for the reference
+# implementation, and the parameters below are its maintained defaults.
+_argon2 = PasswordHasher()
+
+
 def hash_password(password: str) -> str:
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PASSWORD_ITERATIONS)
-    return f"pbkdf2_sha256${PASSWORD_ITERATIONS}${base64.b64encode(salt).decode()}${base64.b64encode(digest).decode()}"
+    return _argon2.hash(password)
 
 
-def verify_password(password: str, password_hash: str | None) -> bool:
-    if not password_hash:
-        return False
+def _verify_pbkdf2(password: str, password_hash: str) -> bool:
+    """Check a legacy hash. Kept so existing users can still log in."""
     try:
         algorithm, iterations, raw_salt, raw_digest = password_hash.split("$", 3)
         if algorithm != "pbkdf2_sha256":
@@ -58,6 +64,37 @@ def verify_password(password: str, password_hash: str | None) -> bool:
         return hmac.compare_digest(actual, expected)
     except (ValueError, TypeError):
         return False
+
+
+def verify_password(password: str, password_hash: str | None) -> bool:
+    if not password_hash:
+        return False
+    if password_hash.startswith(UNUSABLE_PASSWORD_PREFIX):
+        # OAuth-only account: there is no password to be right about.
+        return False
+    if password_hash.startswith("$argon2"):
+        try:
+            return _argon2.verify(password_hash, password)
+        except (VerifyMismatchError, InvalidHashError, VerificationError):
+            return False
+    return _verify_pbkdf2(password, password_hash)
+
+
+def needs_rehash(password_hash: str | None) -> bool:
+    """Whether this hash should be replaced after a successful login.
+
+    True for every legacy PBKDF2 hash, and for Argon2 hashes made with
+    parameters weaker than the current ones — so raising the cost later
+    upgrades the estate on its own, without a migration or a password reset.
+    """
+    if not password_hash or password_hash.startswith(UNUSABLE_PASSWORD_PREFIX):
+        return False
+    if not password_hash.startswith("$argon2"):
+        return True
+    try:
+        return _argon2.check_needs_rehash(password_hash)
+    except InvalidHashError:
+        return True
 
 
 def create_access_token(user_id: str) -> str:

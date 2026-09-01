@@ -11,6 +11,7 @@ from app.auth.security import (
     create_refresh_token,
     create_reset_token,
     hash_password,
+    needs_rehash,
     hash_token,
     new_uuid,
     unusable_password_hash,
@@ -59,6 +60,11 @@ class AuthService:
         user = self.db.scalar(select(UserDB).where(UserDB.email == email.strip().lower()))
         if not user or not user.is_active or not verify_password(password, user.password_hash):
             raise AuthError("Invalid email or password")
+        if needs_rehash(user.password_hash):
+            # Upgrade the stored hash on the one occasion the plaintext is
+            # legitimately in hand. The estate migrates off PBKDF2 as people log
+            # in, with no reset email and nothing for the user to notice.
+            user.password_hash = hash_password(password)
         user.last_login_at = datetime.utcnow()
         access_token, refresh_token = self._create_session(user, user_agent, ip_address)
         self.db.commit()
