@@ -9,10 +9,16 @@ from app.billing.schemas import (
     CreateBillingPortalSessionResponse,
     CreateCheckoutSessionRequest,
     CreateCheckoutSessionResponse,
-    PlanInfo,
+    PlansResponse,
     WebhookResponse,
 )
-from app.billing.service import TrialError, available_plans, billing_status, start_trial
+from app.billing.service import (
+    TrialError,
+    available_plans,
+    billing_status,
+    start_trial,
+    yearly_savings_percent,
+)
 from app.billing.stripe_client import (
     BillingConfigError,
     create_billing_portal_session,
@@ -20,15 +26,24 @@ from app.billing.stripe_client import (
     verify_webhook_signature,
 )
 from app.billing.webhooks import process_stripe_event
+from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
-@router.get("/plans", response_model=list[PlanInfo])
-def get_plans() -> list[PlanInfo]:
-    return available_plans()
+@router.get("/plans", response_model=PlansResponse)
+def get_plans() -> PlansResponse:
+    """Everything the pricing page needs, so it invents none of it."""
+    return PlansResponse(
+        plans=available_plans(),
+        # The page must know whether checkout can actually complete: offering an
+        # upgrade that ends in an error is worse than saying it is not ready.
+        billingEnabled=settings.billing_enabled,
+        yearlySavingsPercent=yearly_savings_percent(),
+        trialDurationDays=settings.triplet_trial_duration_days,
+    )
 
 
 @router.get("/status", response_model=BillingStatusResponse)

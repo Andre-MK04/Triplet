@@ -15,6 +15,25 @@ class PlanInfo(BaseModel):
     stripeYearlyPriceId: str | None = None
 
 
+class PlansResponse(BaseModel):
+    """Everything the pricing page needs, so it invents none of it.
+
+    The plans used to be described twice — configured limits on one side, and
+    hand-written feature strings and a comparison table on the other. Both
+    happened to agree, which is the dangerous kind of duplication: changing a
+    limit silently made the pricing page wrong rather than breaking anything.
+    """
+
+    plans: list[PlanInfo]
+    #: Whether checkout can actually complete. False means Stripe is not
+    #: configured, and the interface must not offer a flow that ends in an error.
+    billingEnabled: bool
+    #: Only present when both amounts are configured, so no saving is ever
+    #: quoted that was not calculated from the real prices.
+    yearlySavingsPercent: int | None = None
+    trialDurationDays: int
+
+
 class CreateCheckoutSessionRequest(BaseModel):
     interval: Literal["monthly", "yearly"]
 

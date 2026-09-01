@@ -30,38 +30,91 @@ def _pro_limits() -> dict:
     }
 
 
+def _describe_limits(limits: dict, *, trial: bool = False) -> list[str]:
+    """Turn configured limits into the sentences a pricing page shows.
+
+    Written from the limits rather than beside them. The numbers used to be
+    typed out here as well as configured in settings, and they agreed — which is
+    the dangerous kind of duplication, because raising a limit made the pricing
+    page quietly wrong instead of breaking anything.
+    """
+    ai = limits["aiSearchesPerMonth"]
+    watches = limits["savedSearchLimit"]
+    airports = limits["maxOriginAirports"]
+    frequencies = limits.get("allowedAlertFrequencies", [])
+
+    if limits.get("unlimited"):
+        return [
+            "Unlimited AI searches",
+            "Unlimited saved watches",
+            "Unlimited origin airports",
+            "Daily fare checks",
+        ]
+
+    features = [
+        f"{ai} AI searches{' total' if trial else '/month'}",
+        f"{watches} saved watch{'es' if watches != 1 else ''}",
+        f"{airports} origin airports",
+        "Daily fare checks" if "daily" in frequencies else "Weekly fare checks",
+    ]
+    if limits.get("liveProviderAccess"):
+        features.append("Open-jaw and multi-city suggestions")
+        features.append("Deal and fit scores")
+    features.append("Email alerts")
+    return features
+
+
+def yearly_savings_percent() -> int | None:
+    """How much a year costs less than twelve months of it.
+
+    None unless both amounts are configured. A saving is a factual claim about
+    two prices, and quoting one Triplet has not calculated — the page used to
+    say "save ~40%" in fixed text — is the kind of number that survives a price
+    change and becomes false.
+    """
+    monthly = settings.triplet_pro_price_monthly_amount
+    yearly = settings.triplet_pro_price_yearly_amount
+    if not monthly or not yearly or monthly <= 0:
+        return None
+    twelve_months = monthly * 12
+    if yearly >= twelve_months:
+        return None
+    return round((twelve_months - yearly) / twelve_months * 100)
+
+
 def available_plans() -> list[PlanInfo]:
+    """Every plan, described from what it actually grants."""
+    free_limits = get_entitlements(None)
+    trial_limits = {
+        "savedSearchLimit": settings.triplet_trial_saved_search_limit,
+        "aiSearchesPerMonth": settings.triplet_trial_ai_searches_total,
+        "maxOriginAirports": settings.triplet_trial_max_origin_airports,
+        "allowedAlertFrequencies": csv_values(settings.triplet_trial_alert_frequencies),
+        "liveProviderAccess": True,
+        "priorityAlerts": True,
+    }
+
     return [
         PlanInfo(
             plan="free",
             name="Free",
             priceLabel="€0",
-            features=[
-                "Basic trip search",
-                "3 AI searches/month",
-                "1 saved watch",
-                "3 origin airports",
-                "Weekly fare checks",
-                "Email alerts",
-            ],
-            limits=get_entitlements(None),
+            features=["Basic trip search", *_describe_limits(free_limits)],
+            limits=free_limits,
+        ),
+        PlanInfo(
+            plan="trial",
+            name=f"{settings.triplet_trial_duration_days}-day Pro trial",
+            priceLabel="€0",
+            features=_describe_limits(trial_limits, trial=True),
+            limits=trial_limits,
         ),
         PlanInfo(
             plan="pro",
             name="Triplet Pro",
             priceLabel=settings.triplet_pro_price_monthly_label,
             priceYearlyLabel=settings.triplet_pro_price_yearly_label,
-            features=[
-                "100 AI searches/month",
-                "10 saved watches",
-                "8 origin airports",
-                "Daily fare checks",
-                "Open-jaw trip suggestions",
-                "Deal and fit scores",
-                "Travel profile",
-                "Email alerts",
-                "Dashboard",
-            ],
+            features=[*_describe_limits(_pro_limits()), "Travel profile", "Dashboard"],
             limits=_pro_limits(),
             stripeMonthlyPriceId=settings.stripe_price_pro_monthly,
             stripeYearlyPriceId=settings.stripe_price_pro_yearly,

@@ -194,6 +194,19 @@ class Settings:
     triplet_pro_alert_frequencies: str = os.getenv("TRIPLET_PRO_ALERT_FREQUENCIES", "daily,weekly")
     triplet_pro_price_monthly_label: str = os.getenv("TRIPLET_PRO_PRICE_MONTHLY_LABEL", "€6.99/month")
     triplet_pro_price_yearly_label: str = os.getenv("TRIPLET_PRO_PRICE_YEARLY_LABEL", "€49/year")
+    # The amounts behind those labels. A saving can only be stated honestly if
+    # it is calculated, and a label is a string — set both or Triplet quotes no
+    # saving at all rather than a number nobody checked.
+    triplet_pro_price_monthly_amount: float | None = (
+        float(os.getenv("TRIPLET_PRO_PRICE_MONTHLY_AMOUNT", "6.99"))
+        if os.getenv("TRIPLET_PRO_PRICE_MONTHLY_AMOUNT", "6.99")
+        else None
+    )
+    triplet_pro_price_yearly_amount: float | None = (
+        float(os.getenv("TRIPLET_PRO_PRICE_YEARLY_AMOUNT", "49"))
+        if os.getenv("TRIPLET_PRO_PRICE_YEARLY_AMOUNT", "49")
+        else None
+    )
     # 7-day trial: enough to experience Pro, capped so it isn't a free summer.
     triplet_trial_duration_days: int = int(os.getenv("TRIPLET_TRIAL_DURATION_DAYS", "7"))
     triplet_trial_ai_searches_total: int = int(os.getenv("TRIPLET_TRIAL_AI_SEARCHES_TOTAL", "15"))
