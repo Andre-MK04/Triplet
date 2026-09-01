@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { AffiliateDisclosure } from "./AffiliateDisclosure";
 import { useAuth } from "./AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, ButtonLink } from "./ui/Button";
@@ -166,7 +167,8 @@ const footerGroups = [
   {
     label: "Protocol",
     links: [
-      { href: "/privacy", label: "EU privacy" },
+      { href: "/privacy", label: "Privacy" },
+      { href: "/terms", label: "Terms" },
       { href: "/security", label: "Security" },
     ],
   },
@@ -184,6 +186,7 @@ export function Footer() {
             Find cheap trips, not just cheap flights. Prices are observed at check time and can change —
             always confirm the final fare with the provider.
           </p>
+          <AffiliateDisclosure className="mt-3" />
           <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist/70">
             Account data hosted in the EU
           </p>
