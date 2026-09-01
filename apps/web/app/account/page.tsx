@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
 import { Button, ButtonLink } from "../../components/ui/Button";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field, Input } from "../../components/ui/Input";
 import { EmptyState, Notice, Spinner } from "../../components/ui/Misc";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../../lib/api";
@@ -21,6 +22,8 @@ export default function AccountPage() {
   const [displayName, setDisplayName] = useState("");
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const [status, setStatus] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -76,14 +79,15 @@ export default function AccountPage() {
   }
 
   async function deleteAccount() {
-    if (!window.confirm("Permanently delete your account and all your data? This cannot be undone.")) {
-      return;
-    }
+    setIsDeleting(true);
     try {
       await apiDelete("/auth/me");
       window.location.href = "/?deleted=1";
     } catch {
+      setDeleteOpen(false);
       setStatus({ tone: "error", text: "Could not delete your account. Please try again." });
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -186,7 +190,7 @@ export default function AccountPage() {
         <section className="border-t border-line py-8">
           <span className={sectionLabel}>Your data</span>
           <p className="max-w-lg text-sm leading-relaxed text-mist">
-            Your data lives in the EU and belongs to you. Download everything we hold about you as a
+            Your data belongs to you. Download everything we hold about you as a
             single file, or permanently erase your account and all its data — no questions, no retention
             tricks. Details in the{" "}
             <a href="/privacy" className="text-mint underline hover:text-cloud">privacy policy</a>.
@@ -197,7 +201,7 @@ export default function AccountPage() {
             </Button>
             <button
               type="button"
-              onClick={() => void deleteAccount()}
+              onClick={() => setDeleteOpen(true)}
               className="font-mono text-[11px] font-semibold uppercase tracking-label text-coral/80 transition-colors hover:text-coral"
             >
               Delete my account
@@ -218,6 +222,28 @@ export default function AccountPage() {
           </Button>
         </section>
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete your Triplet account?"
+        confirmLabel="Delete my account"
+        confirmPhrase="DELETE"
+        isWorking={isDeleting}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={() => void deleteAccount()}
+      >
+        <p>This permanently deletes:</p>
+        <ul className="space-y-1 pl-4">
+          <li>— your profile and sign-in details</li>
+          <li>— your travel profile and origin airports</li>
+          <li>— your travel map: visited, lived and wishlist countries</li>
+          <li>— your saved watches and their history</li>
+          <li>— every trip suggestion Triplet has generated for you</li>
+        </ul>
+        <p className="text-cloud">
+          This cannot be undone, and Triplet cannot recover any of it afterwards.
+        </p>
+      </ConfirmDialog>
     </AppShell>
   );
 }

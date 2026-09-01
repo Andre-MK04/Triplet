@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/g
 import "./globals.css";
 
 import { AuthProvider } from "../components/AuthContext";
+import { siteUrl } from "../lib/site";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
 
 const display = Bricolage_Grotesque({
@@ -22,12 +23,29 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  // Absolute URLs for Open Graph and canonicals are resolved against this.
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "Triplet — Find cheap trips, not just cheap flights",
     template: "%s · Triplet",
   },
   description:
     "Choose your airports, set your travel style, and Triplet watches for unusually cheap fares that can become real trips.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Triplet",
+    title: "Triplet — Find cheap trips, not just cheap flights",
+    description:
+      "Flexible discovery across your home airports, with every fare shown as what it is: recently observed, never guaranteed.",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Triplet — Find cheap trips, not just cheap flights",
+    description:
+      "Flexible discovery across your home airports, with every fare shown as what it is: recently observed, never guaranteed.",
+  },
 };
 
 export const viewport: Viewport = {
