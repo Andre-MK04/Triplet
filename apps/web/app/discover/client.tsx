@@ -12,25 +12,29 @@ import { OriginPicker } from "../../components/OriginPicker";
 import { TripPlanChoice } from "../../components/TripPlanChoice";
 import { ParsedSearchSummary } from "../../components/ParsedSearchSummary";
 import { ResultsToolbar } from "../../components/ResultsToolbar";
+import { ScanningRoutes } from "../../components/ScanningRoutes";
 import { TripRow } from "../../components/TripRow";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
 import { EmptyState, Notice } from "../../components/ui/Misc";
-import { ApiError, apiPost, apiGet } from "../../lib/api";
+import { apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
-import { formatPrice } from "../../lib/format";
 import { PRICE_DISCLAIMER } from "../../lib/price";
+import {
+  emptyStateMessage,
+  limitAwareError,
+  providerNotice,
+} from "../../lib/discoverMessages";
 import { ageSince, clearSearch, loadSearch, saveSearch } from "../../lib/searchSession";
 import { MAX_BUDGET_CEILING, type ParsedChipKey } from "../../lib/parsedSearch";
-import { isSortKey, sortTrips, type SortKey } from "../../lib/sorting";
+import { useSearchSorting } from "../../hooks/useSearchSorting";
 import { WATCH_TRIGGERS, triggerHint, type WatchTriggerMode } from "../../lib/watchTriggers";
+import { useWatchCreation } from "../../hooks/useWatchCreation";
 import type {
   AISearchResponse,
   AirportResult,
   FlightPlaceResult,
-  ProviderMetadata,
-  SavedSearch,
   TravelProfile,
   TripOption,
   TripSearchPayload,
@@ -114,75 +118,6 @@ const defaultForm: AdvancedForm = {
   directOnly: false,
 };
 
-function providerNotice(metadata?: ProviderMetadata | null, tripCount = 0): { text: string; tone: "info" | "warning" } | null {
-  if (!metadata) return null;
-  const warnings = metadata.providerWarnings ?? [];
-  if (metadata.liveProviderAttempted && !metadata.liveProviderSucceeded) {
-    return {
-      tone: "warning",
-      text:
-        warnings[0] ??
-        "Live fares were unavailable — showing cached/demo fares instead. Prices may be out of date.",
-    };
-  }
-  if (metadata.cachedResultsUsed && !metadata.liveProviderSucceeded) {
-    return {
-      tone: "info",
-      text: "Showing demo/cached fares from the development dataset. Prices are illustrative, not live.",
-    };
-  }
-  if (warnings.length > 0 && tripCount > 0) {
-    return { tone: "info", text: warnings[0] };
-  }
-  return null;
-}
-
-function emptyStateMessage(payload: TripSearchPayload | null): string {
-  const namedPlace = (payload?.destinationAirports?.length ?? 0) > 0;
-  const namedScope =
-    (payload?.destinationCountries?.length ?? 0) > 0 ||
-    (payload?.destinationRegions?.length ?? 0) > 0 ||
-    (payload?.destinationContinents?.length ?? 0) > 0;
-
-  if (namedPlace || namedScope) {
-    // We did ask the fare data about this place — there simply wasn't anything
-    // for these dates and lengths. Say so instead of implying a Triplet limit.
-    return `We checked ${
-      namedPlace ? "that destination" : "those countries"
-    } directly and found no round trips in your dates and trip length. Long-haul fares are often thin outside a few months — try a wider date window, a longer trip, or a higher budget.`;
-  }
-  if (payload?.excludeEurope) {
-    return "No long-haul fares outside Europe matched these dates and budget. Long-haul rarely fits short windows — try a wider date range and a longer trip.";
-  }
-  return "Try widening the budget, adding more origin airports, or allowing longer ground transfers.";
-}
-
-function limitAwareError(error: unknown): string {
-  if (error instanceof ApiError) {
-    // 402 details are already specific and actionable (mention trial/Pro).
-    if (error.status === 402) return error.message;
-    if (error.status === 429) return "You're searching fast! Give it a few seconds and try again.";
-    return error.message;
-  }
-  return error instanceof Error ? error.message : "Something went wrong.";
-}
-
-function ScanningRoutes() {
-  return (
-    <div className="flex flex-col items-center gap-4 border-y border-line px-6 py-16 text-center" role="status">
-      <svg viewBox="0 0 200 60" className="h-14 w-56" aria-hidden>
-        <path d="M10 45 Q 100 -10 190 40" fill="none" stroke="rgba(232,240,244,0.15)" strokeWidth="2" />
-        <path d="M10 45 Q 100 -10 190 40" fill="none" stroke="#7ddfc3" strokeWidth="2" className="route-line" />
-        <circle cx="10" cy="45" r="4" fill="#7ddfc3" />
-        <circle cx="190" cy="40" r="4" fill="#ff9a78" />
-      </svg>
-      <p className="font-mono text-[11px] uppercase tracking-label text-mist">
-        Scanning fares · pairing outbound and return legs
-      </p>
-    </div>
-  );
-}
-
 export function DiscoverClient() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -192,24 +127,6 @@ export function DiscoverClient() {
 
   const [refineOpen, setRefineOpen] = useState(false);
   const [aiExplained, setAiExplained] = useState(false);
-  const [sort, setSort] = useState<SortKey>(() => {
-    const requested = searchParams.get("sort");
-    return isSortKey(requested) ? requested : "best";
-  });
-
-  function changeSort(next: SortKey) {
-    setSort(next);
-    // Reflect the ordering in the URL so it survives a reload and can be
-    // shared. replaceState rather than a router push: reordering results is not
-    // a navigation and should not add a back-button step.
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (next === "best") url.searchParams.delete("sort");
-      else url.searchParams.set("sort", next);
-      window.history.replaceState({}, "", url);
-    }
-  }
-
   const [aiMessage, setAiMessage] = useState("");
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
   const [returnOriginRaw, setReturnOriginRaw] = useState("");
@@ -220,8 +137,7 @@ export function DiscoverClient() {
   const [originLabels, setOriginLabels] = useState<Record<string, string>>({});
 
   const [trips, setTrips] = useState<TripOption[]>([]);
-  // Ordering is a view concern: sort what came back rather than re-searching.
-  const sortedTrips = useMemo(() => sortTrips(trips, sort), [trips, sort]);
+  const { sort, changeSort, sortedTrips } = useSearchSorting(trips, searchParams.get("sort"));
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -234,16 +150,7 @@ export function DiscoverClient() {
   // fresh call, so the traveller knows how old the prices are.
   const [restoredAge, setRestoredAge] = useState<{ label: string; isAgeing: boolean } | null>(null);
 
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [alertName, setAlertName] = useState("");
-  const [alertEmail, setAlertEmail] = useState("");
-  const [alertFrequency, setAlertFrequency] = useState<"daily" | "weekly">("daily");
-  // What is worth an email, as opposed to how often one may arrive. Two
-  // different questions that were previously one setting on the account.
-  const [alertTrigger, setAlertTrigger] = useState<WatchTriggerMode>("any");
-  const [alertStatus, setAlertStatus] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const [isSavingAlert, setIsSavingAlert] = useState(false);
-  const [savedAlert, setSavedAlert] = useState<SavedSearch | null>(null);
+  const watch = useWatchCreation(user, lastPayload);
 
   // Coming back from a trip page: put the previous results back rather than
   // making the traveller search again, which on the AI path would spend another
@@ -285,7 +192,7 @@ export function DiscoverClient() {
   // Prefill from the user's travel profile once they're logged in.
   useEffect(() => {
     if (!user) return;
-    setAlertEmail(user.email);
+    watch.setEmail(user.email);
     apiGet<TravelProfile>("/me/travel-profile")
       .then((profile) => {
         if (!profile.isComplete) return;
@@ -333,8 +240,7 @@ export function DiscoverClient() {
     setAiSummary("");
     setRelaxationNote(null);
     setAiMissingFields([]);
-    setAlertStatus(null);
-    setSavedAlert(null);
+    watch.resetOutcome();
     setHasSearched(true);
     setIsLoading(true);
   }
@@ -431,55 +337,6 @@ export function DiscoverClient() {
       return;
     }
     void runStructuredSearch();
-  }
-
-  async function saveAlert(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!lastPayload) {
-      setAlertStatus({ tone: "error", text: "Run a search first so we know what to watch." });
-      return;
-    }
-    if (
-      lastPayload.destinationCountries?.length ||
-      lastPayload.destinationRegions?.length ||
-      lastPayload.destinationContinents?.length ||
-      lastPayload.excludeEurope ||
-      lastPayload.unvisitedOnly
-    ) {
-      setAlertStatus({
-        tone: "error",
-        text: "Country and region watches are not available yet. Choose a city or airport, or use an anywhere search.",
-      });
-      return;
-    }
-    setIsSavingAlert(true);
-    setAlertStatus(null);
-    try {
-      const body = {
-        ...lastPayload,
-        email: user?.email ?? alertEmail,
-        name:
-          alertName ||
-          `${lastPayload.originAirports.slice(0, 3).join("/")} under ${formatPrice(lastPayload.maxBudget)}`,
-        frequency: alertFrequency,
-        triggerMode: alertTrigger,
-      };
-      const data = await apiPost<SavedSearch>(user ? "/me/saved-searches" : "/alerts", body);
-      setSavedAlert(data);
-      setAlertStatus({
-        tone: "success",
-        text: user
-          ? "Saved! Triplet is now watching this search — see it on your dashboard."
-          // An anonymous watch is not watching anything yet: it waits for the
-          // address to confirm it. Saying "saved" would promise alerts that
-          // will never arrive if the email is ignored.
-          : `Check ${alertEmail || "your email"} to confirm this watch. Triplet starts watching once you do.`,
-      });
-    } catch (saveError) {
-      setAlertStatus({ tone: "error", text: limitAwareError(saveError) });
-    } finally {
-      setIsSavingAlert(false);
-    }
   }
 
   /**
@@ -922,25 +779,25 @@ export function DiscoverClient() {
                     </>
                   ) : null}
                 </p>
-                <Button variant="secondary" size="sm" onClick={() => setAlertOpen((open) => !open)}>
-                  {alertOpen ? "Hide alert form" : "Watch this search"}
+                <Button variant="secondary" size="sm" onClick={() => watch.setIsOpen((open) => !open)}>
+                  {watch.isOpen ? "Hide alert form" : "Watch this search"}
                 </Button>
               </ResultsToolbar>
 
               <AnimatePresence>
-                {alertOpen ? (
+                {watch.isOpen ? (
                   <motion.form
                     initial={reducedMotion ? false : { opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={reducedMotion ? undefined : { opacity: 0, height: 0 }}
-                    onSubmit={saveAlert}
+                    onSubmit={watch.save}
                     className="overflow-hidden border border-line bg-ink-raised"
                   >
                     <div className="flex flex-wrap items-end gap-4 p-5">
                       <Field label="Alert name">
                         <Input
-                          value={alertName}
-                          onChange={(event) => setAlertName(event.target.value)}
+                          value={watch.name}
+                          onChange={(event) => watch.setName(event.target.value)}
                           placeholder="e.g. Summer beach watch"
                           className="w-56"
                         />
@@ -950,8 +807,8 @@ export function DiscoverClient() {
                           <Input
                             type="email"
                             required
-                            value={alertEmail}
-                            onChange={(event) => setAlertEmail(event.target.value)}
+                            value={watch.email}
+                            onChange={(event) => watch.setEmail(event.target.value)}
                             placeholder="you@example.com"
                             className="w-64"
                           />
@@ -963,8 +820,8 @@ export function DiscoverClient() {
                           used to also mean "notify me about less". */}
                       <Field label="Tell me when">
                         <Select
-                          value={alertTrigger}
-                          onChange={(event) => setAlertTrigger(event.target.value as WatchTriggerMode)}
+                          value={watch.trigger}
+                          onChange={(event) => watch.setTrigger(event.target.value as WatchTriggerMode)}
                           className="w-64"
                         >
                           {WATCH_TRIGGERS.map((trigger) => (
@@ -977,31 +834,31 @@ export function DiscoverClient() {
                             each one actually means decides whether a watch is
                             useful or a source of noise. */}
                         <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-mist/70">
-                          {triggerHint(alertTrigger)}
+                          {triggerHint(watch.trigger)}
                         </p>
                       </Field>
                       <Field label="Check">
                         <Select
-                          value={alertFrequency}
-                          onChange={(event) => setAlertFrequency(event.target.value as "daily" | "weekly")}
+                          value={watch.frequency}
+                          onChange={(event) => watch.setFrequency(event.target.value as "daily" | "weekly")}
                           className="w-36"
                         >
                           <option value="daily">Daily</option>
                           <option value="weekly">Weekly</option>
                         </Select>
                       </Field>
-                      <Button type="submit" disabled={isSavingAlert}>
-                        {isSavingAlert ? "Saving…" : "Save alert"}
+                      <Button type="submit" disabled={watch.isSaving}>
+                        {watch.isSaving ? "Saving…" : "Save alert"}
                       </Button>
                     </div>
-                    {alertStatus ? (
+                    {watch.status ? (
                       <div className="px-5 pb-5">
-                        <Notice tone={alertStatus.tone === "success" ? "success" : "error"}>
-                          {alertStatus.text}
-                          {savedAlert?.manageUrl ? (
+                        <Notice tone={watch.status.tone === "success" ? "success" : "error"}>
+                          {watch.status.text}
+                          {watch.saved?.manageUrl ? (
                             <>
                               {" "}
-                              <a href={savedAlert.manageUrl} className="underline" target="_blank" rel="noopener noreferrer">
+                              <a href={watch.saved.manageUrl} className="underline" target="_blank" rel="noopener noreferrer">
                                 Manage link
                               </a>
                             </>
@@ -1022,7 +879,7 @@ export function DiscoverClient() {
                     <TripRow
                       trip={trip}
                       onSaveAlert={() => {
-                        setAlertOpen(true);
+                        watch.setIsOpen(true);
                         window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
                       }}
                     />
