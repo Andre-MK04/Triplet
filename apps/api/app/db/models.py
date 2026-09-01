@@ -576,3 +576,49 @@ class FeaturedDealSnapshotDB(Base):
     #: Which origins produced it, so the page can say what it is showing.
     origin_airports: Mapped[list] = mapped_column(JSON)
     trip_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class FareFeedbackDB(Base):
+    """What a traveller found when they checked a fare against the provider.
+
+    Triplet shows prices it observed rather than live inventory, and the honest
+    question — how far those drift by the time someone looks — has so far been
+    answerable only in the abstract. This records the answer when a traveller
+    volunteers it.
+
+    Deliberately not linked to a person. The useful question is "how well does a
+    fourteen-hour-old cached return on this route hold up", which needs the fare's
+    properties and nothing about who looked at it. There is no user_id here and
+    no IP: `check_id` is a random value the browser mints per click, used only so
+    one click cannot be answered twice.
+    """
+
+    __tablename__ = "fare_feedback"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: Random per-click value from the browser. Not an identifier for a person —
+    #: it exists so a single check yields at most one answer.
+    check_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+
+    origin: Mapped[str] = mapped_column(String(8), index=True)
+    destination: Mapped[str] = mapped_column(String(8), index=True)
+    #: same_city, open_jaw, multi_city.
+    trip_type: Mapped[str] = mapped_column(String(20), index=True)
+    #: cached_return, cached_one_way, estimated_open_jaw, estimated_multi_city.
+    fare_kind: Mapped[str] = mapped_column(String(32), index=True)
+    provider: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+
+    #: The freshness band at the moment of the click: fresh, recent, aging,
+    #: stale, unknown. A bucket rather than an exact age, because the question is
+    #: about bands and a precise age would narrow the record for no gain.
+    fare_age_bucket: Mapped[str] = mapped_column(String(16), index=True)
+    #: What Triplet displayed. Kept so drift can be sized, not just counted.
+    shown_price: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="EUR")
+
+    #: matched, slightly_higher, much_higher, unavailable. Never an exact
+    #: external price: asking someone to transcribe a number they saw on another
+    #: site gets guesses, and the band is what the question needs.
+    response: Mapped[str] = mapped_column(String(24), index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)

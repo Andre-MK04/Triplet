@@ -17,7 +17,22 @@ from app.security import (
 )
 from app.billing import routes as billing_routes
 from app.providers.registry import LIVE_PROVIDER_NAMES, build_provider
-from app.routers import ai, airports, alerts, countries, featured, geo, health, me, places, providers, tools, travel_map, trips
+from app.routers import (
+    ai,
+    airports,
+    alerts,
+    countries,
+    fare_feedback,
+    featured,
+    geo,
+    health,
+    me,
+    places,
+    providers,
+    tools,
+    travel_map,
+    trips,
+)
 
 allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
 if settings.frontend_url not in allowed_origins:
@@ -212,6 +227,7 @@ app.include_router(ai.router)
 app.include_router(providers.router)
 app.include_router(alerts.router)
 app.include_router(featured.router)
+app.include_router(fare_feedback.router)
 app.include_router(auth_routes.router)
 app.include_router(me.router)
 app.include_router(travel_map.router)

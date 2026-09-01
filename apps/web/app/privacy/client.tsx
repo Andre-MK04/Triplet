@@ -42,6 +42,21 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     ),
   },
   {
+    title: "Fare accuracy reports",
+    body: (
+      <p>
+        Triplet shows fares it has observed rather than live prices. To learn how far those drift,
+        it may ask whether a price still held after you followed a live-price link. Following the
+        link sends nothing — the check is noted only in your browser. If you answer, what is stored
+        describes the fare: the route, how old the observation was, what Triplet showed, and which
+        of the four answers you chose. Nothing describes you — no account link, no address, and no
+        identifier beyond a random value whose only purpose is to stop one check being answered
+        twice. Triplet asks at most once a day, never twice about the same fare, and
+        &ldquo;Don&rsquo;t ask again&rdquo; stops it entirely.
+      </p>
+    ),
+  },
+  {
     title: "Third parties",
     body: (
       <p>

@@ -1,3 +1,6 @@
+"use client";
+
+import { rememberFareCheck } from "../lib/fareCheck";
 import { formatPrice } from "../lib/format";
 import { CHECK_PRICE_LABEL, pricePresentation } from "../lib/price";
 import type { Flight, GroundTransfer, TripOption } from "../lib/types";
@@ -168,6 +171,7 @@ export function BoardingPass({ trip }: { trip: TripOption }) {
               href={bookingHref}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => rememberFareCheck(trip)}
               className="mt-6 block bg-mint px-6 py-3.5 text-center font-mono text-[11px] font-semibold uppercase tracking-label text-mint-ink transition-opacity hover:opacity-90"
             >
               {CHECK_PRICE_LABEL} ↗

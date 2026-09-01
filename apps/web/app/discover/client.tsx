@@ -7,6 +7,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "../../components/AppShell";
 import { Autocomplete } from "../../components/Autocomplete";
 import { useAuth } from "../../components/AuthContext";
+import { FareCheckPrompt } from "../../components/FareCheckPrompt";
 import { OriginPicker } from "../../components/OriginPicker";
 import { TripPlanChoice } from "../../components/TripPlanChoice";
 import { ParsedSearchSummary } from "../../components/ParsedSearchSummary";
@@ -593,6 +594,10 @@ export function DiscoverClient() {
             observed fares.
           </p>
         </header>
+
+        {/* Asked at most once a day, about one fare, never twice about the
+            same one. Renders nothing the vast majority of the time. */}
+        <FareCheckPrompt />
 
         {showWelcome ? (
           <div className="mb-6">

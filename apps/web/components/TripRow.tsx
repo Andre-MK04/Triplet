@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AIRPORTS_BY_CODE } from "../lib/airports";
 import { formatPrice } from "../lib/format";
+import { rememberFareCheck } from "../lib/fareCheck";
 import { CHECK_PRICE_LABEL, priceBadge, pricePresentation } from "../lib/price";
 import type { Flight, TripOption } from "../lib/types";
 import { ScoreDial } from "./ScoreDial";
@@ -169,6 +170,10 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             href={bookingHref}
             target="_blank"
             rel="noopener noreferrer"
+            // Note the check locally so Triplet can later ask how the price
+            // held up. Nothing is sent now — following a link is not consent
+            // to be measured.
+            onClick={() => rememberFareCheck(trip)}
             // Named for this specific trip so a screen reader hears which row
             // it belongs to rather than a wall of identical links.
             aria-label={`${CHECK_PRICE_LABEL} for ${routeLabel}`}
