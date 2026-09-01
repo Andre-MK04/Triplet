@@ -6,7 +6,7 @@ from app.ai.orchestrator import sanitize_ai_message
 from app.config import settings
 from app.database import get_db
 from app.main import app
-from app.rate_limit import clear_rate_limits
+from app.security import reset_rate_limits as clear_rate_limits
 
 
 def override_db(db_session):

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.security import check_production_limits
 from app.main import app, validate_security_settings
-from app.rate_limit import clear_rate_limits, rate_limit
+from app.security import reset_rate_limits as clear_rate_limits
 
 
 def test_production_validation_rejects_insecure_defaults(monkeypatch):
@@ -111,25 +111,6 @@ def test_readiness_response_has_no_secrets(monkeypatch):
     assert "accessStatus" in body
 
 
-def test_generic_rate_limit_blocks_after_threshold():
-    clear_rate_limits()
-
-    class Client:
-        host = "127.0.0.1"
-
-    class Request:
-        client = Client()
-
-    limiter = rate_limit("test", max_attempts=1, window_seconds=60)
-    limiter(Request())
-
-    try:
-        limiter(Request())
-    except Exception as exc:
-        assert getattr(exc, "status_code") == 429
-    else:
-        raise AssertionError("rate limit should block the second request")
-
 
 def test_database_url_normalization_accepts_hosting_provider_schemes():
     from app.config import normalize_database_url
@@ -171,3 +152,59 @@ def test_interactive_docs_are_closed_in_production(monkeypatch):
     enabled = settings.expose_api_docs or settings.app_env not in {"production", "prod"}
 
     assert enabled is False
+
+
+# --- AI provider credentials: validate the provider actually selected --------
+
+def _production_base(monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "app_secret", "not-the-dev-secret")
+    monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
+    monkeypatch.setattr(settings, "frontend_url", "https://triplet.example")
+    monkeypatch.setattr(settings, "api_public_base_url", "https://api.triplet.example")
+    monkeypatch.setattr(settings, "auth_cookie_secure", True)
+    monkeypatch.setattr(settings, "auth_cookie_samesite", "none")
+    monkeypatch.setattr(settings, "flight_provider", "database")
+    monkeypatch.setattr(settings, "billing_enabled", False)
+    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "ai_enabled", True)
+
+
+def test_anthropic_only_production_starts(monkeypatch):
+    """An Anthropic deployment used to be unstartable: validation demanded
+    OPENAI_API_KEY regardless of which provider was selected."""
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_provider", "anthropic")
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-ant-test")
+    monkeypatch.setattr(settings, "openai_api_key", None)
+
+    validate_security_settings()
+
+
+def test_openai_production_starts(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_provider", "openai")
+    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
+    monkeypatch.setattr(settings, "anthropic_api_key", None)
+
+    validate_security_settings()
+
+
+def test_selected_provider_without_its_credential_fails(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_provider", "anthropic")
+    monkeypatch.setattr(settings, "anthropic_api_key", None)
+    # Holding the *other* provider's key must not satisfy the check.
+    monkeypatch.setattr(settings, "openai_api_key", "sk-test")
+
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        validate_security_settings()
+
+
+def test_unknown_provider_is_rejected(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_provider", "gemini")
+
+    with pytest.raises(RuntimeError, match="not a supported provider"):
+        validate_security_settings()

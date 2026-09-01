@@ -21,7 +21,12 @@ from app.services.trip_builder import build_round_trip_options
 from app.services.trip_scoring import fare_age_days
 
 
-TODAY = date(2026, 8, 31)
+# Ages are measured against the wall clock, so the fixture's "now" has to be the
+# wall clock too. Pinning it to a literal date made "seen today" quietly become
+# "seen two days ago" once the real date passed it, and the freshness assertions
+# below started failing on a calendar roll rather than on a code change.
+NOW = datetime.utcnow()
+TODAY = NOW.date()
 
 
 def request(**overrides) -> TripSearchRequest:
@@ -44,7 +49,7 @@ def fare(price: float, seen_days_ago: int | None) -> RoundTripFare:
     return RoundTripFare(
         origin="VIE", destination="BCN", price=price, currency="EUR",
         departureDate="2026-10-06", returnDate="2026-10-10",
-        observedAt=None if seen_days_ago is None else datetime(2026, 8, 31) - timedelta(days=seen_days_ago),
+        observedAt=None if seen_days_ago is None else NOW - timedelta(days=seen_days_ago),
     )
 
 

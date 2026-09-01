@@ -1,3 +1,4 @@
+import logging
 import smtplib
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -27,6 +28,8 @@ from app.services.flight_search_service import FlightSearchService
 from app.tools.registry import build_default_tool_registry
 from app.tools.schemas import SearchTripsOutput
 
+logger = logging.getLogger(__name__)
+
 
 class AlertPermissionError(PermissionError):
     pass
@@ -47,8 +50,17 @@ class SavedSearchService:
 
     def create_saved_search(self, request: CreateSavedSearchRequest, user: UserDB | None = None) -> SavedSearchResponse:
         self._validate_request(request)
+
+        # A signed-in user watching their own account address has already proved
+        # they own it; anyone else has merely typed an address into a box.
+        email_is_proven = bool(user and request.email.lower() == (user.email or "").lower())
+        if not email_is_proven:
+            self._guard_unverified_flood(request.email)
+
         manage_token = generate_token()
         unsubscribe_token = generate_token()
+        verification_token = None if email_is_proven else generate_token()
+        now = datetime.utcnow()
         row = SavedSearchDB(
             id=str(uuid4()),
             user_id=user.id if user else None,
@@ -69,11 +81,132 @@ class SavedSearchService:
             is_active=True,
             manage_token_hash=hash_token(manage_token),
             unsubscribe_token_hash=hash_token(unsubscribe_token),
+            email_verified_at=now if email_is_proven else None,
+            verification_token_hash=hash_token(verification_token) if verification_token else None,
+            verification_sent_at=None if email_is_proven else now,
+            verification_expires_at=None
+            if email_is_proven
+            else now + timedelta(hours=settings.watch_verification_ttl_hours),
         )
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        if verification_token:
+            self._send_verification_email(row, verification_token)
         return self._to_response(row, manage_token=manage_token, unsubscribe_token=unsubscribe_token)
+
+    # --- Email ownership ----------------------------------------------------
+
+    def _guard_unverified_flood(self, email: str) -> None:
+        """Stop one address being pointed at an unbounded pile of watches.
+
+        Rate limiting caps how fast a single caller can create watches; this
+        caps how many unconfirmed watches can accumulate against one inbox
+        regardless of who created them or from where.
+        """
+        pending = self.db.scalar(
+            select(func.count())
+            .select_from(SavedSearchDB)
+            .where(
+                SavedSearchDB.email == email,
+                SavedSearchDB.email_verified_at.is_(None),
+                SavedSearchDB.is_active.is_(True),
+            )
+        )
+        if (pending or 0) >= settings.watch_max_unverified_per_email:
+            # Deliberately not phrased as "this address has N pending watches" —
+            # that would confirm to a stranger that an address is in use here.
+            raise AlertValidationError(
+                "There are already unconfirmed watches waiting on this email address. "
+                "Please confirm one of those first, or try again later."
+            )
+
+    def _send_verification_email(self, row: SavedSearchDB, verification_token: str) -> None:
+        """Ask the address to confirm it wants this watch.
+
+        A send failure must not lose the watch — the row is already committed
+        and the traveller can ask for a fresh link — so this never raises.
+        """
+        link = f"{settings.alerts_public_base_url.rstrip('/')}/watch/confirm?token={verification_token}"
+        subject = "Confirm your Triplet watch"
+        text_body = (
+            "Someone asked Triplet to watch flight prices and send the results to this address.\n\n"
+            f"If that was you, confirm it here:\n{link}\n\n"
+            f"The link works for {settings.watch_verification_ttl_hours} hours. "
+            "If it wasn't you, ignore this email — nothing was set up and we won't email you again."
+        )
+        html_body = (
+            "<p>Someone asked Triplet to watch flight prices and send the results to this address.</p>"
+            f'<p>If that was you, <a href="{link}">confirm your watch</a>.</p>'
+            f"<p>The link works for {settings.watch_verification_ttl_hours} hours. "
+            "If it wasn't you, ignore this email — nothing was set up and we won't email you again.</p>"
+        )
+        try:
+            build_email_provider().send_email(row.email, subject, html_body, text_body)
+        except (EmailProviderError, smtplib.SMTPException, OSError):
+            # Never log the token or the link: both are the credential itself.
+            logger.exception("watch_verification_email_failed saved_search_id=%s", row.id)
+
+    def verify_saved_search(self, token: str) -> SavedSearchResponse:
+        """Activate a watch from its emailed confirmation link.
+
+        Single use: the token hash is cleared on success, so a link that leaks
+        from a mailbox later cannot re-activate anything.
+        """
+        if not token:
+            raise SavedSearchNotFoundError("This confirmation link is not valid.")
+        row = self.db.scalar(
+            select(SavedSearchDB).where(SavedSearchDB.verification_token_hash == hash_token(token))
+        )
+        if row is None:
+            raise SavedSearchNotFoundError("This confirmation link is not valid or has already been used.")
+        if row.verification_expires_at and row.verification_expires_at < datetime.utcnow():
+            raise AlertValidationError(
+                "This confirmation link has expired. Create the watch again to get a fresh link."
+            )
+
+        row.email_verified_at = datetime.utcnow()
+        row.verification_token_hash = None
+        row.verification_expires_at = None
+        row.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return self._to_response(row)
+
+    def resend_verification(self, saved_search_id: str, token: str) -> None:
+        """Send a fresh confirmation link, invalidating the previous one."""
+        row = self._get_authorized(saved_search_id, token)
+        if row.email_verified_at is not None:
+            return  # Already confirmed; nothing to send and nothing to reveal.
+        verification_token = generate_token()
+        now = datetime.utcnow()
+        row.verification_token_hash = hash_token(verification_token)
+        row.verification_sent_at = now
+        row.verification_expires_at = now + timedelta(hours=settings.watch_verification_ttl_hours)
+        self.db.commit()
+        self.db.refresh(row)
+        self._send_verification_email(row, verification_token)
+
+    def purge_stale_unverified(self) -> int:
+        """Delete watches whose address was never confirmed.
+
+        An unconfirmed watch is a record of an address someone typed, not a
+        relationship anyone agreed to — it should not be retained forever.
+        """
+        cutoff = datetime.utcnow() - timedelta(hours=settings.watch_unverified_retention_hours)
+        stale = list(
+            self.db.scalars(
+                select(SavedSearchDB).where(
+                    SavedSearchDB.email_verified_at.is_(None),
+                    SavedSearchDB.created_at < cutoff,
+                )
+            ).all()
+        )
+        for row in stale:
+            self.db.delete(row)
+        if stale:
+            self.db.commit()
+        return len(stale)
 
     def list_user_saved_searches(self, user: UserDB) -> list[SavedSearchResponse]:
         rows = self.db.scalars(
@@ -248,7 +381,13 @@ class SavedSearchService:
 
     def list_due_saved_searches(self, now: datetime | None = None) -> list[SavedSearchDB]:
         now = now or datetime.utcnow()
-        rows = self.db.scalars(select(SavedSearchDB).where(SavedSearchDB.is_active.is_(True))).all()
+        rows = self.db.scalars(
+            select(SavedSearchDB).where(
+                SavedSearchDB.is_active.is_(True),
+                # An address that never confirmed is not a subscriber.
+                SavedSearchDB.email_verified_at.is_not(None),
+            )
+        ).all()
         return [row for row in rows if self._is_due(row, now)]
 
     def run_due_alerts(self) -> list[AlertRunResponse]:
@@ -305,6 +444,13 @@ class SavedSearchService:
         )
 
     def _send_delivery(self, row: SavedSearchDB, run: AlertRunDB, output: SearchTripsOutput) -> None:
+        # The last gate before an email is addressed. list_due_saved_searches
+        # already filters these out, but delivery is where the irreversible
+        # side effect happens, so it refuses on its own authority too.
+        if row.email_verified_at is None:
+            raise AlertValidationError(
+                "This watch's email address has not been confirmed, so no alert was sent."
+            )
         city_names = {airport.code: airport.city for airport in AirportsRepository(self.db).list_airports()}
         manage_note = (
             "Manage this watch on your Triplet dashboard."

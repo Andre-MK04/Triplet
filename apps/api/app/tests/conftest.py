@@ -11,7 +11,7 @@ from app.db.repositories.airports_repository import AirportsRepository
 from app.db.repositories.flights_repository import FlightsRepository
 from app.db.repositories.transfers_repository import TransfersRepository
 from app.db.seed import seed_session
-from app.rate_limit import clear_rate_limits
+from app.security import reset_rate_limits as clear_rate_limits
 
 
 @pytest.fixture(autouse=True)

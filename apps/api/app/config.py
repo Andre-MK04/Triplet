@@ -140,6 +140,13 @@ class Settings:
     # Interactive API docs describe every route, schema and error to anyone who
     # asks. Useful locally, an inventory for an attacker in production.
     expose_api_docs: bool = os.getenv("EXPOSE_API_DOCS", "").lower() == "true"
+    # How long an anonymous watch's confirmation link stays valid, and how long
+    # an unconfirmed watch is kept before cleanup removes it.
+    watch_verification_ttl_hours: int = int(os.getenv("WATCH_VERIFICATION_TTL_HOURS", "48"))
+    watch_unverified_retention_hours: int = int(os.getenv("WATCH_UNVERIFIED_RETENTION_HOURS", "168"))
+    # A single address can only be pointed at so many unconfirmed watches before
+    # it is being used as a mail target rather than a traveller's own inbox.
+    watch_max_unverified_per_email: int = int(os.getenv("WATCH_MAX_UNVERIFIED_PER_EMAIL", "3"))
     # A ceiling on language-model calls per day across the whole service, so a
     # bug or an abuser cannot run up an unbounded bill. Reaching it degrades to
     # the rule-based parser rather than breaking search.

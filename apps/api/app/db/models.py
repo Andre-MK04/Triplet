@@ -239,6 +239,14 @@ class SavedSearchDB(Base):
     last_best_trip_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
     manage_token_hash: Mapped[str] = mapped_column(String(128))
     unsubscribe_token_hash: Mapped[str] = mapped_column(String(128))
+    # Email ownership. A watch created anonymously names an address nobody has
+    # proved they control, so it starts unverified and stays silent until the
+    # address itself confirms. Watches created by a signed-in user for their own
+    # account address are already proven and skip this.
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verification_token_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    verification_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     runs: Mapped[list["AlertRunDB"]] = relationship(back_populates="saved_search")
     deliveries: Mapped[list["AlertDeliveryDB"]] = relationship(back_populates="saved_search")

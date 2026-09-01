@@ -36,10 +36,23 @@ def alert_payload(**overrides):
     return payload
 
 
-def create_alert(client):
+def create_alert(client, db_session=None, confirmed=True):
+    """Create a watch. Confirmed by default.
+
+    Anonymous watches start unverified and stay silent until the address
+    confirms, so tests about *running* alerts would otherwise be testing the
+    verification gate by accident. Tests that care about that gate pass
+    confirmed=False and drive it explicitly.
+    """
     response = client.post("/alerts", json=alert_payload())
     assert response.status_code == 200
-    return response.json()
+    data = response.json()
+    if confirmed and db_session is not None:
+        row = db_session.get(SavedSearchDB, data["id"])
+        row.email_verified_at = datetime.utcnow()
+        row.verification_token_hash = None
+        db_session.commit()
+    return data
 
 
 def token_from_url(url: str) -> str:
@@ -77,7 +90,7 @@ def test_create_saved_search_validates_email_and_dates(db_session):
 def test_get_preview_and_delete_alert_require_valid_token(db_session):
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
-    created = create_alert(client)
+    created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
 
     bad = client.get(f"/alerts/{created['id']}?token=bad")
@@ -106,7 +119,7 @@ def test_alert_run_sends_first_notification_and_logs_rows(db_session, monkeypatc
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
     monkeypatch.setattr(settings, "email_provider", "console")
-    created = create_alert(client)
+    created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
 
     response = client.post(f"/alerts/{created['id']}/run?token={token}")
@@ -125,7 +138,7 @@ def test_alert_run_skips_same_result_inside_cooldown(db_session, monkeypatch):
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
     monkeypatch.setattr(settings, "email_provider", "console")
-    created = create_alert(client)
+    created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
 
     first = client.post(f"/alerts/{created['id']}/run?token={token}")
@@ -140,7 +153,7 @@ def test_improved_price_sends_notification_after_cooldown(db_session, monkeypatc
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
     monkeypatch.setattr(settings, "email_provider", "console")
-    created = create_alert(client)
+    created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
     row = db_session.get(SavedSearchDB, created["id"])
     row.last_notified_at = datetime.utcnow() - timedelta(hours=25)

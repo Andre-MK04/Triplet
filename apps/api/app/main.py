@@ -46,8 +46,21 @@ def validate_security_settings() -> None:
         errors.append("AUTH_COOKIE_SAMESITE=none requires AUTH_COOKIE_SECURE=true.")
     if "*" in allowed_origins:
         errors.append("Wildcard CORS origins are not allowed with credentials in production.")
-    if settings.ai_enabled and not settings.openai_api_key:
-        errors.append("OPENAI_API_KEY is required when AI_ENABLED=true in production.")
+    if settings.ai_enabled:
+        # Validate the credential for the provider actually selected. This used
+        # to demand OPENAI_API_KEY unconditionally, so an Anthropic deployment
+        # could not start no matter how it was configured.
+        provider = settings.ai_provider.strip().lower()
+        required = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+        if provider not in required:
+            errors.append(
+                f"AI_PROVIDER={settings.ai_provider!r} is not a supported provider "
+                f"({', '.join(sorted(required))})."
+            )
+        elif provider == "openai" and not settings.openai_api_key:
+            errors.append("OPENAI_API_KEY is required when AI_ENABLED=true and AI_PROVIDER=openai.")
+        elif provider == "anthropic" and not settings.anthropic_api_key:
+            errors.append("ANTHROPIC_API_KEY is required when AI_ENABLED=true and AI_PROVIDER=anthropic.")
     if settings.flight_provider in LIVE_PROVIDER_NAMES:
         provider_status = build_provider(settings.flight_provider).get_provider_status()
         if provider_status.accessStatus != "available":

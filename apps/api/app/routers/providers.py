@@ -13,7 +13,7 @@ from app.providers.registry import (
     UnknownFlightProviderError,
     build_provider,
 )
-from app.rate_limit import rate_limit
+from app.security import RateLimitCategory, check_rate_limit
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
@@ -46,11 +46,8 @@ def provider_status() -> dict:
 
 
 def provider_diagnostics_rate_limit(request: Request) -> None:
-    rate_limit(
-        "provider_smoke_test",
-        settings.provider_smoke_test_rate_limit_max_attempts,
-        settings.api_rate_limit_window_seconds,
-    )(request)
+    # The smoke test calls the live provider, so it spends real quota.
+    check_rate_limit(RateLimitCategory.SEARCH, request)
 
 
 @router.get("/smoke-test")
