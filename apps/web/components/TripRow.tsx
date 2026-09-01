@@ -60,14 +60,24 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
   const price = pricePresentation(trip);
   const badge = priceBadge(trip);
 
+  const routeLabel = isChained
+    ? stays.map((stay) => stay.city).join(" to ")
+    : `${cityFor(trip.outboundFlight.origin)} to ${destinationCity}`;
+
   return (
     <div className="border-b border-line">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-expanded={open}
-        className="grid w-full grid-cols-2 items-center gap-x-4 gap-y-3 py-5 text-left transition-colors hover:bg-mint/5 sm:grid-cols-[minmax(0,3fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_min-content]"
-      >
+      {/* Expanding and checking the live price are two different actions, so
+          they are two sibling controls. They used to be one: the whole row was
+          a button and the only live-price link lived inside the panel it
+          opened, which put the main conversion action behind a disclosure and
+          would have meant nesting an anchor inside a button to fix naively. */}
+      <div className="flex items-stretch gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          className="grid min-w-0 flex-1 grid-cols-2 items-center gap-x-4 gap-y-3 py-5 text-left transition-colors hover:bg-mint/5 sm:grid-cols-[minmax(0,3fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_min-content]"
+        >
         <span>
           <span className="block font-display text-xl font-bold uppercase leading-tight text-cloud">
             {isChained ? (
@@ -146,13 +156,28 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           ) : null}
         </span>
 
-        <span
-          aria-hidden
-          className={"hidden text-mist transition-transform sm:block " + (open ? "rotate-90" : "")}
-        >
-          ›
-        </span>
-      </button>
+          <span
+            aria-hidden
+            className={"text-mist transition-transform " + (open ? "rotate-90" : "")}
+          >
+            ›
+          </span>
+        </button>
+
+        {bookingHref ? (
+          <a
+            href={bookingHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            // Named for this specific trip so a screen reader hears which row
+            // it belongs to rather than a wall of identical links.
+            aria-label={`${CHECK_PRICE_LABEL} for ${routeLabel}`}
+            className="my-2 flex shrink-0 items-center px-3 text-center font-mono text-[11px] font-semibold uppercase leading-tight tracking-label text-mint transition-colors hover:bg-mint hover:text-mint-ink sm:px-4"
+          >
+            {CHECK_PRICE_LABEL} ↗
+          </a>
+        ) : null}
+      </div>
 
       {open ? (
         <div className="mb-5 border-l-2 border-mint/40 bg-ink-raised px-5 py-4">

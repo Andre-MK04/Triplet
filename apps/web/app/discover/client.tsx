@@ -185,6 +185,7 @@ export function DiscoverClient() {
   const autoSearchedQuery = useRef<string | null>(null);
 
   const [refineOpen, setRefineOpen] = useState(false);
+  const [aiExplained, setAiExplained] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
   const [returnOriginRaw, setReturnOriginRaw] = useState("");
@@ -535,18 +536,52 @@ export function DiscoverClient() {
             lives behind "Refine". */}
         <section className="border-y border-line py-6">
           <form onSubmit={runSearch} className="space-y-6">
-            <div className="flex items-start gap-3">
-              <span aria-hidden className="pt-2.5 font-mono text-lg leading-none text-mint">
-                →
-              </span>
-              <Textarea
-                value={aiMessage}
-                onChange={(event) => setAiMessage(event.target.value)}
-                rows={2}
-                aria-label="Describe your trip"
-                className="min-h-0 font-mono"
-                placeholder={PLACEHOLDER_FOR_PLAN[form.tripPlan]}
-              />
+            <div>
+              {/* The box reads like a parser but is answered by a language
+                  model, and a traveller deciding how to phrase a request
+                  deserves to know which. Named here, explained beneath. */}
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <label
+                  htmlFor="ai-trip-input"
+                  className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint"
+                >
+                  Ask Triplet AI
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAiExplained((open) => !open)}
+                  aria-expanded={aiExplained}
+                  aria-controls="ai-explainer"
+                  className="font-mono text-[11px] uppercase tracking-label text-mist underline transition-colors hover:text-mint"
+                >
+                  How this works
+                </button>
+              </div>
+              {aiExplained ? (
+                <p
+                  id="ai-explainer"
+                  className="mb-3 border-l-2 border-mint/40 pl-3 text-xs leading-relaxed text-mist"
+                >
+                  Triplet uses AI to interpret your request — it works out the origins, dates,
+                  budget and trip shape you mean. Flight prices come from fare data and
+                  Triplet&apos;s own observations, not from the AI model.
+                </p>
+              ) : null}
+              <div className="flex items-start gap-3">
+                <span aria-hidden className="pt-2.5 font-mono text-lg leading-none text-mint">
+                  →
+                </span>
+                <Textarea
+                  id="ai-trip-input"
+                  value={aiMessage}
+                  onChange={(event) => setAiMessage(event.target.value)}
+                  rows={2}
+                  aria-label="Describe your trip — interpreted by AI"
+                  aria-describedby={aiExplained ? "ai-explainer" : undefined}
+                  className="min-h-0 font-mono"
+                  placeholder={PLACEHOLDER_FOR_PLAN[form.tripPlan]}
+                />
+              </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
