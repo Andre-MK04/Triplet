@@ -9,6 +9,7 @@ import { Card } from "../../components/ui/Card";
 import { Field, Input, Select } from "../../components/ui/Input";
 import { EmptyState, Notice, Spinner } from "../../components/ui/Misc";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../../lib/api";
+import { WATCH_TRIGGERS, triggerHint, type WatchTriggerMode } from "../../lib/watchTriggers";
 import { airportCity } from "../../lib/airports";
 import { formatPrice, timeAgo } from "../../lib/format";
 import type { TravelProfile } from "../../lib/types";
@@ -28,6 +29,7 @@ type DashboardSavedSearch = {
   directOnly?: boolean | null;
   includeBaggage?: boolean | null;
   frequency: string;
+  triggerMode?: string | null;
   isActive: boolean;
   lastCheckedAt?: string | null;
   lastNotifiedAt?: string | null;
@@ -754,7 +756,21 @@ export function DashboardClient() {
               <Field label="Max budget (€)">
                 <Input type="number" value={editing.maxBudget} onChange={(event) => setEditing({ ...editing, maxBudget: Number(event.target.value) })} />
               </Field>
-              <Field label="Frequency" hint="Weekly digests are a Pro feature.">
+              {/* What is worth an email, kept separate from how often Triplet
+                  looks — changing one should not silently change the other. */}
+              <Field label="Tell me when" hint={triggerHint((editing.triggerMode ?? "any") as WatchTriggerMode)}>
+                <Select
+                  value={editing.triggerMode ?? "any"}
+                  onChange={(event) => setEditing({ ...editing, triggerMode: event.target.value })}
+                >
+                  {WATCH_TRIGGERS.map((trigger) => (
+                    <option key={trigger.value} value={trigger.value}>
+                      {trigger.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Check" hint="Weekly digests are a Pro feature.">
                 <Select value={editing.frequency} onChange={(event) => setEditing({ ...editing, frequency: event.target.value })}>
                   <option value="daily">daily</option>
                   <option value="weekly">weekly</option>

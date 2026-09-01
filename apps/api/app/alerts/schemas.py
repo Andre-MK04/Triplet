@@ -7,6 +7,11 @@ from app.models import ProviderMetadata, TripOption
 
 
 Frequency = Literal["daily", "weekly"]
+
+#: What makes a watch worth an email — a separate question from how often it may
+#: send one. Only the four the runner actually implements are offered; a choice
+#: the backend cannot honour would be worse than no choice.
+TriggerMode = Literal["any", "below_budget", "route_deal", "price_drop"]
 TripStyle = Literal["one city", "two nearby cities", "surprise me"]
 
 
@@ -30,6 +35,9 @@ class CreateSavedSearchRequest(BaseModel):
     directOnly: bool | None = None
     includeBaggage: bool | None = None
     frequency: Frequency = "daily"
+    #: None means "use the account's preference, or any". Kept optional so an
+    #: older client that does not know about triggers still creates a working watch.
+    triggerMode: TriggerMode | None = None
 
     @field_validator("email")
     @classmethod
@@ -81,6 +89,7 @@ class UpdateSavedSearchRequest(BaseModel):
     directOnly: bool | None = None
     includeBaggage: bool | None = None
     frequency: Frequency | None = None
+    triggerMode: TriggerMode | None = None
 
     @field_validator("originAirports")
     @classmethod
@@ -106,6 +115,7 @@ class SavedSearchResponse(BaseModel):
     directOnly: bool | None = None
     includeBaggage: bool | None = None
     frequency: str
+    triggerMode: str | None = None
     isActive: bool
     createdAt: datetime
     lastCheckedAt: datetime | None = None

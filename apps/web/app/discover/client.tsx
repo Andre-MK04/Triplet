@@ -24,6 +24,7 @@ import { PRICE_DISCLAIMER } from "../../lib/price";
 import { ageSince, clearSearch, loadSearch, saveSearch } from "../../lib/searchSession";
 import { MAX_BUDGET_CEILING, type ParsedChipKey } from "../../lib/parsedSearch";
 import { isSortKey, sortTrips, type SortKey } from "../../lib/sorting";
+import { WATCH_TRIGGERS, triggerHint, type WatchTriggerMode } from "../../lib/watchTriggers";
 import type {
   AISearchResponse,
   AirportResult,
@@ -237,6 +238,9 @@ export function DiscoverClient() {
   const [alertName, setAlertName] = useState("");
   const [alertEmail, setAlertEmail] = useState("");
   const [alertFrequency, setAlertFrequency] = useState<"daily" | "weekly">("daily");
+  // What is worth an email, as opposed to how often one may arrive. Two
+  // different questions that were previously one setting on the account.
+  const [alertTrigger, setAlertTrigger] = useState<WatchTriggerMode>("any");
   const [alertStatus, setAlertStatus] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [isSavingAlert, setIsSavingAlert] = useState(false);
   const [savedAlert, setSavedAlert] = useState<SavedSearch | null>(null);
@@ -458,6 +462,7 @@ export function DiscoverClient() {
           alertName ||
           `${lastPayload.originAirports.slice(0, 3).join("/")} under ${formatPrice(lastPayload.maxBudget)}`,
         frequency: alertFrequency,
+        triggerMode: alertTrigger,
       };
       const data = await apiPost<SavedSearch>(user ? "/me/saved-searches" : "/alerts", body);
       setSavedAlert(data);
@@ -952,7 +957,30 @@ export function DiscoverClient() {
                           />
                         </Field>
                       ) : null}
-                      <Field label="Frequency">
+                      {/* Two separate questions, deliberately not merged: what
+                          makes a trip worth telling you about, and how often
+                          Triplet may check. Merging them is why "notify me less"
+                          used to also mean "notify me about less". */}
+                      <Field label="Tell me when">
+                        <Select
+                          value={alertTrigger}
+                          onChange={(event) => setAlertTrigger(event.target.value as WatchTriggerMode)}
+                          className="w-64"
+                        >
+                          {WATCH_TRIGGERS.map((trigger) => (
+                            <option key={trigger.value} value={trigger.value}>
+                              {trigger.label}
+                            </option>
+                          ))}
+                        </Select>
+                        {/* The labels are short enough to be ambiguous; what
+                            each one actually means decides whether a watch is
+                            useful or a source of noise. */}
+                        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-mist/70">
+                          {triggerHint(alertTrigger)}
+                        </p>
+                      </Field>
+                      <Field label="Check">
                         <Select
                           value={alertFrequency}
                           onChange={(event) => setAlertFrequency(event.target.value as "daily" | "weekly")}

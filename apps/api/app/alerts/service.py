@@ -78,6 +78,7 @@ class SavedSearchService:
             direct_only=request.directOnly,
             include_baggage=request.includeBaggage,
             frequency=request.frequency,
+            trigger_mode=request.triggerMode,
             is_active=True,
             manage_token_hash=hash_token(manage_token),
             unsubscribe_token_hash=hash_token(unsubscribe_token),
@@ -341,6 +342,8 @@ class SavedSearchService:
             row.include_baggage = request.includeBaggage
         if request.frequency is not None:
             row.frequency = request.frequency
+        if request.triggerMode is not None:
+            row.trigger_mode = request.triggerMode
         self._validate_row(row)
         row.updated_at = datetime.utcnow()
         self.db.commit()
@@ -634,6 +637,14 @@ class SavedSearchService:
         return best_price <= previous_price - 10
 
     def _alert_trigger_mode(self, row: SavedSearchDB) -> str:
+        """What makes this watch worth an email.
+
+        The watch's own choice wins. Failing that the account's preference
+        applies, and failing that "any" — which is what every watch did before a
+        watch could choose, so nothing changes for one that never did.
+        """
+        if row.trigger_mode:
+            return row.trigger_mode
         if not row.user_id:
             return "any"
         profile = self.db.get(UserTravelProfileDB, row.user_id)
@@ -686,6 +697,7 @@ def saved_search_to_response(
         directOnly=row.direct_only,
         includeBaggage=row.include_baggage,
         frequency=row.frequency,
+        triggerMode=row.trigger_mode,
         isActive=row.is_active,
         createdAt=row.created_at,
         lastCheckedAt=row.last_checked_at,

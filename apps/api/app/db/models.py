@@ -230,6 +230,11 @@ class SavedSearchDB(Base):
     direct_only: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     include_baggage: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     frequency: Mapped[str] = mapped_column(String(20), default="daily")
+    # What makes this watch worth an email, as opposed to how often it may send
+    # one. NULL means "use the account's preference, or 'any'" — which is what
+    # every watch did before this column existed, so existing rows keep their
+    # behaviour without being backfilled into a choice nobody made.
+    trigger_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
