@@ -9,6 +9,7 @@ import { Autocomplete } from "../../components/Autocomplete";
 import { useAuth } from "../../components/AuthContext";
 import { OriginPicker } from "../../components/OriginPicker";
 import { TripPlanChoice } from "../../components/TripPlanChoice";
+import { ResultsToolbar } from "../../components/ResultsToolbar";
 import { TripRow } from "../../components/TripRow";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
@@ -19,6 +20,7 @@ import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { formatPrice } from "../../lib/format";
 import { PRICE_DISCLAIMER } from "../../lib/price";
 import { ageSince, clearSearch, loadSearch, saveSearch } from "../../lib/searchSession";
+import { isSortKey, sortTrips, type SortKey } from "../../lib/sorting";
 import type {
   AISearchResponse,
   AirportResult,
@@ -186,6 +188,24 @@ export function DiscoverClient() {
 
   const [refineOpen, setRefineOpen] = useState(false);
   const [aiExplained, setAiExplained] = useState(false);
+  const [sort, setSort] = useState<SortKey>(() => {
+    const requested = searchParams.get("sort");
+    return isSortKey(requested) ? requested : "best";
+  });
+
+  function changeSort(next: SortKey) {
+    setSort(next);
+    // Reflect the ordering in the URL so it survives a reload and can be
+    // shared. replaceState rather than a router push: reordering results is not
+    // a navigation and should not add a back-button step.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (next === "best") url.searchParams.delete("sort");
+      else url.searchParams.set("sort", next);
+      window.history.replaceState({}, "", url);
+    }
+  }
+
   const [aiMessage, setAiMessage] = useState("");
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
   const [returnOriginRaw, setReturnOriginRaw] = useState("");
@@ -196,6 +216,8 @@ export function DiscoverClient() {
   const [originLabels, setOriginLabels] = useState<Record<string, string>>({});
 
   const [trips, setTrips] = useState<TripOption[]>([]);
+  // Ordering is a view concern: sort what came back rather than re-searching.
+  const sortedTrips = useMemo(() => sortTrips(trips, sort), [trips, sort]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -811,12 +833,10 @@ export function DiscoverClient() {
 
           {!isLoading && hasSearched && trips.length > 0 ? (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-                <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
-                  Results · {trips.length} trip{trips.length === 1 ? "" : "s"} identified · best first
+              <ResultsToolbar trips={trips} sort={sort} onSortChange={changeSort}>
+                <p className="font-mono text-[11px] uppercase tracking-label text-mist">
                   {restoredAge ? (
                     <>
-                      {" · "}
                       <span className={restoredAge.isAgeing ? "text-gold" : "text-mist/70"}>
                         from your last search {restoredAge.label}
                         {restoredAge.isAgeing ? " · prices may have moved" : ""}
@@ -838,7 +858,7 @@ export function DiscoverClient() {
                 <Button variant="secondary" size="sm" onClick={() => setAlertOpen((open) => !open)}>
                   {alertOpen ? "Hide alert form" : "Watch this search"}
                 </Button>
-              </div>
+              </ResultsToolbar>
 
               <AnimatePresence>
                 {alertOpen ? (
@@ -903,18 +923,22 @@ export function DiscoverClient() {
                 ) : null}
               </AnimatePresence>
 
-              <div>
-                {trips.map((trip) => (
-                  <TripRow
-                    key={trip.id}
-                    trip={trip}
-                    onSaveAlert={() => {
-                      setAlertOpen(true);
-                      window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
-                    }}
-                  />
+              {/* Reordering animates rows to their new positions rather than
+                  swapping them instantly, so it is possible to see where a
+                  trip went. layout is skipped under reduced motion. */}
+              <motion.div layout={!reducedMotion}>
+                {sortedTrips.map((trip) => (
+                  <motion.div key={trip.id} layout={!reducedMotion}>
+                    <TripRow
+                      trip={trip}
+                      onSaveAlert={() => {
+                        setAlertOpen(true);
+                        window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+                      }}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
               <p className="pt-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/60">
                 {PRICE_DISCLAIMER}
               </p>
