@@ -490,3 +490,18 @@ export type ProvidersStatusResponse = {
   providers: ProviderStatusEntry[];
   warnings: string[];
 };
+
+/** The cached homepage board. */
+export type FeaturedDeals = {
+  trips: TripOption[];
+  /**
+   * When Triplet last assembled the board — NOT the age of any fare in it.
+   * Each trip carries its own observation time and the interface keeps the two
+   * apart, so the page never implies the board's freshness is the fares'.
+   */
+  generatedAt?: string | null;
+  originAirports: string[];
+  isStale?: boolean;
+  /** False before the scheduler has ever built a board. */
+  isReady?: boolean;
+};

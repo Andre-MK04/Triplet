@@ -552,3 +552,27 @@ class AirportDirectoryDB(Base):
     source: Mapped[str] = mapped_column(String(40), default="ourairports")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class FeaturedDealSnapshotDB(Base):
+    """The homepage board, computed once and served to everyone.
+
+    Stored as a whole snapshot rather than a row per deal so a refresh swaps the
+    board atomically. A half-written board — three deals from the new run and
+    three from the old — would be worse than a stale one, and there is no
+    ordering or filtering to do at read time: the endpoint returns exactly what
+    the scheduler decided.
+    """
+
+    __tablename__ = "featured_deal_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: When this board was assembled. Not the age of any fare in it — each trip
+    #: carries its own observation time, and conflating the two would let the
+    #: homepage imply hourly-fresh prices it does not have.
+    generated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    #: Serialised TripOption list, ready to return.
+    trips: Mapped[list] = mapped_column(JSON)
+    #: Which origins produced it, so the page can say what it is showing.
+    origin_airports: Mapped[list] = mapped_column(JSON)
+    trip_count: Mapped[int] = mapped_column(Integer, default=0)

@@ -10,19 +10,11 @@ import { AppShell } from "../components/AppShell";
 import { ScoreDial } from "../components/ScoreDial";
 import type { GlobeMarker } from "../components/RouteGlobe";
 import { ButtonLink } from "../components/ui/Button";
-import { apiPost } from "../lib/api";
-import { formatPrice } from "../lib/format";
-import type { TripOption, TripSearchResponse } from "../lib/types";
+import { apiGet } from "../lib/api";
+import { formatPrice, timeAgo } from "../lib/format";
+import type { FeaturedDeals, TripOption } from "../lib/types";
 
 const RouteGlobe = dynamic(() => import("../components/RouteGlobe"), { ssr: false });
-
-const HOME_AIRPORTS = ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"];
-
-function isoDaysFromNow(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
 
 function boardDate(iso: string): string {
   return new Date(iso)
@@ -46,26 +38,28 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
 }
 
 /** Real cached deals for the departures board + globe price tags. */
-function useLiveDeals() {
+/**
+ * The homepage board.
+ *
+ * This used to run a full /trips/search on every page view — a real provider
+ * search with real cost, repeated for every visitor, crawler and uptime check.
+ * It now reads a board the scheduler assembled, which costs one indexed query
+ * however busy the front page gets.
+ */
+function useFeaturedDeals() {
   const [deals, setDeals] = useState<TripOption[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "offline">("loading");
+  const [board, setBoard] = useState<FeaturedDeals | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "offline" | "warming">("loading");
 
   useEffect(() => {
-    apiPost<TripSearchResponse>("/trips/search", {
-      originAirports: HOME_AIRPORTS,
-      destinationAirports: null,
-      startDate: isoDaysFromNow(7),
-      endDate: isoDaysFromNow(75),
-      minTripLengthDays: 3,
-      maxTripLengthDays: 8,
-      maxBudget: 250,
-      maxGroundTransferHours: 4,
-      tripStyle: "surprise me",
-      directOnly: false,
-    })
+    apiGet<FeaturedDeals>("/featured-deals")
       .then((data) => {
-        setDeals(data.trips.slice(0, 6));
-        setStatus(data.trips.length > 0 ? "ready" : "offline");
+        setBoard(data);
+        setDeals(data.trips);
+        // "Warming" is not "offline": before the scheduler has ever run there
+        // is no board yet, which is a different thing from there being no
+        // cheap fares, and the page should not claim the latter.
+        setStatus(data.trips.length > 0 ? "ready" : data.isReady ? "offline" : "warming");
       })
       .catch(() => setStatus("offline"));
   }, []);
@@ -83,7 +77,7 @@ function useLiveDeals() {
     return tags;
   }, [deals]);
 
-  return { deals, status, markers };
+  return { deals, status, markers, board };
 }
 
 function HeroSearch() {
@@ -118,7 +112,15 @@ function HeroSearch() {
   );
 }
 
-function DeparturesBoard({ deals, status }: { deals: TripOption[]; status: "loading" | "ready" | "offline" }) {
+function DeparturesBoard({
+  deals,
+  status,
+  board,
+}: {
+  deals: TripOption[];
+  status: "loading" | "ready" | "offline" | "warming";
+  board: FeaturedDeals | null;
+}) {
   return (
     <section className="py-24">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-3">
@@ -126,16 +128,41 @@ function DeparturesBoard({ deals, status }: { deals: TripOption[]; status: "load
           <h2 className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
             Departures board
           </h2>
-          <p className="mt-1 font-mono text-sm text-cloud">Fresh finds from your home airports</p>
+          {/* Not "your home airports": an anonymous visitor has not told us
+              where they fly from, and these are Central European examples. */}
+          <p className="mt-1 font-mono text-sm text-cloud">
+            Example deals from Central Europe
+          </p>
         </div>
-        <p className="font-mono text-[10px] uppercase tracking-label text-mist/70">
-          Refreshed hourly · indicative
+        {/* Two clocks, kept apart. The board is rebuilt on a schedule; the
+            fares in it are whatever age the provider's data is, and each row
+            says so itself. Claiming the board's freshness for the fares would
+            be exactly the conflation Triplet avoids everywhere else. */}
+        <p className="max-w-xs text-right font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist/70">
+          {board?.generatedAt ? (
+            <>
+              Board rebuilt {timeAgo(board.generatedAt) ?? "recently"}
+              {board.isStale ? " · overdue" : ""}
+              <span className="block text-mist/50">Each fare shows when it was observed</span>
+            </>
+          ) : (
+            "Each fare shows when it was observed"
+          )}
         </p>
       </div>
 
       {status === "loading" ? (
         <p className="border-b border-line py-10 text-center font-mono text-[11px] uppercase tracking-label text-mist">
-          Scanning fares…
+          Loading the board…
+        </p>
+      ) : null}
+
+      {status === "warming" ? (
+        <p className="border-b border-line py-10 text-center font-mono text-[11px] uppercase tracking-label text-mist">
+          The board is still being assembled —{" "}
+          <Link href="/discover" className="text-mint hover:text-cloud">
+            search for trips
+          </Link>
         </p>
       ) : null}
 
@@ -203,7 +230,7 @@ const methodology = [
   {
     step: "01 / Describe",
     title: "Tell us your kind of trip.",
-    text: "Rough budget, rough dates, your airports, your travel mood — in plain language or with every knob. Triplet turns it into a real search across your home airports.",
+    text: "Rough budget, rough dates, your airports, your travel mood — in plain language or with every knob. Triplet turns it into a real search across the airports you choose.",
   },
   {
     step: "02 / Watch",
@@ -218,7 +245,7 @@ const methodology = [
 ];
 
 export default function LandingPage() {
-  const { deals, status, markers } = useLiveDeals();
+  const { deals, status, markers, board } = useFeaturedDeals();
 
   return (
     <AppShell wide>
@@ -265,7 +292,7 @@ export default function LandingPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <DeparturesBoard deals={deals} status={status} />
+        <DeparturesBoard deals={deals} status={status} board={board} />
 
         {/* Methodology */}
         <section className="border-t border-line py-24">

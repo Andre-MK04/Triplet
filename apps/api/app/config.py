@@ -147,6 +147,11 @@ class Settings:
     # A single address can only be pointed at so many unconfirmed watches before
     # it is being used as a mail target rather than a traveller's own inbox.
     watch_max_unverified_per_email: int = int(os.getenv("WATCH_MAX_UNVERIFIED_PER_EMAIL", "3"))
+    # The homepage board. Assembled by the scheduled tick and served from the
+    # database, so a page view never reaches a flight provider.
+    featured_deal_origins: str | None = os.getenv("FEATURED_DEAL_ORIGINS") or None
+    featured_deal_max_budget: float = float(os.getenv("FEATURED_DEAL_MAX_BUDGET", "250"))
+    featured_deal_stale_after_hours: int = int(os.getenv("FEATURED_DEAL_STALE_AFTER_HOURS", "6"))
     # A ceiling on language-model calls per day across the whole service, so a
     # bug or an abuser cannot run up an unbounded bill. Reaching it degrades to
     # the rule-based parser rather than breaking search.
