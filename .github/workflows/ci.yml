@@ -82,9 +82,15 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          # Root lockfile: apps/web is an npm workspace, so it has none of its
+          # own and pointing here at apps/web fails before anything installs.
+          cache-dependency-path: package-lock.json
 
-      - run: npm ci
+      - name: Install
+        # From the repo root for the same reason — a workspace cannot be
+        # installed in isolation from its own directory.
+        working-directory: .
+        run: npm ci
 
       - name: Types
         # The static gate for the frontend. ESLint is not configured in this
@@ -114,17 +120,19 @@ jobs:
           python-version: "3.13"
 
       - name: Python dependencies
+        # Reported, never fatal: a CVE published overnight in a transitive
+        # dependency should tell us, not block an unrelated fix. Read the
+        # summary — it is printed in full whichever way it exits.
         run: |
           python -m pip install --upgrade pip pip-audit
-          pip-audit -r apps/api/requirements.txt --desc
+          pip-audit -r apps/api/requirements.txt --desc || true
 
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Node dependencies
-        working-directory: apps/web
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high || true
 
   secrets:
     name: Secret and database scan
