@@ -25,16 +25,36 @@ Passwords were stored hashed (`pbkdf2_sha256`), never plaintext.
 **Conclusion: no real user personal data was exposed.** No breach notification
 obligation arises from this file. History cleanup is hygiene, not remediation.
 
-## Is history cleanup required?
+## Status: done, 2026-09-02
 
-**No, but it is recommended** — the file is ~4.5 MB and sits in every clone.
-Removing it shrinks the repository and removes the dev credentials entirely.
+The purge was carried out with the owner's explicit go-ahead. History was
+rewritten from `79e700f` to `92d0791` and force-pushed to `main`.
 
-This is deliberately **not automated**: rewriting history changes every commit
-SHA after `86912f5`, which breaks existing clones, open pull requests and any
-tag or deployment pinned to a rewritten SHA. Do it consciously.
+Conditions checked beforehand, because a rewrite is only safe when nobody else
+is holding the old history: **0 forks, 0 open pull requests, 1 branch, 0 tags,
+1 collaborator, no branch protection.** A full `git bundle --all` backup was
+taken and verified as a complete history before anything was rewritten.
 
-## How to purge it, when you choose to
+Verified afterwards:
+
+| Check | Result |
+|---|---|
+| Database objects anywhere in history | 0 |
+| Commits preserved | 105 of 105 |
+| Commit messages and authors | all identical |
+| Tree at `HEAD` | byte-for-byte unchanged |
+| Repository size (fresh clone) | 3.7 MB → 2.0 MB |
+| Tests after rewrite | 589 backend, 93 frontend |
+
+The tree hash at `HEAD` being unchanged is the important one: it proves the
+rewrite removed history and touched no working file.
+
+Because the database held only two `@example.com` test accounts with hashed
+passwords, this was hygiene rather than breach remediation — see above. No
+credential rotation was required. Anyone holding a pre-rewrite clone must
+re-clone; old clones cannot be merged cleanly.
+
+## How it was done (kept for reference)
 
 Requires [`git-filter-repo`](https://github.com/newren/git-filter-repo)
 (`brew install git-filter-repo`). Do this on a fresh clone.
