@@ -12,5 +12,5 @@ PyJWT==2.13.0
 cryptography==50.0.1
 stripe==11.4.1
 anthropic==0.68.0
-argon2-cffi==23.1.0
+argon2-cffi==25.1.0
 redis==5.2.1
