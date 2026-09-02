@@ -36,6 +36,11 @@ export function OriginPicker({
   }, [open]);
 
   const name = (code: string) => labels[code] ?? AIRPORTS_BY_CODE[code]?.city ?? code;
+
+  // With nothing chosen this is not a summary of anything — it is the first
+  // question Triplet has to ask. "Your origin airports (0)" claimed a set that
+  // did not exist and gave no hint that picking one was the next move.
+  const needsSetup = selected.length === 0;
   const summary =
     selected.length === 0
       ? "No airports selected"
@@ -45,8 +50,13 @@ export function OriginPicker({
 
   return (
     <div className="relative min-w-0" ref={panel}>
-      <p className="mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-label text-mist">
-        Flying from
+      <p
+        className={
+          "mb-2.5 font-mono text-[10px] font-semibold uppercase tracking-label " +
+          (needsSetup ? "text-mint" : "text-mist")
+        }
+      >
+        {needsSetup ? "Where can you fly from?" : "Flying from"}
       </p>
       <button
         type="button"
@@ -54,12 +64,14 @@ export function OriginPicker({
         aria-expanded={open}
         className={
           "flex w-full items-center justify-between gap-3 border px-3.5 py-2.5 text-left transition-colors " +
-          (open ? "border-mint text-cloud" : "border-line text-cloud hover:border-mint/40")
+          (open || needsSetup
+            ? "border-mint text-cloud"
+            : "border-line text-cloud hover:border-mint/40")
         }
       >
         <span className="min-w-0 truncate text-sm">
-          Your origin airports
-          <span className="ml-2 text-mist">({selected.length})</span>
+          {needsSetup ? "Choose your departure airports" : "Your origin airports"}
+          {needsSetup ? null : <span className="ml-2 text-mist">({selected.length})</span>}
         </span>
         <span className="shrink-0 font-mono text-[11px] uppercase tracking-label text-mist">
           {open ? "Close" : summary}
@@ -68,6 +80,13 @@ export function OriginPicker({
 
       {open ? (
         <div className="absolute left-0 right-0 z-20 mt-1 border border-line bg-ink-raised p-4 shadow-xl">
+          {/* Named as the sample it is. These are Central European airports
+              because that is where Triplet's fare history is densest, not
+              because the person reading this lives near them — the search box
+              below reaches every European airport. */}
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-label text-mist-dim">
+            Common Central European origins
+          </p>
           <div className="flex flex-wrap gap-2">
             {[...new Set([...ORIGIN_AIRPORT_CODES, ...selected])].map((code) => (
               <Chip key={code} selected={selected.includes(code)} onClick={() => onToggle(code)}>

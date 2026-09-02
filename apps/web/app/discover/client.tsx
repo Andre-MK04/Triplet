@@ -20,6 +20,7 @@ import { Field, Input, Select, Textarea } from "../../components/ui/Input";
 import { EmptyState, Notice } from "../../components/ui/Misc";
 import { apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
+import { readSavedOrigins, saveOrigins } from "../../lib/originPreference";
 import { PRICE_DISCLAIMER } from "../../lib/price";
 import {
   emptyStateMessage,
@@ -99,7 +100,11 @@ const placesEndpoint = (query: string) => `/places/search?q=${query}&limit=12`;
 const originsEndpoint = (query: string) => `/airports/search?q=${query}&limit=8&originsOnly=true`;
 
 const defaultForm: AdvancedForm = {
-  originAirports: ["VIE", "ZAG", "TRS", "VCE", "BUD", "LJU"],
+  // Deliberately empty. Triplet used to default to six Central European
+  // airports for everybody, which told a traveller in Lisbon that it knew
+  // where they lived and was wrong. Origins come from the travel profile, from
+  // what this browser chose last time, or from asking — never from a guess.
+  originAirports: [],
   destinationAirports: [],
   destinationCountries: [],
   destinationRegions: [],
@@ -120,6 +125,13 @@ const defaultForm: AdvancedForm = {
 
 export function DiscoverClient() {
   const { user } = useAuth();
+  /**
+   * True when results came from Triplet's fallback origins rather than a
+   * choice. A search arriving from the landing page carries a query but no
+   * airports, and the backend falls back to a Central European sample — which
+   * looks identical to a personalised result unless the page says otherwise.
+   */
+  const [originsWereAssumed, setOriginsWereAssumed] = useState(false);
   const searchParams = useSearchParams();
   const reducedMotion = useReducedMotion();
   const showWelcome = searchParams.get("welcome") === "1";
@@ -188,6 +200,17 @@ export function DiscoverClient() {
     void performAiSearch(incomingQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per incoming query
   }, [incomingQuery]);
+
+  // Restore what this browser chose last time, before anything is searched.
+  // A signed-in profile still wins: the effect below overwrites this once it
+  // arrives, and it is the more deliberate statement of the two.
+  useEffect(() => {
+    const saved = readSavedOrigins();
+    if (saved.length === 0) return;
+    setForm((current) =>
+      current.originAirports.length > 0 ? current : { ...current, originAirports: saved },
+    );
+  }, []);
 
   // Prefill from the user's travel profile once they're logged in.
   useEffect(() => {
@@ -269,6 +292,9 @@ export function DiscoverClient() {
     try {
       const data = await apiPost<TripSearchResponse>("/trips/search", searchPayload);
       const resultNotice = providerNotice(data.providerMetadata, data.trips.length);
+      // The structured form always sends the airports on screen, and cannot
+      // submit with none, so nothing here was assumed.
+      setOriginsWereAssumed(false);
       setTrips(data.trips);
       setRelaxationNote(data.relaxationNote ?? null);
       setLastPayload(searchPayload);
@@ -303,6 +329,9 @@ export function DiscoverClient() {
         tripPlan: planOverride ?? form.tripPlan,
       });
       const resultNotice = providerNotice(data.providerMetadata, data.trips.length);
+      setOriginsWereAssumed(
+        form.originAirports.length === 0 && (data.parsedRequest?.originAirports?.length ?? 0) > 0,
+      );
       setTrips(data.trips);
       setRelaxationNote(data.relaxationNote ?? null);
       setAiSummary(data.message);
@@ -385,23 +414,39 @@ export function DiscoverClient() {
     void runStructuredSearch(corrected);
   }
 
+  /**
+   * Record an anonymous traveller's airports for their next visit.
+   *
+   * Done here rather than in an effect on `form.originAirports`: an effect
+   * would also fire on mount, before the saved list had been restored, and
+   * write the empty starting state over the very thing it was about to read.
+   * Signed-in travellers are excluded — their airports belong to their travel
+   * profile, and copying them into storage would duplicate the record without
+   * being asked.
+   */
+  function rememberOrigins(codes: string[]) {
+    if (!user) saveOrigins(codes);
+  }
+
   function toggleAirport(code: string) {
-    setForm((current) => ({
-      ...current,
-      originAirports: current.originAirports.includes(code)
+    setForm((current) => {
+      const originAirports = current.originAirports.includes(code)
         ? current.originAirports.filter((airport) => airport !== code)
-        : [...current.originAirports, code],
-    }));
+        : [...current.originAirports, code];
+      rememberOrigins(originAirports);
+      return { ...current, originAirports };
+    });
   }
 
   function addOrigin(airport: AirportResult) {
     setOriginQuery("");
     setOriginLabels((current) => ({ ...current, [airport.iataCode]: airport.city ?? airport.name }));
-    setForm((current) =>
-      current.originAirports.includes(airport.iataCode)
-        ? current
-        : { ...current, originAirports: [...current.originAirports, airport.iataCode] },
-    );
+    setForm((current) => {
+      if (current.originAirports.includes(airport.iataCode)) return current;
+      const originAirports = [...current.originAirports, airport.iataCode];
+      rememberOrigins(originAirports);
+      return { ...current, originAirports };
+    });
   }
 
   function addDestination(place: FlightPlaceResult) {
@@ -741,6 +786,16 @@ export function DiscoverClient() {
                 </p>
               ) : null}
             </div>
+          ) : null}
+
+          {/* Said before the results, not after: someone scanning fares needs to
+              know whose airports these are before they start comparing prices. */}
+          {!isLoading && originsWereAssumed ? (
+            <Notice tone="warning">
+              These are example departures from Central Europe — you haven&apos;t told Triplet
+              where you fly from yet. Set your airports under “Where can you fly from?” to
+              search fares you can actually reach.
+            </Notice>
           ) : null}
 
           {!isLoading && relaxationNote ? <Notice tone="warning">{relaxationNote}</Notice> : null}

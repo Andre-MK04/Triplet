@@ -1,6 +1,5 @@
 import logging
 import re
-from datetime import date
 from typing import Any
 
 from pydantic import ValidationError
@@ -45,11 +44,17 @@ def build_search_preview(message: str, registry: ToolRegistry, context: ToolCont
 
 logger = logging.getLogger(__name__)
 
-# Keep within the free/anonymous plan's 6-origin entitlement, or defaulted
-# searches (no origin city named) 402 for logged-out users.
+# The fallback when a search names no origin and the traveller has chosen none.
+# It is a Central European sample, not a guess about where anyone lives, and
+# the interface must say so wherever results produced from it are shown —
+# Triplet does not get to imply it knows an anonymous visitor's home airports.
+# Sized to the free/anonymous plan's 6-origin entitlement so a defaulted search
+# does not 402 for logged-out users.
 DEFAULT_ORIGINS = ["LJU", "ZAG", "VIE", "BUD", "TRS", "VCE"]
-DEFAULT_START_DATE = date(2026, 7, 1)
-DEFAULT_END_DATE = date(2026, 8, 31)
+# No default date window lives here. Two hardcoded 2026 dates used to, unused
+# but waiting to be wired up, and by now they are in the past — a search
+# defaulted to them would quietly return nothing. Date windows come from the
+# traveller's spontaneity setting via preferences.resolve_search_preferences.
 ALLOWED_AI_TOOLS = {"get_airports", "search_trips", "estimate_ground_transfer"}
 
 TRAVEL_MAP_CONTEXT_PATTERNS = (
