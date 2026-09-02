@@ -64,9 +64,9 @@ function Leg({ label, flight }: { label: string; flight: Flight }) {
 function GroundHop({ transfer }: { transfer: GroundTransfer }) {
   return (
     <p className="py-3 font-mono text-xs text-gold">
-      <span className="text-mist/70">VIA</span> {transfer.fromCity} → {transfer.toCity} · ~
+      <span className="text-mist-dim">VIA</span> {transfer.fromCity} → {transfer.toCity} · ~
       {transfer.durationHours}h by {transfer.mode} · ~{formatPrice(transfer.estimatedCost)} estimate
-      <span className="text-mist/70"> · not included in the fare</span>
+      <span className="text-mist-dim"> · not included in the fare</span>
     </p>
   );
 }
@@ -177,7 +177,7 @@ export function BoardingPass({ trip }: { trip: TripOption }) {
               {CHECK_PRICE_LABEL} ↗
             </a>
           ) : (
-            <p className="mt-6 border border-line px-4 py-3 text-center font-mono text-[10px] uppercase tracking-label text-mist/70">
+            <p className="mt-6 border border-line px-4 py-3 text-center font-mono text-[10px] uppercase tracking-label text-mist-dim">
               No booking link — search the route with the airline
             </p>
           )}

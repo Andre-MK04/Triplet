@@ -33,7 +33,7 @@ function ScoreBreakdown({ title, components }: { title: string; components: Scor
   if (components.length === 0) return null;
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-mist/70">{title}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-mist-dim">{title}</p>
       <ul className="mt-1 space-y-0.5">
         {components.map((component) => (
           <li key={component.label} className="flex items-baseline justify-between gap-3 text-xs">
@@ -55,7 +55,7 @@ function FlightRow({ label, flight, showPrice = true }: { label: string; flight:
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-ink-soft/60 px-3.5 py-2.5">
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-mist/70">{label}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-mist-dim">{label}</p>
         <p className="truncate text-sm font-semibold text-cloud">
           {airportCity(flight.origin)} <span className="text-mist">{flight.origin}</span>
           <span aria-hidden className="mx-1.5 text-mint">→</span>
@@ -72,7 +72,7 @@ function FlightRow({ label, flight, showPrice = true }: { label: string; flight:
           ) : null}
           {typeof flight.stops === "number" ? ` · ${flight.stops === 0 ? "direct" : `${flight.stops} stop${flight.stops > 1 ? "s" : ""}`}` : ""}
         </p>
-        <p className="truncate text-xs text-mist/70">{flight.airline}</p>
+        <p className="truncate text-xs text-mist-dim">{flight.airline}</p>
       </div>
       {showPrice ? (
         <p className="shrink-0 text-sm font-bold text-cloud">{formatPrice(flight.price, flight.currency)}</p>
@@ -120,7 +120,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
         </div>
         <div className="shrink-0 text-right">
           <p className="font-display text-2xl font-bold text-mint">{pricePresentation(trip).primary}</p>
-          <p className="text-[11px] text-mist/70">
+          <p className="text-[11px] text-mist-dim">
             {trip.fareKind === "round_trip_bundle"
               ? "round trip"
               : `total, flights${trip.groundTransfer ? " + transfer" : ""}`}
@@ -176,7 +176,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
               <ScoreBreakdown title="Fit score factors" components={trip.fitScoreBreakdown ?? []} />
             </div>
           ) : null}
-          <p className="text-xs text-mist/70">
+          <p className="text-xs text-mist-dim">
             {observed ? `Last checked ${observed}. ` : ""}Prices are observed, not guaranteed — check the final
             price with the provider.
           </p>
@@ -218,7 +218,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
               {CHECK_PRICE_LABEL} ↗
             </a>
           ) : (
-            <span className="text-xs text-mist/70">No booking link for demo fares</span>
+            <span className="text-xs text-mist-dim">No booking link for demo fares</span>
           )}
         </div>
       </footer>

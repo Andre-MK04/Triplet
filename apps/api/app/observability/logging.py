@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import sys
+import traceback
 from datetime import datetime, timezone
 
 from app.observability.context import current_request_id
@@ -27,6 +28,25 @@ _STANDARD = frozenset(
     lineno module msecs message msg name pathname process processName relativeCreated
     stack_info thread threadName taskName""".split()
 )
+
+
+#: Enough frames to identify the failure without letting one crash dominate a
+#: log budget. The tail is kept rather than the head: the innermost frames and
+#: the exception line are what name the faulty code.
+MAX_STACK_CHARS = 4000
+
+
+def _formatted_stack(exc_info) -> str:
+    """The traceback as text, redacted and bounded.
+
+    Redacted for the same reason every other field is: an exception message or a
+    local variable rendered into a frame can carry a token or an email address,
+    and a traceback is not exempt from that just because it is diagnostic.
+    """
+    text = "".join(traceback.format_exception(*exc_info)).rstrip()
+    if len(text) > MAX_STACK_CHARS:
+        text = "…truncated…\n" + text[-MAX_STACK_CHARS:]
+    return redact_text(text)
 
 
 class JsonFormatter(logging.Formatter):
@@ -49,12 +69,17 @@ class JsonFormatter(logging.Formatter):
             payload.update(redact(extras))
 
         if record.exc_info:
-            # The type and message, not the traceback: a traceback in a log
-            # aggregator is noise, and Sentry captures it properly when enabled.
             exc_type, exc_value, _ = record.exc_info
             payload["error"] = {
                 "type": getattr(exc_type, "__name__", str(exc_type)),
                 "message": redact_text(str(exc_value)),
+                # The traceback ships too. An earlier version left it out on the
+                # grounds that Sentry would capture it — but Sentry is optional
+                # and unconfigured by default, so that reasoning only held for
+                # deployments that had already solved the problem. Without a DSN
+                # a 500 left the type and message and nothing else, which is not
+                # enough to find the line that raised it.
+                "stack": _formatted_stack(record.exc_info),
             }
 
         return json.dumps(payload, default=str)
@@ -68,6 +93,11 @@ class HumanFormatter(logging.Formatter):
         extras = {key: value for key, value in record.__dict__.items() if key not in _STANDARD}
         if extras:
             base += " " + json.dumps(redact(extras), default=str)
+        if record.exc_info:
+            # Local work is exactly where a traceback earns its space. Without
+            # this, a crash printed one unhelpful line and the developer went
+            # looking for a stack trace that was never written anywhere.
+            base += "\n" + _formatted_stack(record.exc_info)
         return base
 
 

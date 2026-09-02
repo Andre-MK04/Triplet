@@ -222,7 +222,7 @@ export function TravelMapGlobe({
           </p>
         </div>
       ) : null}
-      <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] uppercase tracking-label text-mist/70">
+      <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] uppercase tracking-label text-mist-dim">
         Drag to rotate · tap a country
       </p>
     </div>

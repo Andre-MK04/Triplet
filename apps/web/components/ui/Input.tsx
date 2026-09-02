@@ -4,7 +4,7 @@ import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, forw
 
 // Command-line fields: no box, just a bottom hairline that turns mint on focus.
 const fieldClass =
-  "cmd-input w-full py-2.5 text-sm text-cloud placeholder:text-mist/50 focus:ring-0";
+  "cmd-input w-full py-2.5 text-sm text-cloud placeholder:text-mist-dim focus:ring-0";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className = "", ...props },
@@ -42,7 +42,7 @@ export function Field({ label, hint, htmlFor, children }: FieldProps) {
     <label htmlFor={htmlFor} className="block space-y-1.5">
       <span className="block font-mono text-[11px] font-semibold uppercase tracking-label text-mist">{label}</span>
       {children}
-      {hint ? <span className="block text-xs text-mist/70">{hint}</span> : null}
+      {hint ? <span className="block text-xs text-mist-dim">{hint}</span> : null}
     </label>
   );
 }

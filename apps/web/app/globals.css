@@ -18,6 +18,10 @@
   --deep: 9 15 21;
   --cloud: 232 240 244;
   --mist: 147 166 180;
+  /* A third text tier, below mist. It exists because `text-mist/70` was being
+     used for it, and an alpha on mist lands at 4.23:1 on the page background —
+     under AA. Tuned per theme instead of derived, so it stays readable. */
+  --mist-dim: 125 140 153;
   --mint: 125 223 195;
   --mint-ink: 0 56 44;
   --sky: 142 197 255;
@@ -40,16 +44,28 @@
   --deep: 230 235 240;
   --cloud: 15 23 32;
   --mist: 90 107 120;
-  /* Darker teal so mint reads as text on light and stays a valid button fill. */
-  --mint: 15 138 111;
+  /* Light has no headroom for a dimmer tier that still passes AA — anything
+     lighter than mist falls under 4.5:1 on this background — so the two tiers
+     collapse here rather than shipping text nobody can read. */
+  --mist-dim: 90 107 120;
+  /* Darker teal so mint reads as text on light and stays a valid button fill.
+     Measured rather than judged by eye: the previous value was 4.07:1 on the
+     page background, under the 4.5:1 AA minimum, and mint carries small
+     uppercase labels all over the interface. This clears it on the page, on a
+     card, and as a fill with white on top. */
+  --mint: 12 120 95;
   --mint-ink: 255 255 255;
   --sky: 37 99 176;
-  --coral: 199 74 42;
+  /* Was 4.48:1 — a hair under AA, on the colour that carries warnings. */
+  --coral: 189 68 38;
   --gold: 146 100 0;
   --line: rgba(11, 17, 23, 0.14);
-  --mint-soft: rgba(15, 138, 111, 0.1);
+  /* Kept in step with the accents above: these are the same hues at 0.1 alpha.
+     They drifted when mint and coral were re-tuned for contrast, which is
+     invisible at this alpha but leaves the token system quietly inconsistent. */
+  --mint-soft: rgba(12, 120, 95, 0.1);
   --sky-soft: rgba(37, 99, 176, 0.1);
-  --coral-soft: rgba(199, 74, 42, 0.1);
+  --coral-soft: rgba(189, 68, 38, 0.1);
   --grain-opacity: 0.02;
 }
 

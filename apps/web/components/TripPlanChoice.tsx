@@ -69,7 +69,7 @@ export function TripPlanChoice({
                 >
                   {option.label}
                 </span>
-                <span className="mt-0.5 block text-xs leading-tight text-mist/70">{option.hint}</span>
+                <span className="mt-0.5 block text-xs leading-tight text-mist-dim">{option.hint}</span>
               </span>
             </label>
           );

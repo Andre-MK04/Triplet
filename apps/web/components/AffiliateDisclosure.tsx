@@ -7,7 +7,7 @@
  */
 export function AffiliateDisclosure({ className = "" }: { className?: string }) {
   return (
-    <p className={`text-xs leading-relaxed text-mist/70 ${className}`}>
+    <p className={`text-xs leading-relaxed text-mist-dim ${className}`}>
       Triplet may earn a commission when you book through certain links, at no additional cost
       to you. Commission does not affect how Triplet ranks results.
     </p>

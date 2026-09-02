@@ -55,7 +55,7 @@ export function ResultsToolbar({
       <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
         <span
           id="sort-label"
-          className="mr-1 font-mono text-[11px] uppercase tracking-label text-mist/70"
+          className="mr-1 font-mono text-[11px] uppercase tracking-label text-mist-dim"
         >
           Sort
         </span>

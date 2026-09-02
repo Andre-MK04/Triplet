@@ -112,7 +112,7 @@ export function FareCheckPrompt() {
         <button
           type="button"
           onClick={dismiss}
-          className="text-xs text-mist/70 underline transition-colors hover:text-cloud"
+          className="text-xs text-mist-dim underline transition-colors hover:text-cloud"
         >
           Skip
         </button>
@@ -122,7 +122,7 @@ export function FareCheckPrompt() {
             forgetAllFareChecks();
             setCheck(null);
           }}
-          className="text-xs text-mist/70 underline transition-colors hover:text-cloud"
+          className="text-xs text-mist-dim underline transition-colors hover:text-cloud"
         >
           Don&apos;t ask again
         </button>

@@ -13,7 +13,7 @@ import pytest
 
 from app.observability import events
 from app.observability.context import current_request_id, set_request_id
-from app.observability.logging import JsonFormatter
+from app.observability.logging import MAX_STACK_CHARS, HumanFormatter, JsonFormatter
 from app.observability.redaction import REDACTED, redact, redact_text
 
 
@@ -131,7 +131,7 @@ def test_a_line_outside_a_request_simply_has_none():
     assert "requestId" not in formatted()
 
 
-def test_an_exception_is_recorded_by_type_and_message_not_traceback():
+def test_an_exception_is_recorded_by_type_and_message():
     try:
         raise ValueError("provider rejected sk_live_ABCDEFGH1234")
     except ValueError:
@@ -145,6 +145,72 @@ def test_an_exception_is_recorded_by_type_and_message_not_traceback():
     # Redacted here too: an exception message is a common place for a secret
     # to escape.
     assert "sk_live" not in out["error"]["message"]
+
+
+def _raised_record(message: str = "failed"):
+    """A record carrying a real exception, raised through a named helper."""
+    import sys
+
+    def inner():
+        raise ValueError("provider rejected sk_live_ABCDEFGH1234")
+
+    try:
+        inner()
+    except ValueError:
+        rec = record(message)
+        rec.exc_info = sys.exc_info()
+        return rec
+    raise AssertionError("unreachable")
+
+
+def test_the_traceback_is_shipped_so_a_500_can_be_located():
+    """Without a stack, a production 500 gave a type and nothing to act on.
+
+    This was a real gap: the traceback was omitted on the grounds that Sentry
+    would capture it, but Sentry is optional and off by default.
+    """
+    out = json.loads(JsonFormatter().format(_raised_record()))
+
+    stack = out["error"]["stack"]
+    assert "Traceback" in stack
+    # The frame that actually raised must be identifiable.
+    assert "inner" in stack
+
+
+def test_a_secret_inside_a_traceback_is_redacted_like_anything_else():
+    out = json.loads(JsonFormatter().format(_raised_record()))
+
+    assert "sk_live_ABCDEFGH1234" not in out["error"]["stack"]
+
+
+def test_a_runaway_traceback_cannot_dominate_the_log():
+    rec = _raised_record()
+    rec.exc_info = (
+        rec.exc_info[0],
+        rec.exc_info[1],
+        rec.exc_info[2],
+    )
+    # Stand in for a deeply recursive failure by inflating the message.
+    rec.exc_info[1].args = ("x" * (MAX_STACK_CHARS * 3),)
+
+    stack = json.loads(JsonFormatter().format(rec))["error"]["stack"]
+
+    assert len(stack) < MAX_STACK_CHARS * 2
+    assert stack.startswith("…truncated…")
+
+
+def test_local_logs_show_the_traceback_too():
+    """The readable formatter is what a developer stares at during a crash."""
+    line = HumanFormatter().format(_raised_record())
+
+    assert "Traceback" in line
+    assert "inner" in line
+    assert "sk_live_ABCDEFGH1234" not in line
+
+
+def test_an_ordinary_line_carries_no_stack():
+    assert "stack" not in json.loads(JsonFormatter().format(record("fine")))
+    assert "Traceback" not in HumanFormatter().format(record("fine"))
 
 
 # --- Events say something about the product --------------------------------

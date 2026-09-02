@@ -97,7 +97,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </Button>
         </form>
 
-        <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-label text-mist/60">
+        <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-label text-mist-dim">
           <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
         </div>
 
@@ -123,7 +123,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 Create an account →
               </Link>
               <span className="mt-2 block">
-                <Link href="/reset-password" className="text-xs text-mist/70 underline hover:text-cloud">
+                <Link href="/reset-password" className="text-xs text-mist-dim underline hover:text-cloud">
                   Forgot password?
                 </Link>
               </span>

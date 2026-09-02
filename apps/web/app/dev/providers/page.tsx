@@ -93,7 +93,7 @@ export default function ProviderStatusPage() {
                       <h2 className="font-display text-lg font-bold text-cloud">{provider.name}</h2>
                       <Badge tone={ACCESS_TONES[provider.accessStatus]}>{provider.accessStatus.replace("_", " ")}</Badge>
                     </div>
-                    <p className="mt-1 text-xs text-mist/70">{provider.implementationStatus.replace("_", " ")}</p>
+                    <p className="mt-1 text-xs text-mist-dim">{provider.implementationStatus.replace("_", " ")}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {Object.entries(provider.capabilities)
                         .filter(([, enabled]) => enabled)

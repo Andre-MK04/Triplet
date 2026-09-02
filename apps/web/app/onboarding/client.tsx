@@ -101,13 +101,13 @@ function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
       <dl className="px-5 py-2">
         {rows.map(([label, value]) => (
           <div key={label} className="border-b border-line py-3 last:border-b-0">
-            <dt className="font-mono text-[10px] uppercase tracking-label text-mist/70">{label}</dt>
+            <dt className="font-mono text-[10px] uppercase tracking-label text-mist-dim">{label}</dt>
             <dd className="mono-num mt-1 font-mono text-xs uppercase text-cloud">{value}</dd>
           </div>
         ))}
       </dl>
       <div className="border-t border-dashed border-line px-5 py-3">
-        <p className="font-mono text-[10px] uppercase tracking-label text-mist/50">Powers alerts &amp; every search</p>
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">Powers alerts &amp; every search</p>
       </div>
     </aside>
   );
@@ -257,7 +257,7 @@ export function OnboardingClient() {
             renderOption={(loc) => (
               <span className="flex items-baseline justify-between gap-3">
                 <span className="text-cloud">{loc.name}</span>
-                <span className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+                <span className="font-mono text-[10px] uppercase tracking-label text-mist-dim">
                   {loc.countryName}
                 </span>
               </span>
@@ -365,7 +365,7 @@ export function OnboardingClient() {
                 <span className="text-cloud">
                   {a.name} · <span className="font-mono">{a.iataCode}</span>
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+                <span className="font-mono text-[10px] uppercase tracking-label text-mist-dim">
                   {a.city || a.countryName}
                   {a.distanceKm != null ? ` · ${Math.round(a.distanceKm)} km` : ""}
                 </span>
@@ -384,7 +384,7 @@ export function OnboardingClient() {
               </Chip>
             ))}
             {p.originAirports.length === 0 ? (
-              <span className="font-mono text-[11px] uppercase tracking-label text-mist/60">No airports yet</span>
+              <span className="font-mono text-[11px] uppercase tracking-label text-mist-dim">No airports yet</span>
             ) : null}
           </div>
         </div>
@@ -468,7 +468,7 @@ export function OnboardingClient() {
           </div>
           <div>
             <p className="mb-2 font-mono text-[11px] uppercase tracking-label text-mist">
-              Absolute max budget <span className="text-mist/60">(optional)</span>
+              Absolute max budget <span className="text-mist-dim">(optional)</span>
             </p>
             <Input
               type="number"

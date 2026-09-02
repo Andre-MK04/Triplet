@@ -40,7 +40,7 @@ export function ParsedSearchSummary({
           <li key={`${chip.key}-${chip.value}`}>
             <span className="inline-flex items-stretch border border-line">
               <span className="flex flex-col justify-center px-3 py-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-label text-mist/70">
+                <span className="font-mono text-[10px] uppercase tracking-label text-mist-dim">
                   {chip.label}
                 </span>
                 <span className="text-sm leading-tight text-cloud">{chip.value}</span>
@@ -65,7 +65,7 @@ export function ParsedSearchSummary({
         ))}
       </ul>
 
-      <p className="mt-2.5 text-xs leading-relaxed text-mist/70">
+      <p className="mt-2.5 text-xs leading-relaxed text-mist-dim">
         Read from your request by AI. Drop anything it got wrong — that runs a fresh search without
         using one of your AI searches.
       </p>

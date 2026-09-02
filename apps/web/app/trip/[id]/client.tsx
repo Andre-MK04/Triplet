@@ -99,7 +99,7 @@ export function TripDetailClient({ suggestionId }: { suggestionId: string }) {
             Trip suggestion
           </p>
           <h1 className="font-display text-4xl font-bold tracking-tight text-cloud sm:text-5xl">{headline}</h1>
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-label text-mist/70">
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-label text-mist-dim">
             Priced {observed ?? formatDateLong(suggestion!.createdAt)}
             {suggestion!.expiresAt ? ` · link expires ${formatDateLong(suggestion!.expiresAt)}` : ""}
           </p>

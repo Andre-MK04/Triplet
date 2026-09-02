@@ -65,15 +65,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = (init?.method ?? "GET").toUpperCase();
   const token = UNSAFE_METHODS.has(method) ? await csrfToken() : null;
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    credentials: "include",
-    ...init,
-    headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { [CSRF_HEADER]: token } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      credentials: "include",
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { [CSRF_HEADER]: token } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    // fetch rejects with a bare "Failed to fetch" when the request never
+    // reaches the server — offline, DNS, a blocked origin. Callers render this
+    // message straight into a Notice, so without this the user was shown
+    // browser-internal wording, and a screen reader now reads it aloud. Status
+    // 0 is the conventional "no response" marker and lets callers tell a
+    // connection problem apart from a real HTTP status.
+    throw new ApiError(0, "We couldn't reach Triplet. Check your connection and try again.");
+  }
   if (!response.ok) {
     throw new ApiError(response.status, await parseError(response));
   }

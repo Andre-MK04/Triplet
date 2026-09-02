@@ -580,7 +580,7 @@ export function DiscoverClient() {
                             Clear · anywhere
                           </button>
                         ) : (
-                          <span className="text-xs text-mist/70">Leave empty for anywhere</span>
+                          <span className="text-xs text-mist-dim">Leave empty for anywhere</span>
                         )}
                       </div>
                       <div className="max-w-2xl">
@@ -714,7 +714,7 @@ export function DiscoverClient() {
                   setAiMessage(prompt.text);
                   setForm((current) => ({ ...current, tripPlan: prompt.plan }));
                 }}
-                className="font-mono text-xs text-mist/80 transition-colors hover:text-mint"
+                className="font-mono text-xs text-mist-dim transition-colors hover:text-mint"
               >
                 {prompt.text}
               </button>
@@ -761,7 +761,7 @@ export function DiscoverClient() {
                 <p className="font-mono text-[11px] uppercase tracking-label text-mist">
                   {restoredAge ? (
                     <>
-                      <span className={restoredAge.isAgeing ? "text-gold" : "text-mist/70"}>
+                      <span className={restoredAge.isAgeing ? "text-gold" : "text-mist-dim"}>
                         from your last search {restoredAge.label}
                         {restoredAge.isAgeing ? " · prices may have moved" : ""}
                       </span>
@@ -833,7 +833,7 @@ export function DiscoverClient() {
                         {/* The labels are short enough to be ambiguous; what
                             each one actually means decides whether a watch is
                             useful or a source of noise. */}
-                        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-mist/70">
+                        <p className="mt-1.5 max-w-xs text-xs leading-relaxed text-mist-dim">
                           {triggerHint(watch.trigger)}
                         </p>
                       </Field>
@@ -886,7 +886,7 @@ export function DiscoverClient() {
                   </motion.div>
                 ))}
               </motion.div>
-              <p className="pt-3 text-center font-mono text-[11px] uppercase leading-relaxed tracking-label text-mist/70">
+              <p className="pt-3 text-center font-mono text-[11px] uppercase leading-relaxed tracking-label text-mist-dim">
                 {PRICE_DISCLAIMER}
               </p>
             </>

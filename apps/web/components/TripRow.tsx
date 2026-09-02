@@ -37,7 +37,7 @@ function telemetry(flight: Flight): string {
 function LegLine({ label, flight, showPrice }: { label: string; flight: Flight; showPrice: boolean }) {
   return (
     <p className="mono-num font-mono text-xs text-cloud">
-      <span className="text-mist/70">{label}</span> {flight.origin} → {flight.destination} ·{" "}
+      <span className="text-mist-dim">{label}</span> {flight.origin} → {flight.destination} ·{" "}
       {legDate(flight.departureDateTime)} {legTime(flight.departureDateTime)} · {telemetry(flight)}
       {/* Bundled round trips have one real total; per-leg prices would be misleading. */}
       {showPrice ? ` · ${formatPrice(flight.price, flight.currency)}` : ""}
@@ -117,7 +117,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           <span className="mono-num block font-mono text-sm text-cloud">
             {legDate(trip.outboundFlight.departureDateTime)} — {legDate(trip.returnFlight.departureDateTime)}
           </span>
-          <span className="mt-1 block font-mono text-[11px] uppercase tracking-label text-mist/70">
+          <span className="mt-1 block font-mono text-[11px] uppercase tracking-label text-mist-dim">
             {trip.nights} nights
             {isChained ? ` · ${stays.length} cities` : isOpenJaw ? " · two cities" : ""}
           </span>
@@ -139,7 +139,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           <span
             className={
               "mono-num block font-display leading-none " +
-              (overBudget ? "text-mist/60" : "text-coral")
+              (overBudget ? "text-mist-dim" : "text-coral")
             }
           >
             <span className="mr-1 align-middle text-xs font-normal uppercase tracking-label text-mist">
@@ -156,7 +156,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                 // believe, so it is read at the same size as the labels around
                 // it rather than shrunk into decoration.
                 "mt-1 block font-mono text-[11px] uppercase tracking-label " +
-                (price.isStale || price.confidence === "aging" ? "text-gold" : "text-mist/70")
+                (price.isStale || price.confidence === "aging" ? "text-gold" : "text-mist-dim")
               }
             >
               {price.secondary}
@@ -218,10 +218,10 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                     </span>
                   ) : segment.transfer ? (
                     <p className="font-mono text-xs text-mist">
-                      <span className="text-mist/70">{index + 1}</span> {segment.originCity} ⇢{" "}
+                      <span className="text-mist-dim">{index + 1}</span> {segment.originCity} ⇢{" "}
                       {segment.destinationCity} · overland ~{segment.transfer.durationHours}h · ~
                       {formatPrice(segment.transfer.estimatedCost)} est.
-                      <span className="text-mist/60"> · not in the price</span>
+                      <span className="text-mist-dim"> · not in the price</span>
                     </p>
                   ) : null}
                 </li>
@@ -232,7 +232,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             <LegLine label="OUT" flight={trip.outboundFlight} showPrice={trip.fareKind !== "round_trip_bundle"} />
             {trip.groundTransfer ? (
               <p className="font-mono text-xs text-mist">
-                <span className="text-mist/70">VIA</span> {trip.groundTransfer.fromCity} →{" "}
+                <span className="text-mist-dim">VIA</span> {trip.groundTransfer.fromCity} →{" "}
                 {trip.groundTransfer.toCity} · ~{trip.groundTransfer.durationHours}h{" "}
                 {trip.groundTransfer.mode}
                 {trip.groundTransfer.estimatedCost != null
@@ -290,7 +290,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                 {CHECK_PRICE_LABEL} ↗
               </a>
             ) : (
-              <span className="font-mono text-[11px] uppercase tracking-label text-mist/60">
+              <span className="font-mono text-[11px] uppercase tracking-label text-mist-dim">
                 No booking link for this fare
               </span>
             )}

@@ -98,7 +98,7 @@ function HeroSearch() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="somewhere warm in August, under €150"
-          className="cmd-input w-full py-3 font-mono text-sm text-cloud placeholder:text-mist/50"
+          className="cmd-input w-full py-3 font-mono text-sm text-cloud placeholder:text-mist-dim"
         />
       </label>
       <button
@@ -138,12 +138,12 @@ function DeparturesBoard({
             fares in it are whatever age the provider's data is, and each row
             says so itself. Claiming the board's freshness for the fares would
             be exactly the conflation Triplet avoids everywhere else. */}
-        <p className="max-w-xs text-right font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist/70">
+        <p className="max-w-xs text-right font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist-dim">
           {board?.generatedAt ? (
             <>
               Board rebuilt {timeAgo(board.generatedAt) ?? "recently"}
               {board.isStale ? " · overdue" : ""}
-              <span className="block text-mist/50">Each fare shows when it was observed</span>
+              <span className="block text-mist-dim">Each fare shows when it was observed</span>
             </>
           ) : (
             "Each fare shows when it was observed"
@@ -205,7 +205,7 @@ function DeparturesBoard({
                   <span className="mono-num block font-display text-3xl font-bold leading-none text-coral">
                     {formatPrice(deal.totalPrice)}
                   </span>
-                  <span className="mt-1 block font-mono text-[10px] uppercase tracking-label text-mist/70">
+                  <span className="mt-1 block font-mono text-[10px] uppercase tracking-label text-mist-dim">
                     Round trip · indicative
                   </span>
                 </span>
@@ -267,7 +267,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-10">
               <HeroSearch />
-              <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist/60">
+              <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist-dim">
                 Fares refreshed hourly · indicative, never guaranteed
               </p>
             </div>

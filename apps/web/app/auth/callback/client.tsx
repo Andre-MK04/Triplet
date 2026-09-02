@@ -53,7 +53,7 @@ export function AuthCallbackClient() {
               Back home
             </ButtonLink>
           </div>
-          <p className="mt-6 text-xs text-mist/70">
+          <p className="mt-6 text-xs text-mist-dim">
             Still stuck? You can always{" "}
             <Link href="/signup" className="text-mint underline hover:text-cloud">
               create an account with email
@@ -69,7 +69,7 @@ export function AuthCallbackClient() {
     <AppShell>
       <div className="flex flex-col items-center gap-4 py-32">
         <Spinner label="Signing you in…" />
-        <p className="font-mono text-[10px] uppercase tracking-label text-mist/60">
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">
           Confirming your session
         </p>
       </div>

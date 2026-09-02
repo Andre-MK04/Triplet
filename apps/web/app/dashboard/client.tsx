@@ -184,7 +184,7 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
           ],
         ].map(([label, value]) => (
           <div key={label} className="bg-ink-raised px-3 py-3">
-            <p className="font-mono text-[11px] uppercase tracking-label text-mist/70">{label}</p>
+            <p className="font-mono text-[11px] uppercase tracking-label text-mist-dim">{label}</p>
             <p className="mono-num mt-1 font-mono text-sm font-semibold text-cloud">{value}</p>
           </div>
         ))}
@@ -193,7 +193,7 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
       <div className="mt-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mist">Price history</p>
-          <p className="font-mono text-[10px] uppercase tracking-label text-mist/60">
+          <p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">
             {insights.totalChecks} checks · {insights.notificationCount} alerts · {TRIGGER_LABELS[insights.alertTriggerMode] ?? insights.alertTriggerMode}
           </p>
         </div>
@@ -210,7 +210,7 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
                   {delivery.status}
                 </span>
                 <span className="truncate text-xs text-cloud">{delivery.subject}</span>
-                <span className="font-mono text-[11px] uppercase tracking-label text-mist/70">{timeAgo(delivery.sentAt)}</span>
+                <span className="font-mono text-[11px] uppercase tracking-label text-mist-dim">{timeAgo(delivery.sentAt)}</span>
               </div>
             ))}
           </div>
@@ -348,7 +348,7 @@ function SavedWatchRow({
       </p>
       {/* When a watch last ran and what it found is the whole point of the
           row, so it is read at label size rather than shrunk below it. */}
-      <p className="mono-num mt-1 font-mono text-[11px] uppercase leading-relaxed tracking-[0.06em] text-mist/70">
+      <p className="mono-num mt-1 font-mono text-[11px] uppercase leading-relaxed tracking-[0.06em] text-mist-dim">
         {search.frequency} checks · checked {checked ?? "never"} · notified {notified ?? "never"} · best{" "}
         {search.lastBestPrice ? formatPrice(search.lastBestPrice) : "not yet"}
       </p>
@@ -555,7 +555,7 @@ export function DashboardClient() {
             <p className="mt-3 text-mist">Triplet keeps watching while you&apos;re away.</p>
           )}
           {data ? (
-            <p className="mono-num mt-2 font-mono text-[10px] uppercase tracking-label text-mist/60">
+            <p className="mono-num mt-2 font-mono text-[10px] uppercase tracking-label text-mist-dim">
               {PLAN_LABEL[data.billing.plan] ?? "Free plan"}
               {data.billing.plan === "trial" ? ` · ${data.billing.trialDaysRemaining} days left` : ""} · AI searches
               this month {data.billing.usage.aiSearchesThisMonth}
@@ -706,7 +706,7 @@ export function DashboardClient() {
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-3">
                       <span className="font-mono text-[10px] uppercase tracking-label text-mist">Push</span>
-                      <span className="font-mono text-[10px] uppercase tracking-label text-mist/50">Planned for iOS</span>
+                      <span className="font-mono text-[10px] uppercase tracking-label text-mist-dim">Planned for iOS</span>
                     </div>
                   </div>
                   <Button

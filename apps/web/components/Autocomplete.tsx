@@ -115,7 +115,7 @@ export function Autocomplete<T>({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
-        className="cmd-input w-full py-2.5 font-mono text-sm text-cloud placeholder:text-mist/50"
+        className="cmd-input w-full py-2.5 font-mono text-sm text-cloud placeholder:text-mist-dim"
       />
       {open ? (
         <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto border border-line bg-ink-raised">

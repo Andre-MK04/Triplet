@@ -79,7 +79,7 @@ export function SecurityClient() {
             </ul>
           </Card>
         ))}
-        <p className="text-center text-xs text-mist/60">
+        <p className="text-center text-xs text-mist-dim">
           Found a security issue? Email us — responsible disclosure is always welcome.
         </p>
       </div>

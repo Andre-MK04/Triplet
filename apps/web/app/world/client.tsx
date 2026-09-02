@@ -475,7 +475,7 @@ export function TravelMapClient() {
         {loading || !catalog || !travelMap ? <div className="flex min-h-[560px] items-center justify-center"><Spinner label="Drawing your world…" /></div> : (
           <>
             <div className="mt-9"><TravelStats map={travelMap} /></div>
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-4"><Legend /><p className="font-mono text-[10px] uppercase tracking-label text-mist/60">Private to your account</p></div>
+            <div className="mt-7 flex flex-wrap items-center justify-between gap-4"><Legend /><p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">Private to your account</p></div>
             {!travelMap.countries.length ? <div className="mt-8 border-y border-line py-6 text-center"><h2 className="font-display text-2xl font-bold text-cloud">Map your world</h2><p className="mt-2 text-sm text-mist">Start with a few countries. Dates can always come later.</p><Button className="mt-4" size="sm" onClick={() => setAddCountriesOpen(true)}>Start adding countries</Button></div> : null}
             <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
               <div className="relative min-w-0 overflow-visible">
@@ -488,7 +488,7 @@ export function TravelMapClient() {
                   <TravelMapGlobe catalog={catalog.countries} countries={travelMap.countries} selectedCode={selectedCode} onSelect={setSelectedCode} />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-                  <p className="font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist/70">
+                  <p className="font-mono text-[10px] uppercase leading-relaxed tracking-label text-mist-dim">
                     {travelMap.stats.countriesVisited} visited · {travelMap.stats.wishlistCountries} on your list
                   </p>
                   <Button variant="secondary" size="sm" onClick={() => setAddCountriesOpen(true)}>

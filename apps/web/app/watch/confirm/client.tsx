@@ -107,7 +107,7 @@ export function WatchConfirmClient() {
       <AppShell>
         <div className="flex flex-col items-center gap-4 py-32">
           <Spinner label="Confirming your watch…" />
-          <p className="font-mono text-[11px] uppercase tracking-label text-mist/70">
+          <p className="font-mono text-[11px] uppercase tracking-label text-mist-dim">
             Checking your link
           </p>
         </div>
@@ -133,7 +133,7 @@ export function WatchConfirmClient() {
             </ButtonLink>
           </div>
           {state.nothingWasSetUp ? (
-            <p className="mt-6 text-xs leading-relaxed text-mist/70">
+            <p className="mt-6 text-xs leading-relaxed text-mist-dim">
               Nothing was set up, and Triplet will not email that address.
             </p>
           ) : null}
@@ -174,7 +174,7 @@ export function WatchConfirmClient() {
             Create an account
           </ButtonLink>
         </div>
-        <p className="mt-6 text-xs leading-relaxed text-mist/70">
+        <p className="mt-6 text-xs leading-relaxed text-mist-dim">
           Every email carries an unsubscribe link, and the manage link from your confirmation
           email still works. With an account you can see all your watches in one place.
         </p>

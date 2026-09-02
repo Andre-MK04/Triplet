@@ -187,7 +187,7 @@ export function Footer() {
             always confirm the final fare with the provider.
           </p>
           <AffiliateDisclosure className="mt-3" />
-          <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist/70">
+          <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist-dim">
             Account data hosted in the EU
           </p>
         </div>
@@ -205,7 +205,7 @@ export function Footer() {
         ))}
       </div>
       <div className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 font-mono text-[10px] uppercase tracking-label text-mist/60 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 font-mono text-[10px] uppercase tracking-label text-mist-dim sm:px-6">
           <span>© {new Date().getFullYear()} Triplet — does not sell or book flights</span>
           {/* No live status claim: nothing here was ever connected to system
               state, so a green dot reading "Systems nominal" asserted health

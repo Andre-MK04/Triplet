@@ -18,6 +18,9 @@ const config: Config = {
         lifted: "rgb(var(--lifted) / <alpha-value>)",
         line: "var(--line)", // hairline rule (baked alpha)
         mist: "rgb(var(--mist) / <alpha-value>)", // muted / secondary text
+        // Tertiary text. Use instead of an alpha on mist, which drops below
+        // the AA contrast minimum on both themes' page backgrounds.
+        "mist-dim": "rgb(var(--mist-dim) / <alpha-value>)",
         cloud: "rgb(var(--cloud) / <alpha-value>)", // primary text
         mint: {
           DEFAULT: "rgb(var(--mint) / <alpha-value>)", // actions, FitScore

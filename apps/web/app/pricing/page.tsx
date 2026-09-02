@@ -178,7 +178,7 @@ export default function PricingPage() {
       <Button variant="secondary" className="w-full" disabled>
         Pro · coming soon
       </Button>
-      <p className="mt-2 text-center text-xs leading-relaxed text-mist/70">
+      <p className="mt-2 text-center text-xs leading-relaxed text-mist-dim">
         Paid plans are not open yet. Everything below is free to use in the meantime.
       </p>
     </div>
@@ -314,7 +314,7 @@ export default function PricingPage() {
               </p>
               <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1">
                 {(trialPlan?.features ?? []).map((feature) => (
-                  <li key={feature} className="font-mono text-[11px] uppercase tracking-[0.06em] text-mist/80">
+                  <li key={feature} className="font-mono text-[11px] uppercase tracking-[0.06em] text-mist-dim">
                     {feature}
                   </li>
                 ))}
@@ -322,7 +322,7 @@ export default function PricingPage() {
             </div>
             <div className="shrink-0 self-center">{trialCta()}</div>
           </div>
-          <p className="mt-5 border-t border-line pt-4 font-mono text-[10px] uppercase tracking-label text-mist/60">
+          <p className="mt-5 border-t border-line pt-4 font-mono text-[10px] uppercase tracking-label text-mist-dim">
             No card required. Prices are never guaranteed and may change after you open the provider.
           </p>
         </section>
@@ -331,7 +331,19 @@ export default function PricingPage() {
           <h2 className="mb-4 font-mono text-[11px] font-semibold uppercase tracking-label text-mist">
             Compare plans
           </h2>
-          <div className="overflow-x-auto">
+          {/*
+            On a narrow screen this table scrolls sideways. A mouse or finger can
+            drag it; a keyboard cannot reach a scroll container that holds no
+            focusable child, so the Pro column was simply unreachable without a
+            pointer. tabIndex makes the region itself focusable so arrow keys
+            scroll it, and the label tells a screen reader what it just entered.
+          */}
+          <div
+            className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint"
+            tabIndex={0}
+            role="region"
+            aria-label="Plan comparison"
+          >
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="font-mono text-[10px] uppercase tracking-label text-mist">
@@ -351,7 +363,7 @@ export default function PricingPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-5 font-mono text-[10px] uppercase tracking-label text-mist/70">
+          <p className="mt-5 font-mono text-[10px] uppercase tracking-label text-mist-dim">
             Triplet finds and monitors fare opportunities. It does not sell flights, and prices are never
             guaranteed. Check the final price with the provider before booking.
           </p>

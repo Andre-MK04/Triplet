@@ -61,9 +61,22 @@ export function Notice({
     error: "border-coral/40 text-coral",
     success: "border-mint/40 text-mint",
   } as const;
-  // A quiet statement with a tinted left rule — not an alert box.
+
+  // Notices appear after something happens — a search failed, a watch was
+  // saved, a quota ran out — and are the only report of it. Rendered without a
+  // live region they were silent to anyone not watching that part of the page.
+  //
+  // An error interrupts, because it usually means the thing just attempted did
+  // not happen. Everything else waits for a pause in speech: a success message
+  // is not worth cutting across whatever is being read.
+  const isError = tone === "error";
+
   return (
-    <div className={`rounded-none border-l-2 bg-transparent px-4 py-2 text-sm ${tones[tone]}`}>
+    <div
+      role={isError ? "alert" : "status"}
+      aria-live={isError ? "assertive" : "polite"}
+      className={`rounded-none border-l-2 bg-transparent px-4 py-2 text-sm ${tones[tone]}`}
+    >
       {children}
     </div>
   );

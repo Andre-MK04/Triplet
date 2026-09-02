@@ -42,7 +42,7 @@ function DayItems({ items }: { items: ItineraryItem[] }) {
                   <p className="font-mono text-xs font-medium uppercase text-mist">{item.title}</p>
                   <p className="mt-1 text-sm leading-relaxed text-cloud">{item.description}</p>
                   {item.estimatedCost ? (
-                    <p className="mono-num mt-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-mist/80">
+                    <p className="mono-num mt-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-mist-dim">
                       {costLabel(item.estimatedCost)}
                     </p>
                   ) : null}
@@ -150,7 +150,7 @@ export function ItineraryPlanner({
       {plan.disclaimers.length ? (
         <ul className="mt-8 space-y-1 border-t border-line pt-5">
           {plan.disclaimers.map((disclaimer, index) => (
-            <li key={index} className="font-mono text-[10px] uppercase tracking-[0.06em] text-mist/60">
+            <li key={index} className="font-mono text-[10px] uppercase tracking-[0.06em] text-mist-dim">
               {disclaimer}
             </li>
           ))}

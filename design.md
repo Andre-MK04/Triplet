@@ -68,7 +68,8 @@ work) except pre-baked translucent tokens, which are full `rgba()`.
 | `lifted` | 37 43 49 | `#252B31` | Highest surface step |
 | `deep` | 9 15 21 | `#090F15` | Deepest well (below page base) |
 | `cloud` | 232 240 244 | `#E8F0F4` | Primary text |
-| `mist` | 147 166 180 | `#93A6B4` | Secondary / muted text |
+| `mist` | 147 166 180 | `#93A6B4` | Secondary text |
+| `mist-dim` | 125 140 153 | `#7D8C99` | Tertiary text — captions, footnotes, timestamps. Replaces every former `text-mist/50–/70` opacity step |
 | `mint` | 125 223 195 | `#7DDFC3` | Primary action color, FitScore accents |
 | `mint-ink` | 0 56 44 | `#00382C` | Text color placed on a solid mint fill |
 | `sky` | 142 197 255 | `#8EC5FF` | Secondary accent (info, open-jaw) |
@@ -91,13 +92,14 @@ work) except pre-baked translucent tokens, which are full `rgba()`.
 | `deep` | 230 235 240 | `#E6EBF0` | Deepest well |
 | `cloud` | 15 23 32 | `#0F1720` | Primary text |
 | `mist` | 90 107 120 | `#5A6B78` | Secondary text |
-| `mint` | 15 138 111 | `#0F8A6F` | Primary action (darkened so it stays legible as text *and* a button fill) |
+| `mist-dim` | 90 107 120 | `#5A6B78` | Tertiary text — **identical to `mist` here.** Light has no headroom for a dimmer tier that still passes AA, so the two tiers collapse rather than ship unreadable text |
+| `mint` | 12 120 95 | `#0C785F` | Primary action (darkened so it stays legible as text *and* a button fill). Measured, not eyeballed: the previous `#0F8A6F` was 4.07:1 on the page background — under AA — and mint carries small uppercase labels throughout |
 | `mint-ink` | 255 255 255 | `#FFFFFF` | Text on solid mint fill |
 | `sky` | 37 99 176 | `#2563B0` | Secondary accent |
-| `coral` | 199 74 42 | `#C74A2A` | Warning / price accent |
+| `coral` | 189 68 38 | `#BD4426` | Warning / price accent. Previous `#C74A2A` measured 4.48:1 — a hair under AA, on the one colour that carries warnings |
 | `gold` | 146 100 0 | `#926400` | DealScore accent |
 | `line` | rgba(11,17,23,0.14) | — | Hairline border |
-| `mint-soft` / `sky-soft` / `coral-soft` | 0.10 / 0.10 / 0.10 alpha versions | — | Tinted badge backgrounds |
+| `mint-soft` / `sky-soft` / `coral-soft` | 0.10 alpha of the accents above | — | Tinted badge backgrounds |
 
 **Rule for porting to a new theme or platform:** never invert dark→light by
 flipping lightness alone. Mint, sky, coral, and gold are independently
@@ -330,6 +332,43 @@ Custom circular radio bullets (never native OS radios):
 - **Notice**: a quiet inline message, not a boxed alert — transparent
   background, 2px solid left rule in the tone color, `text-sm`, tone colors:
   info=sky, warning=gold, error=coral, success=mint.
+  **A Notice must announce itself.** It is the only report of something that
+  just happened, and a visually quiet message is still a message someone needs.
+  On the web it carries `role="alert"` + `aria-live="assertive"` for the error
+  tone and `role="status"` + `aria-live="polite"` for the rest; on iOS the
+  equivalent is `UIAccessibility.post(notification: .announcement)` for errors
+  and `.layoutChanged` for the calmer tones. An error interrupts because it
+  usually means the thing just attempted did not happen; a success message
+  waits, because it is not worth cutting across whatever is being read.
+
+---
+
+## 6.5 Accessibility floor (non-negotiable, ported as-is)
+
+The web app is verified against WCAG 2.2 AA with axe-core, and the mobile app
+inherits the same floor. These are the rules that actually changed the design,
+so they are worth carrying rather than rediscovering:
+
+- **Every colour pair is measured, not judged by eye.** Two accents shipped
+  under 4.5:1 (`#0F8A6F` at 4.07:1, `#C74A2A` at 4.48:1) and both looked
+  perfectly fine. Measure against the surface the text actually sits on — page,
+  card, and fill are three different backgrounds.
+- **No opacity steps on text.** `text-mist/50` and friends were replaced with a
+  real `mist-dim` token. An opacity modifier makes contrast depend on whatever
+  is behind it, which makes it unmeasurable and, in practice, wrong.
+- **Anything that scrolls must be reachable without a pointer.** A scroll
+  container with no focusable child cannot be scrolled by keyboard at all — the
+  plan-comparison table hid its Pro column this way. Give it `tabIndex={0}`, a
+  visible focus ring, and a label. On iOS the equivalent is making the scroll
+  view an accessibility element with `.adjustable` where it applies.
+- **Loading and error states are announced, not just drawn.** A spinner that
+  says nothing is a silent wait. Search announces "Scanning fares…" while it
+  runs and the result count when it lands.
+- **Error copy is written for a person.** A raw `Failed to fetch` reached users
+  through an unguarded network call — bad copy on screen, worse when read
+  aloud. Network failures say what happened and what to do.
+- **Modals trap focus in both directions, restore it on close, and close on
+  Escape.** See `ui/Dialog`.
 
 ---
 

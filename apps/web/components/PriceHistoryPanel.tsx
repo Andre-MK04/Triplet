@@ -38,7 +38,7 @@ const CLASSIFICATION_COPY: Record<
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="font-mono text-[11px] uppercase tracking-label text-mist/70">{label}</dt>
+      <dt className="font-mono text-[11px] uppercase tracking-label text-mist-dim">{label}</dt>
       <dd className="mono-num mt-1 font-display text-lg font-bold text-cloud">{value}</dd>
     </div>
   );
@@ -93,7 +93,7 @@ function DistributionBar({
           band, the left label read as if it belonged to the marker beside it.
           The exact figures are in the list above; what the marks mean is not
           obvious anywhere else, so that is what this says. */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] uppercase tracking-label text-mist/60">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] uppercase tracking-label text-mist-dim">
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-2.5 w-[3px] bg-mint" />
           This fare
@@ -191,7 +191,7 @@ export function PriceHistoryPanel({ trip }: { trip: TripOption }) {
         />
       ) : null}
 
-      <p className="mt-4 max-w-prose text-xs leading-relaxed text-mist/70">
+      <p className="mt-4 max-w-prose text-xs leading-relaxed text-mist-dim">
         Based on {sampleCount} comparable fare{sampleCount === 1 ? "" : "s"} Triplet has recorded
         {basis ? ` for ${basis}` : ""}. These are prices Triplet has seen, not a forecast — they say
         what this route has cost, not what it will.
