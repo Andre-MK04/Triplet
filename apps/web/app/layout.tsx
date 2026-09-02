@@ -31,20 +31,23 @@ export const metadata: Metadata = {
   },
   description:
     "Choose your airports, set your travel style, and Triplet watches for unusually cheap fares that can become real trips.",
-  alternates: { canonical: "/" },
+  // Deliberately no canonical here. Next merges parent metadata into children,
+  // so a canonical on the root layout is inherited by every page that does not
+  // set its own — telling crawlers that /pricing, /terms and /security are all
+  // really the homepage. Each stable public page declares its own instead.
   openGraph: {
     type: "website",
     siteName: "Triplet",
     title: "Triplet — Find cheap trips, not just cheap flights",
     description:
-      "Flexible discovery across your home airports, with every fare shown as what it is: recently observed, never guaranteed.",
+      "Flexible trip discovery from the airports you choose, with every fare shown as what it is: recently observed, never guaranteed.",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
     title: "Triplet — Find cheap trips, not just cheap flights",
     description:
-      "Flexible discovery across your home airports, with every fare shown as what it is: recently observed, never guaranteed.",
+      "Flexible trip discovery from the airports you choose, with every fare shown as what it is: recently observed, never guaranteed.",
   },
 };
 

@@ -24,6 +24,8 @@ export default function robots(): MetadataRoute.Robots {
         "/watch/",
         "/auth/",
         "/reset-password",
+        // Single-use confirmation link, personal to one inbox.
+        "/verify-email",
         "/backend/",
       ],
     },

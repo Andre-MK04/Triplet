@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
@@ -13,6 +13,7 @@ import { TripPlanChoice } from "../../components/TripPlanChoice";
 import { ParsedSearchSummary } from "../../components/ParsedSearchSummary";
 import { ResultsToolbar } from "../../components/ResultsToolbar";
 import { ScanningRoutes } from "../../components/ScanningRoutes";
+import { ShareSearch } from "../../components/ShareSearch";
 import { TripRow } from "../../components/TripRow";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
@@ -22,6 +23,11 @@ import { apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { readSavedOrigins, saveOrigins } from "../../lib/originPreference";
 import { canAddOrigin, useOriginLimit } from "../../lib/originLimit";
+import {
+  discoverShareUrl,
+  parseDiscoverSearchParams,
+  serializeDiscoverSearchParams,
+} from "../../lib/discoverParams";
 import { PRICE_DISCLAIMER } from "../../lib/price";
 import {
   emptyStateMessage,
@@ -135,6 +141,7 @@ export function DiscoverClient() {
    */
   const [originsWereAssumed, setOriginsWereAssumed] = useState(false);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const reducedMotion = useReducedMotion();
   const showWelcome = searchParams.get("welcome") === "1";
   const autoSearchedQuery = useRef<string | null>(null);
@@ -203,10 +210,25 @@ export function DiscoverClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per incoming query
   }, [incomingQuery]);
 
+  // A shared link wins over everything: someone opening it asked for that
+  // search specifically, so it must not be overwritten by this browser's saved
+  // origins or by a travel profile arriving a moment later.
+  const sharedSearch = useRef(false);
+  useEffect(() => {
+    const restored = parseDiscoverSearchParams(
+      new URLSearchParams(window.location.search),
+      defaultForm,
+    );
+    if (JSON.stringify(restored) === JSON.stringify(defaultForm)) return;
+    sharedSearch.current = true;
+    setForm((current) => ({ ...current, ...restored }));
+  }, []);
+
   // Restore what this browser chose last time, before anything is searched.
   // A signed-in profile still wins: the effect below overwrites this once it
   // arrives, and it is the more deliberate statement of the two.
   useEffect(() => {
+    if (sharedSearch.current) return;
     const saved = readSavedOrigins();
     if (saved.length === 0) return;
     setForm((current) =>
@@ -218,6 +240,7 @@ export function DiscoverClient() {
   useEffect(() => {
     if (!user) return;
     watch.setEmail(user.email);
+    if (sharedSearch.current) return;
     apiGet<TravelProfile>("/me/travel-profile")
       .then((profile) => {
         if (!profile.isComplete) return;
@@ -288,8 +311,22 @@ export function DiscoverClient() {
     saveSearch({ ...result, form, destinationSelections, originLabels });
   }
 
+  /**
+   * Put the search that just ran into the address bar.
+   *
+   * On submit only. Doing it as the form changes would write a history entry
+   * for every slider nudge, and `replace` keeps the back button meaning "the
+   * page before Discover" rather than "the same search, one tweak ago".
+   */
+  function syncUrl(state: AdvancedForm, query?: string | null) {
+    const params = serializeDiscoverSearchParams(state, defaultForm, { sort, query });
+    const qs = params.toString();
+    router.replace(qs ? `/discover?${qs}` : "/discover", { scroll: false });
+  }
+
   async function runStructuredSearch(override?: TripSearchPayload) {
     const searchPayload = override ?? payload;
+    syncUrl(form);
     resetResultState();
     try {
       const data = await apiPost<TripSearchResponse>("/trips/search", searchPayload);
@@ -822,6 +859,20 @@ export function DiscoverClient() {
 
           {!isLoading && hasSearched && trips.length > 0 ? (
             <>
+              {/*
+                Offered once there are results worth sending, not beside an
+                empty form — a link to nothing is not worth sharing.
+
+                Structured criteria only, never the original sentence. A shared
+                `?q=` would re-run the AI in the recipient's browser, spending
+                one of their searches and possibly parsing to something slightly
+                different; the structured form already says exactly what was
+                searched, and says it deterministically.
+              */}
+              <ShareSearch
+                url={discoverShareUrl(form, defaultForm, { sort })}
+                className="pt-1"
+              />
               <ResultsToolbar trips={trips} sort={sort} onSortChange={changeSort}>
                 <p className="font-mono text-[11px] uppercase tracking-label text-mist">
                   {restoredAge ? (

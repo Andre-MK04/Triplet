@@ -670,7 +670,7 @@ export function DashboardClient() {
                     </div>
                   </>
                 ) : (
-                  <Notice tone="warning">Finish your profile so every search starts with the right home airports.</Notice>
+                  <Notice tone="warning">Finish your profile so every search starts from the airports you chose.</Notice>
                 )}
                 <ButtonLink href="/onboarding" variant="secondary" className="mt-4 w-full">
                   {data.travelProfile.isComplete ? "Edit travel profile" : "Finish setup"}

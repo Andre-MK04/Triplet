@@ -174,7 +174,8 @@ export function TermsClient() {
           <p>
             When you follow a booking link, an identifier travels with it so the booking site
             knows the visit came from Triplet. If you then book, Triplet may receive a commission
-            from that site. You pay exactly what you would have paid otherwise.
+            from that site. Triplet adds nothing to the fare — what you pay is set by the booking
+            provider, and their price and availability can differ from what Triplet last observed.
           </p>
           <p>
             Ranking is calculated from trip quality, price, how recently the fare was observed,

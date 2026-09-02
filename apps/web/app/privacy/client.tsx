@@ -61,8 +61,9 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     body: (
       <p>
         Flight prices come from <strong className="text-cloud">Travelpayouts / Aviasales</strong>. When you open a
-        deal we add an affiliate marker to the link itself, so Triplet may earn a commission at no
-        extra cost to you; once you follow that link their site applies its own policy and cookies.
+        deal we add an affiliate marker to the link itself, so Triplet may earn a commission if you book;
+        Triplet adds no fee to the fare, and the booking provider sets the price you pay. Once you
+        follow that link their site applies its own policy and cookies.
         Commission does not affect how Triplet ranks results. When paid plans are enabled,
         subscription payments are handled by <strong className="text-cloud">Stripe</strong> — card details never
         touch our servers. <strong className="text-cloud">Triplet loads no third-party scripts at all</strong>: no

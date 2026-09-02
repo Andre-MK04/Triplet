@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { DiscoverClient } from "./client";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/discover" },
   title: "Discover trips",
   description:
     "Describe the trip you want, or fine-tune every knob. Triplet builds complete trip ideas from real observed fares.",
