@@ -48,8 +48,12 @@ describe("remembering where an anonymous traveller flies from", () => {
   });
 
   it("does not fail a search when the browser refuses to store", () => {
+    // Spied on the storage object itself rather than `Storage.prototype`: the
+    // test environment is plain Node with an in-memory stand-in, and whether a
+    // global `Storage` constructor exists varies by Node version. It did
+    // locally and did not in CI — a bad reason for a test to fail.
     const setItem = vi
-      .spyOn(Storage.prototype, "setItem")
+      .spyOn(window.localStorage, "setItem")
       .mockImplementation(() => {
         throw new Error("QuotaExceededError");
       });
@@ -60,7 +64,7 @@ describe("remembering where an anonymous traveller flies from", () => {
 
   it("does not fail a read when the browser refuses to be read", () => {
     const getItem = vi
-      .spyOn(Storage.prototype, "getItem")
+      .spyOn(window.localStorage, "getItem")
       .mockImplementation(() => {
         throw new Error("SecurityError");
       });
