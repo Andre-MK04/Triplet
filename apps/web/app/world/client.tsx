@@ -334,7 +334,7 @@ function AddCountries({
               <div key={country.code} className="flex items-center gap-3 border-b border-line px-3 py-3 hover:bg-mint/5">
                 <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
                   <input type="checkbox" checked={checked} onChange={() => setSelected((current) => { const next = new Set(current); checked ? next.delete(country.code) : next.add(country.code); return next; })} className="h-4 w-4 shrink-0 accent-[rgb(var(--mint))]" />
-                  <span className="min-w-0"><span className="block truncate font-display font-semibold text-cloud">{country.name}</span><span className="font-mono text-[10px] uppercase tracking-label text-mist">{country.code} · {statusByCode.get(country.code) ? STATUS_LABEL[statusByCode.get(country.code)!] : country.continent}</span></span>
+                  <span className="min-w-0"><span className="block truncate font-display font-bold text-cloud">{country.name}</span><span className="font-mono text-[10px] uppercase tracking-label text-mist">{country.code} · {statusByCode.get(country.code) ? STATUS_LABEL[statusByCode.get(country.code)!] : country.continent}</span></span>
                 </label>
                 <button type="button" onClick={() => onOpenCountry(country.code)} className="shrink-0 font-mono text-[10px] uppercase tracking-label text-mist hover:text-mint" aria-label={`Open ${country.name}`}>
                   Open

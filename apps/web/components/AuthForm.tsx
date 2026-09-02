@@ -10,10 +10,23 @@ import { useAuth } from "./AuthContext";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Input";
 import { Notice } from "./ui/Misc";
+import { LG_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
 
 const RouteGlobe = dynamic(() => import("./RouteGlobe"), { ssr: false });
 
+/**
+ * The globe beside the sign-in form is decoration: aria-hidden, not
+ * interactive, and hidden outright below Tailwind's lg breakpoint.
+ *
+ * Hiding it in CSS did not stop it costing anything. The dynamic import still
+ * fired on every visit, so a phone downloaded around 300 KB of three.js to
+ * render a display:none element — on the login page, which is the one page a
+ * frustrated person reloads. Gating the render on the same breakpoint the
+ * stylesheet uses means the chunk is never requested unless it will be seen.
+ */
+
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+  const showGlobe = useMediaQuery(LG_BREAKPOINT);
   const router = useRouter();
   const { login, signup } = useAuth();
   const [email, setEmail] = useState("");
@@ -134,7 +147,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
       <div className="pointer-events-none relative hidden items-center justify-center opacity-50 lg:flex" aria-hidden>
         <div className="aspect-square w-[min(42vw,560px)] max-w-full">
-          <RouteGlobe interactive={false} />
+          {showGlobe ? <RouteGlobe interactive={false} /> : null}
         </div>
       </div>
     </div>

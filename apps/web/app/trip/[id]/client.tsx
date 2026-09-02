@@ -1,12 +1,25 @@
 "use client";
 
+import dynamic from "next/dynamic";
+
 import { useEffect, useState } from "react";
 
 import { AppShell } from "../../../components/AppShell";
 import { useAuth } from "../../../components/AuthContext";
 import { BoardingPass } from "../../../components/BoardingPass";
 import { ItineraryPlanner } from "../../../components/ItineraryPlanner";
-import { PriceHistoryPanel } from "../../../components/PriceHistoryPanel";
+/**
+ * The fare-history chart sits well down the trip page and many visitors never
+ * reach it, so it is fetched when it renders rather than with the page. The
+ * placeholder holds its height so nothing below it jumps when it arrives.
+ */
+const PriceHistoryPanel = dynamic(
+  () =>
+    import("../../../components/PriceHistoryPanel").then(
+      (module) => module.PriceHistoryPanel,
+    ),
+  { loading: () => <div className="min-h-[280px]" aria-hidden /> },
+);
 import { ScoreDial } from "../../../components/ScoreDial";
 import { ButtonLink } from "../../../components/ui/Button";
 import { EmptyState, Spinner } from "../../../components/ui/Misc";

@@ -1,37 +1,17 @@
 "use client";
 
 import { ThreeEvent } from "@react-three/fiber";
-import { feature } from "topojson-client";
 import ConicPolygonGeometry from "three-conic-polygon-geometry";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import * as THREE from "three";
-import worldTopology from "world-atlas/countries-110m.json";
 
 import type { CountryCatalogEntry, TravelMapCountry, TravelMapStatus } from "../lib/types";
 import RouteGlobe from "./RouteGlobe";
 import { useResolvedTheme } from "./useResolvedTheme";
+import { useCountryFeatures } from "../lib/worldTopology";
+import type { PolygonCoordinates } from "../lib/worldTopology";
 
-type PolygonCoordinates = number[][][];
-type Geometry =
-  | { type: "Polygon"; coordinates: PolygonCoordinates }
-  | { type: "MultiPolygon"; coordinates: PolygonCoordinates[] };
-type CountryFeature = {
-  id?: string | number;
-  properties?: { name?: string };
-  geometry: Geometry | null;
-};
-
-const topology = worldTopology as unknown as {
-  type: "Topology";
-  objects: { countries: object };
-  arcs: unknown[];
-  transform?: object;
-};
-
-const COUNTRY_FEATURES = (
-  feature(topology as never, topology.objects.countries as never) as unknown as { features: CountryFeature[] }
-).features;
 
 const STATUS_COLORS_DARK: Record<TravelMapStatus, string> = {
   lived: "#ff9a78",
@@ -139,9 +119,10 @@ function CountryLayer({
     [catalog],
   );
 
+  const countryFeatures = useCountryFeatures();
   const polygons = useMemo(
     () =>
-      COUNTRY_FEATURES.flatMap((countryFeature) => {
+      countryFeatures.flatMap((countryFeature) => {
         const numeric = String(countryFeature.id ?? "").padStart(3, "0");
         const code = codeByNumeric.get(numeric);
         if (!code || !countryFeature.geometry) return [];
@@ -216,7 +197,7 @@ export function TravelMapGlobe({
       />
       {activeCode && metadata.get(activeCode) ? (
         <div className="pointer-events-none absolute left-3 top-3 border border-line bg-ink/90 px-3 py-2 shadow-lg backdrop-blur sm:left-5 sm:top-5">
-          <p className="font-display text-sm font-semibold text-cloud">{metadata.get(activeCode)?.name}</p>
+          <p className="font-display text-sm font-bold text-cloud">{metadata.get(activeCode)?.name}</p>
           <p className="mt-0.5 font-mono text-[10px] uppercase tracking-label text-mist">
             {countryStates[activeCode]?.primaryStatus ?? "Select to update"}
           </p>

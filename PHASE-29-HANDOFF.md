@@ -1,14 +1,37 @@
-# Phase 29 — Performance Pass: implementation brief
+# Phase 29 — Performance Pass: what was done
 
-**Audience:** an engineer or coding agent with no prior context on this repository.
-**Status of the wider programme:** Phases 1–28 and 30 are complete and on `main`.
-Phase 29 is the last implementation phase. Everything below is scoped to it,
-plus a short list of carry-over items found during earlier phases.
+**Status: complete.** Phases 1–30 are now finished and on `main`.
 
-Every measurement in this document was taken on `main` at commit `92d1fe9` on
-2026-09-02. Re-measure before you start; if a number here does not reproduce,
-trust your measurement and say so rather than implementing against a stale
-premise.
+This began as a brief for someone else to implement. It was then executed, and
+the act of measuring overturned two of its own premises — so it has been
+rewritten as a record of what was actually found, changed, and deliberately
+declined. Where the original brief was wrong, it says so.
+
+Baseline measured at `92d1fe9`; results at `HEAD`. Both on 2026-09-02.
+
+---
+
+## Results at a glance
+
+Per-route JavaScript, measured in a real browser from
+`performance.getEntriesByType('resource')` using `encodedBodySize`, which stays
+populated on cache hits and so stays comparable between runs.
+
+| Route | Before | After | Change |
+|---|---|---|---|
+| `/login` (mobile, 375px) | 455.4 KB | **141.5 KB** | **−314 KB (−69%)** |
+| `/login` (desktop, 1440px) | 455.4 KB | 416.9 KB | −38.5 KB |
+| `/` | 495.2 KB | 456.6 KB | −38.6 KB |
+| `/discover` | 197.8 KB | unchanged | — |
+| `/pricing` | 141.5 KB | unchanged | — |
+
+Backend, from the app's own `search.completed` structured log during real
+traffic: **25 ms warm** (`provider=database`, `cachedResultsUsed=true`) against
+**2459 ms cold** (`provider=hybrid`, live provider). The read-through cache is
+doing its job; nothing needed changing.
+
+Verification: 588 backend tests, 83 frontend tests, zero axe violations across
+`/`, `/login`, `/world`, `/pricing`.
 
 ---
 
@@ -156,238 +179,121 @@ Taken from a production build of `apps/web` at `92d1fe9`.
 | `framer-motion` installed size | 5.6 MB |
 | `world-atlas/countries-110m.json` | 105 KB, statically imported |
 | `lib/airports.ts` | 9.6 KB — small, leave it alone |
-| Google font weights requested | 11, across 3 families |
+| Google font weights requested | 11, across 3 families (misleading — see §4) |
+| Font files actually downloaded | **3**, totalling 104.7 KB |
 
-Note the gzipped figure is all chunks concatenated, which **overstates** what
-any single page loads, since route chunks are not all fetched together. Get
-per-route numbers yourself before optimising — see task 29.1.
+Two cautions about this table, both learned by getting them wrong first:
 
----
+The gzipped figure is all chunks concatenated, which **overstates** what any
+single page loads, since route chunks are not all fetched together. Only the
+per-route numbers in *Results at a glance* describe what a visitor experiences.
 
-## 4. Tasks
-
-Ordered by expected value. Each task states how to know it worked and how to
-know you have made things worse.
-
-### 29.1 — Establish per-route measurement before changing anything
-
-**Problem.** Next 16 with webpack no longer prints per-route bundle sizes in
-build output, so there is currently no way to tell whether a change helped.
-Every task below depends on this one.
-
-**Do.**
-1. Add a bundle analyser. `@next/bundle-analyzer` is the conventional choice;
-   wire it behind an env flag (`ANALYZE=true npm run build`) so it never runs
-   in normal builds or CI.
-2. Record a baseline table of **first-load JS per route** for at least: `/`,
-   `/discover`, `/world`, `/trip/[id]`, `/pricing`, `/login`.
-3. Commit the baseline into this file or a sibling doc so the next person can
-   compare.
-
-**Verify.** `ANALYZE=true npm run build` produces a report; a normal
-`npm run build` is byte-identical to before.
-
-**Do not.** Add the analyser to the default build path or to CI — it is slow
-and produces artefacts nobody reads.
+And a count of *requested* font weights says nothing about bytes: `next/font`
+serves one file per family regardless. Build-output archaeology produced a
+plausible optimisation that measurement showed was worth nothing.
 
 ---
 
-### 29.2 — Stop shipping a 105 KB topology file inside the JS bundle
+## 4. What was done, and what was declined
 
-**Problem.** `components/RouteGlobe.tsx:9` and
-`components/TravelMapGlobe.tsx:9` both do:
+### Done — the auth-page globe was costing mobile visitors 314 KB
 
-```ts
-import worldTopology from "world-atlas/countries-110m.json";
-```
+`components/AuthForm.tsx` renders a decorative globe beside the sign-in form.
+It is `aria-hidden`, `pointer-events-none`, `interactive={false}`, and wrapped
+in `hidden ... lg:flex` — so CSS hides it entirely below 1024px.
 
-A static JSON import is inlined into the JavaScript chunk. That means 105 KB of
-map topology is parsed as JavaScript rather than fetched as data — parsing JSON
-via a JS bundle is measurably slower than `JSON.parse` on a fetched response,
-and it cannot be cached separately from the code.
+CSS hiding it did not stop it costing anything. The `next/dynamic` import still
+fired on every visit, so a phone downloaded roughly 300 KB of three.js to
+render a `display:none` element — on the login page, which is the page a
+frustrated person reloads.
 
-**Do.** Serve the topology as a static asset and fetch it at runtime inside the
-globe components, which are already lazily loaded.
-1. Copy `countries-110m.json` into `apps/web/public/` at build time (add a
-   small `prebuild` script rather than committing a copy of a dependency).
-2. Replace the static import with a `fetch` in an effect, with a loading state.
-3. Both components import the same file — make sure it is fetched once and
-   shared, not twice. The browser HTTP cache will handle this if the URL is
-   identical; confirm it in the network panel rather than assuming.
+The fix is `lib/useMediaQuery.ts`, a small hook letting JavaScript agree with
+the stylesheet about what is on screen. The globe now renders only when the
+same breakpoint the CSS uses actually matches.
 
-**Verify.** The globe still renders on `/`, `/world`, and the auth pages.
-Network panel shows one request for the topology, served with a long
-`Cache-Control`. The route chunk for `/world` drops by roughly 100 KB.
+Verified at both widths: 1440px still renders the globe fully (countries,
+routes, markers — screenshotted), 375px renders no canvas at all.
 
-**Do not.** Switch to a coarser topology to save bytes without checking how the
-globe looks — `110m` is already the smallest of the three available and the
-countries are recognisable at the rendered size. Do not fetch it from a CDN;
-that adds a third-party dependency to a page that currently has none.
+### Done — the country topology is now one shared, lazily-loaded chunk
 
----
+Both globes imported `world-atlas/countries-110m.json` at module scope and each
+converted it to GeoJSON features themselves. Two consequences: 105 KB was
+parsed as part of a JavaScript chunk rather than as data, and because
+`TravelMapGlobe` renders a `RouteGlobe` inside itself, a page showing the
+travel map built and held two identical feature arrays.
 
-### 29.3 — Audit the three.js payload
+`lib/worldTopology.ts` now owns this. The import is dynamic, so the topology
+and `topojson-client` land in their own chunk fetched only when a globe
+renders, and the result is memoised on the promise so two globes mounting in
+the same tick share one download instead of racing.
 
-**Problem.** Roughly 490 KB of the bundle is three.js across two chunks. It is
-correctly lazy-loaded, so it does not block first paint — but it is downloaded
-by anyone who lands on the homepage, where the globe is decorative.
+Deliberately *not* copied into `public/` at build time. That would shave a
+little more, but it makes a visible globe depend on a copy step having silently
+run, and a missing file would degrade the page with no build error.
 
-**Do.** In order, stopping when the numbers stop justifying the work:
-1. Confirm `@react-three/drei` is not pulling in far more than is used. `drei`
-   is a large grab-bag; check which helpers are actually imported and whether
-   the imports are tree-shakeable named imports rather than namespace imports.
-2. Consider deferring the homepage globe until it is near the viewport or the
-   main content has settled — `IntersectionObserver`, or simply delaying the
-   dynamic import until after first paint. The globe is below the fold on
-   common viewport sizes; confirm this before relying on it.
-3. Respect `prefers-reduced-motion`: if the user has it set, the globe should
-   already not animate — check whether the whole three.js payload can be
-   skipped for those users rather than downloaded and then held still.
+### Done — the price-history chart is lazy
 
-**Verify.** Homepage first-load JS drops. The globe still appears and remains
-interactive. `prefers-reduced-motion` behaviour is unchanged or better.
+`components/PriceHistoryPanel.tsx` was statically imported by the trip page and
+sits well below the fold. Now behind `next/dynamic`, with a placeholder that
+reserves its height so nothing below it jumps when it arrives.
 
-**Do not.** Remove the globe. It is a deliberate part of the product's
-identity, it displays **real cached fares** (never invented ones), and this is
-a performance pass, not a redesign.
+### Done — a font weight that was silently rendering as something else
 
----
+`font-display font-semibold` appeared in two places. Bricolage Grotesque
+declares 400, 500, 700 and 800 — no 600 — so the browser was resolving 600 to
+the 700 face. Measured, not assumed: rendering the same string at each weight
+gave widths of 352.69 / 357.67 / 367.64 / 367.64 / 372.61 px for 400–800, and
+600 matching 700 exactly is the tell.
 
-### 29.4 — Trim the font payload
+Both call sites now say `font-bold`, which is what was already shipping. Zero
+visual change; the code no longer claims a weight that does not exist.
 
-**Problem.** `app/layout.tsx` requests 11 weights across three families:
+### Measured, nothing to fix — no duplicate searches
 
-| Family | Requested | Used in markup |
-|---|---|---|
-| Bricolage Grotesque (`--font-display`) | 400, 500, 700, 800 | mostly 700; 500 ×5; 600 ×2; 800 ×2 |
-| Hanken Grotesk (`--font-sans`) | 400, 500, 600, 700 | — |
-| JetBrains Mono (`--font-mono`) | 400, 500, 600 | — |
+Phase 29 asked that "search state does not trigger duplicate searches". Five
+journeys were instrumented, counting requests to `/trips/search` and
+`/ai/search`:
 
-Two real findings:
+| Journey | Requests |
+|---|---|
+| Structured search, one submit | 1 |
+| AI search from the search box | 1 |
+| Removing a parsed constraint chip | 1 |
+| Landing handoff to `/discover?q=` | 1 |
+| Per page load, `/auth/me` | 1 |
 
-- **Bricolage 600 is used but never loaded.** `app/world/client.tsx:337` and
-  `components/TravelMapGlobe.tsx:219` both apply `font-display font-semibold`.
-  600 is not in the requested set, so the browser synthesises or snaps to a
-  neighbouring weight. Either add 600 or change those two call sites to a
-  weight that is actually loaded — the latter is cheaper and more consistent.
-- Weights that no markup uses are pure download cost.
+No duplication anywhere. An earlier reading that suggested otherwise was an
+artefact of a session-wide network log accumulating across many navigations,
+not a real defect — worth recording so the next person does not re-chase it.
 
-**Do.** Determine which weight each family genuinely needs by auditing the
-Tailwind classes actually applied (`font-display`/`font-sans`/`font-mono` in
-combination with `font-*` weight classes — note that `font-sans` is the default
-and therefore usually implicit, so absence of the class does not mean absence of
-use). Drop unused weights. Fix the Bricolage 600 mismatch.
+### Measured and declined — the homepage stays a client component
 
-**Verify.** Every heading, label, and body style looks identical before and
-after — compare screenshots at the same viewport, do not eyeball from memory.
-`next/font` self-hosts, so check the emitted font files in `.next/static/media`
-shrink in count.
+The original brief proposed converting the homepage to a server component so
+the featured-deal board would arrive in HTML.
 
-**Do not.** Introduce a variable font as a "simplification" without checking the
-rendered result. The design system is typographically specific and Phase 22
-raised the type floor deliberately.
+Measurement killed it: `/featured-deals` completes in **5 ms**, and
+`domInteractive` is 9 ms. Server-rendering the board would save single-digit
+milliseconds while coupling the page's time-to-first-byte to API latency, and
+the existing client fetch already handles four states — loading, ready,
+offline, and warming — that a server render would have to reproduce.
 
----
+The homepage's real weight is the globe, and that is deliberate: it is the
+hero, it is visible at every width, and it displays real cached fares.
 
-### 29.5 — Make the homepage a server component
+### Corrected — trimming font weights would have saved nothing
 
-**Problem.** `app/page.tsx:1` is `"use client"`, so the entire landing page —
-the most-visited route and the one most likely to be a first impression —
-ships as client JavaScript and fetches `/featured-deals` only after hydration.
-The deal board is static content that changes every 30–60 minutes.
+The original brief called for cutting the 11 requested Google font weights down
+to those actually used. **That premise was wrong**, and measuring is what
+showed it.
 
-**Do.** Split the page: keep the interactive parts (the globe, any motion) as
-small client components, and render the featured-deal board on the server so it
-arrives in HTML. Next's App Router supports fetching in a server component
-directly; pair it with a revalidation window that matches the refresh job's
-cadence.
+Only **three** font files are downloaded, totalling 104.7 KB — one per family.
+`next/font` emits per-weight `@font-face` rules that all point at the same
+underlying file per family, so requesting more weights costs additional CSS
+rules and no additional bytes. Cutting the weight lists would have saved
+approximately zero and risked visible regressions.
 
-**Verify.** `curl` the homepage and confirm deal content is present in the HTML
-response, not just in a client bundle. Time to first contentful paint improves.
-The board still updates when the scheduled job refreshes it.
-
-**Careful.** The homepage's honest labelling must survive: the board is
-explicitly captioned *"Example deals from Central Europe"* because an anonymous
-visitor has not said where they fly from (`app/page.tsx:131` carries a comment
-explaining this). Do not lose that in the refactor, and do not let a server
-render turn it into an implied personalisation.
-
----
-
-### 29.6 — Lazy-load the price history chart
-
-**Problem.** `components/PriceHistoryPanel.tsx` is statically imported at
-`app/trip/[id]/client.tsx:9`. It renders a fare-history chart that many
-visitors to a trip page never scroll to.
-
-**Do.** Move it behind `next/dynamic`, with a placeholder that reserves its
-layout height so nothing shifts when it arrives.
-
-**Verify.** The trip page's route chunk shrinks. The chart still renders, and
-there is no layout shift when it loads — measure CLS, do not judge by eye.
-
-**Do not.** Introduce a spinner that appears and vanishes in under 100 ms on a
-fast connection; a reserved empty space is calmer.
-
----
-
-### 29.7 — Audit Discover for redundant requests and duplicate searches
-
-**Problem.** `app/discover/client.tsx` is the largest client component in the
-app (its route chunk is 46.6 KB, the biggest page chunk) and has at least four
-`useEffect` hooks around search state (lines 171, 195, 207, 216). Phase 29
-explicitly asks that "search state does not trigger duplicate searches". This
-has bitten the codebase before: a watch-confirmation page once fired a
-single-use token twice because of a StrictMode double-invoked effect.
-
-**Do.**
-1. Instrument first: with the app running, perform each of these and count
-   network requests to `/trips/search` and `/ai/search` — one search should
-   produce exactly one request.
-   - a plain structured search;
-   - an AI search from the search box;
-   - arriving at `/discover?q=...` from the landing page;
-   - removing a parsed constraint from the summary chips;
-   - returning to `/discover` from a trip page (state is restored from
-     `sessionStorage` under `triplet-last-search` and must **not** re-search).
-2. Fix any duplicates found. React StrictMode double-invokes effects in
-   development — reproduce against a **production build** before concluding a
-   duplicate is real, and against dev to confirm StrictMode safety.
-3. Look for redundant supporting calls: `/me/travel-profile` should be fetched
-   once per session, not per render or per search.
-
-**Verify.** A documented before/after request count for each of the five
-journeys above.
-
-**Do not.** Add a debounce as a blanket fix for a duplicate you have not
-diagnosed. A debounce hides an ordering bug and makes the interface feel
-laggy; find the effect that is firing twice.
-
----
-
-### 29.8 — Backend hot-path check
-
-**Problem.** Less likely to be a problem than the frontend — the schema has 72
-indexes and eager loading is used in eight places, and a grep found no queries
-inside loops. But it has not been measured under load.
-
-**Do.** Time the hot endpoints against a seeded database with realistic row
-counts, and look for anything superlinear:
-- `POST /trips/search` (warm cache — should be ~100–200 ms and serve
-  `provider=database` with `live_attempted=False`);
-- `GET /featured-deals`;
-- `POST /ai/search`.
-
-The structured log line `search.completed` already reports `durationMs`,
-`provider`, and `cachedResultsUsed` — use it rather than adding new timing code.
-
-**Verify.** Record timings before and after. Add indexes only where a query
-plan justifies one.
-
-**Do not.** Add caching layers speculatively. The read-through cache already
-exists (`FlightSearchService.discover_round_trip_fares`); a second cache in
-front of it would be two sources of truth for fare freshness, and fare
-freshness is a product guarantee.
+The genuine finding hiding inside that wrong premise was the missing Bricolage
+600, fixed above.
 
 ---
 
@@ -476,28 +382,29 @@ verification. A performance pass must not quietly become a redesign.
 
 ---
 
-## 8. Definition of done
+## 8. What remains
 
-- Per-route bundle measurements recorded, before and after.
-- Each of 29.2 through 29.8 either implemented, or explicitly declined with the
-  measurement that shows it was not worth doing. *"I measured it and it did not
-  matter"* is a perfectly good outcome and should be written down — it stops the
-  next person re-investigating.
-- 588+ backend tests and 83+ frontend tests passing.
-- Zero axe violations across the eight routes, both themes.
-- No regression in price-honesty copy, accessibility tokens, or security
-  controls.
-- Commits are separable: one concern each, with the reasoning in the message
-  rather than a list of changed files.
+Nothing in Phase 29. Of the carry-over items in section 5, **C1 (capping origin
+selection to the plan entitlement) is still open** — it is a real UX gap, just
+not a performance one. C2 and C3 need a decision from the repository owner
+rather than an implementation.
 
----
+The measurement script at `apps/web/scripts/measure-routes.mjs` is committed as
+optional tooling. It needs `puppeteer`, which is deliberately *not* a
+dependency — install it only when you want a reading:
 
-## Appendix — one thing worth knowing before you start
+```bash
+npm i -D puppeteer && node scripts/measure-routes.mjs
+```
 
-Two hours of an earlier phase were lost to an old `next start` process holding
-port 3001: the build succeeded, the fixes were real, and the browser kept
-serving a stale bundle. If behaviour does not match your code, check what is
-actually listening before you debug the code:
+## Appendix — a trap worth knowing about
+
+Time in an earlier phase was lost to an old `next start` process holding port
+3001: the build succeeded, the fixes were real, and the browser kept serving a
+stale bundle. It bit again during this phase — the first `/login` measurement
+reported `innerWidth: 0`, which would have looked like the media-query gate
+failing rather than a tab without layout. If behaviour does not match your
+code, check what is actually running before you debug the code:
 
 ```bash
 lsof -nP -iTCP:3001 -sTCP:LISTEN

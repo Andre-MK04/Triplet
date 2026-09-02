@@ -4,33 +4,13 @@ import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { feature } from "topojson-client";
 import ConicPolygonGeometry from "three-conic-polygon-geometry";
-import worldTopology from "world-atlas/countries-110m.json";
 
 import { AIRPORTS } from "../lib/airports";
 import { useResolvedTheme } from "./useResolvedTheme";
+import { useCountryFeatures } from "../lib/worldTopology";
+import type { PolygonCoordinates } from "../lib/worldTopology";
 
-type PolygonCoordinates = number[][][];
-type Geometry =
-  | { type: "Polygon"; coordinates: PolygonCoordinates }
-  | { type: "MultiPolygon"; coordinates: PolygonCoordinates[] };
-type CountryFeature = {
-  id?: string | number;
-  properties?: { name?: string };
-  geometry: Geometry | null;
-};
-
-const topology = worldTopology as unknown as {
-  type: "Topology";
-  objects: { countries: object };
-  arcs: unknown[];
-  transform?: object;
-};
-
-const COUNTRY_FEATURES = (
-  feature(topology as never, topology.objects.countries as never) as unknown as { features: CountryFeature[] }
-).features;
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -144,15 +124,17 @@ function CountrySurfacePolygon({ coordinates, light }: { coordinates: PolygonCoo
 }
 
 function CountrySurface({ light }: { light: boolean }) {
+  const countryFeatures = useCountryFeatures();
   const polygons = useMemo(
     () =>
-      COUNTRY_FEATURES.flatMap((countryFeature) => {
+      countryFeatures.flatMap((countryFeature) => {
         if (!countryFeature.geometry) return [];
         return countryFeature.geometry.type === "Polygon"
           ? [countryFeature.geometry.coordinates]
           : countryFeature.geometry.coordinates;
       }),
-    [],
+    // Recomputed once, when the topology finishes loading.
+    [countryFeatures],
   );
 
   return (
