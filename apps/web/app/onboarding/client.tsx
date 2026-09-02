@@ -108,7 +108,7 @@ function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
         ))}
       </dl>
       <div className="border-t border-dashed border-line px-5 py-3">
-        <p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">Powers alerts &amp; every search</p>
+        <p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">Powers watches &amp; every search</p>
       </div>
     </aside>
   );
@@ -231,7 +231,7 @@ export function OnboardingClient() {
       <AppShell>
         <div className="mx-auto max-w-md py-24 text-center">
           <h1 className="font-display text-2xl font-bold text-cloud">First, create your account</h1>
-          <p className="mt-3 text-mist">The travel profile quiz takes about two minutes and powers all your alerts.</p>
+          <p className="mt-3 text-mist">The travel profile quiz takes about two minutes and powers all your watches.</p>
           <div className="mt-6 flex justify-center gap-3">
             <ButtonLink href="/signup">Create account</ButtonLink>
             <ButtonLink href="/login" variant="secondary">Log in</ButtonLink>

@@ -896,7 +896,7 @@ export function DiscoverClient() {
                   ) : null}
                 </p>
                 <Button variant="secondary" size="sm" onClick={() => watch.setIsOpen((open) => !open)}>
-                  {watch.isOpen ? "Hide alert form" : "Watch this search"}
+                  {watch.isOpen ? "Hide watch form" : "Watch this search"}
                 </Button>
               </ResultsToolbar>
 
@@ -910,7 +910,7 @@ export function DiscoverClient() {
                     className="overflow-hidden border border-line bg-ink-raised"
                   >
                     <div className="flex flex-wrap items-end gap-4 p-5">
-                      <Field label="Alert name">
+                      <Field label="Watch name">
                         <Input
                           value={watch.name}
                           onChange={(event) => watch.setName(event.target.value)}
@@ -964,7 +964,7 @@ export function DiscoverClient() {
                         </Select>
                       </Field>
                       <Button type="submit" disabled={watch.isSaving}>
-                        {watch.isSaving ? "Saving…" : "Save alert"}
+                        {watch.isSaving ? "Saving…" : "Save watch"}
                       </Button>
                     </div>
                     {watch.status ? (

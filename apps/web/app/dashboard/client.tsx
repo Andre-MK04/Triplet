@@ -215,7 +215,7 @@ function WatchInsightsPanel({ insights, search }: { insights: WatchInsights; sea
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-mist">No alert has been sent for this watch yet.</p>
+          <p className="mt-2 text-sm text-mist">No email has been sent for this watch yet.</p>
         )}
       </div>
     </div>
@@ -439,7 +439,7 @@ export function DashboardClient() {
         tone: "success",
         text: `Watch checked: ${result.resultCount ?? 0} matching trip(s)${
           result.bestPrice ? `, best ${formatPrice(result.bestPrice)}` : ""
-        }${result.notificationSent ? ". Alert sent." : "."}`,
+        }${result.notificationSent ? ". Email sent." : "."}`,
       });
       await load();
       await loadInsights(id, true);
@@ -455,9 +455,9 @@ export function DashboardClient() {
       const saved = await apiPut<TravelProfile>("/me/travel-profile", payload);
       setData({ ...data, travelProfile: saved });
       setInsights({});
-      setStatus({ tone: "success", text: "Alert preferences saved." });
+      setStatus({ tone: "success", text: "Watch preferences saved." });
     } catch (error) {
-      setStatus({ tone: "error", text: error instanceof Error ? error.message : "Could not save alert preferences." });
+      setStatus({ tone: "error", text: error instanceof Error ? error.message : "Could not save watch preferences." });
     } finally {
       setProfileSaving(false);
     }
@@ -677,7 +677,7 @@ export function DashboardClient() {
                 </ButtonLink>
               </Card>
               <Card>
-                <h2 className="font-display text-lg font-bold text-cloud">Alert rules</h2>
+                <h2 className="font-display text-lg font-bold text-cloud">Watch conditions</h2>
                 <p className="mt-2 text-sm text-mist">Choose what deserves an email. The rule applies to all active watches.</p>
                 <div className="mt-4 space-y-4">
                   <Field label="Notify me for">
@@ -715,7 +715,7 @@ export function DashboardClient() {
                     disabled={profileSaving || !data.travelProfile.isComplete}
                     onClick={() => void saveProfilePreferences()}
                   >
-                    {profileSaving ? "Saving…" : "Save alert rules"}
+                    {profileSaving ? "Saving…" : "Save watch conditions"}
                   </Button>
                 </div>
               </Card>

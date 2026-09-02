@@ -240,7 +240,7 @@ const methodology = [
   {
     step: "03 / Go",
     title: "Fly when it's genuinely good.",
-    text: "When something stands out, Triplet turns it into a clear trip idea with a transparent score and sends you a quiet alert — no countdown timers, no pressure.",
+    text: "When something stands out, Triplet turns it into a clear trip idea with a transparent score and sends you a quiet email — no countdown timers, no pressure.",
   },
 ];
 

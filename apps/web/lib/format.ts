@@ -49,7 +49,11 @@ export function timeAgo(iso?: string | null): string | null {
 export function confidenceLabel(level?: string | null): { label: string; tone: "live" | "cached" | "demo" } {
   switch (level) {
     case "live":
-      return { label: "Live fare", tone: "live" };
+      // Only reachable through a provider that quotes in real time (Duffel,
+      // Skyscanner). Neither is credentialed in production, so in practice
+      // nothing carries this today — and the wording stays modest in case one
+      // ever is: a fare quoted seconds ago is still not a booking.
+      return { label: "Quoted just now", tone: "live" };
     case "indicative":
       return { label: "Indicative fare", tone: "cached" };
     case "cached":

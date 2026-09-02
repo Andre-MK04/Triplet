@@ -205,7 +205,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
         <div className="flex items-center gap-2">
           {onSaveAlert ? (
             <Button variant="secondary" size="sm" onClick={onSaveAlert}>
-              Save alert
+              Watch this trip
             </Button>
           ) : null}
           {trip.bookingUrl ? (
