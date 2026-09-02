@@ -26,7 +26,13 @@ class ConsoleEmailProvider(EmailProvider):
 
     def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
         logger.info("console_email to=%s subject=%s\n%s", to, subject, text_body)
-        print(f"\n--- Triplet console email ---\nTo: {to}\nSubject: {subject}\n\n{text_body}\n")
+        # Through the logger rather than print, so the same redaction every
+        # other line gets applies here too. The body of a Triplet email
+        # routinely contains a single-use token, and print() bypasses all of it.
+        logger.info(
+            "console_email_sent",
+            extra={"event": "email.console", "to": to, "subject": subject, "body": text_body},
+        )
 
 
 class SMTPEmailProvider(EmailProvider):

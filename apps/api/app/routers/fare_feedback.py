@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.observability import events
 from app.pricing.reliability import (
     VALID_AGE_BUCKETS,
     VALID_RESPONSES,
@@ -83,6 +84,12 @@ def submit_fare_feedback(
         logger.exception("fare_feedback_store_failed")
         return FareFeedbackResponse(recorded=False)
 
+    if recorded:
+        events.fare_feedback_received(
+            response=request.response,
+            age_bucket=request.fareAgeBucket,
+            fare_kind=request.fareKind,
+        )
     # `recorded=False` for an already-answered check is not an error: the client
     # should stop asking either way, which is exactly what it does.
     return FareFeedbackResponse(recorded=recorded)

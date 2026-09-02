@@ -53,7 +53,9 @@ def consume_ai_call() -> bool:
             return True
 
     if used > limit:
-        logger.warning("ai_daily_budget_reached used=%s limit=%s", used, limit)
+        from app.observability import events
+
+        events.ai_budget_exhausted(used=used, limit=limit)
         return False
     return True
 

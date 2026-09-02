@@ -41,7 +41,7 @@ def test_production_validation_accepts_secure_minimum(monkeypatch):
     monkeypatch.setattr(settings, "ai_enabled", False)
     monkeypatch.setattr(settings, "flight_provider", "database")
     monkeypatch.setattr(settings, "billing_enabled", False)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "email_provider", "resend")
     monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
 
     validate_security_settings()
@@ -62,7 +62,7 @@ def test_missing_redis_warns_but_still_boots(monkeypatch):
     monkeypatch.setattr(settings, "ai_enabled", False)
     monkeypatch.setattr(settings, "flight_provider", "database")
     monkeypatch.setattr(settings, "billing_enabled", False)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "email_provider", "resend")
     monkeypatch.setattr(settings, "redis_url", None)
     monkeypatch.setattr(settings, "rate_limit_require_shared", False)
 
@@ -84,7 +84,7 @@ def test_a_deployment_may_declare_that_it_requires_shared_counters(monkeypatch):
     monkeypatch.setattr(settings, "ai_enabled", False)
     monkeypatch.setattr(settings, "flight_provider", "database")
     monkeypatch.setattr(settings, "billing_enabled", False)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "email_provider", "resend")
     monkeypatch.setattr(settings, "redis_url", None)
     monkeypatch.setattr(settings, "rate_limit_require_shared", True)
 
@@ -169,7 +169,7 @@ def _production_base(monkeypatch):
     monkeypatch.setattr(settings, "auth_cookie_samesite", "none")
     monkeypatch.setattr(settings, "flight_provider", "database")
     monkeypatch.setattr(settings, "billing_enabled", False)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "email_provider", "resend")
     monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
     monkeypatch.setattr(settings, "ai_enabled", True)
 
@@ -234,3 +234,29 @@ def test_a_long_app_secret_is_accepted(monkeypatch):
     monkeypatch.setattr(settings, "app_secret", "x" * 48)
 
     validate_security_settings()
+
+
+def test_production_refuses_the_console_email_provider(monkeypatch):
+    """It is the default, and it sends nothing.
+
+    A deploy that forgets EMAIL_PROVIDER would silently never notify anyone,
+    while printing message bodies — including single-use confirmation tokens —
+    wherever stdout is collected.
+    """
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "email_provider", "console")
+
+    with pytest.raises(RuntimeError, match="EMAIL_PROVIDER=console"):
+        validate_security_settings()
+
+
+def test_the_console_provider_no_longer_prints_around_the_logger(capsys):
+    """Its output used to bypass logging entirely, so redaction never saw it."""
+    from app.alerts.email import ConsoleEmailProvider
+
+    ConsoleEmailProvider().send_email(
+        "a@example.com", "Confirm", "<p>x</p>", "confirm here: ?token=SECRETVALUE123"
+    )
+
+    assert "SECRETVALUE123" not in capsys.readouterr().out

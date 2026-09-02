@@ -13,9 +13,11 @@ at `python -m app.scheduled.tick`.
 
 import logging
 import os
+import time
 from datetime import datetime
 
 from app.alerts.runner import run_due_alerts
+from app.observability import events
 from app.deals.featured import refresh_featured_deals
 from app.deals.refresher import refresh_deals
 from app.privacy.retention import run_retention_cleanup
@@ -28,6 +30,7 @@ RETENTION_HOUR = int(os.getenv("RETENTION_HOUR_UTC", "3"))
 
 def run_tick(now: datetime | None = None) -> dict:
     now = now or datetime.utcnow()
+    started = time.perf_counter()
     summary: dict = {
         "deals": None,
         "featuredDeals": None,
@@ -62,6 +65,15 @@ def run_tick(now: datetime | None = None) -> dict:
             logger.exception("tick_retention_failed")
             summary["errors"].append(f"retention: {exc}")
 
+    events.scheduled_job(
+        job="tick",
+        ok=not summary["errors"],
+        duration_ms=round((time.perf_counter() - started) * 1000),
+        detail={
+            "alertsRun": summary["alertsRun"],
+            "errors": len(summary["errors"]),
+        },
+    )
     logger.info(
         "scheduled_tick deals=%s alerts=%s retention=%s errors=%s",
         bool(summary["deals"]), summary["alertsRun"], bool(summary["retention"]), len(summary["errors"]),

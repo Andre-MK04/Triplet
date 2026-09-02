@@ -21,6 +21,7 @@ from app.alerts.schemas import (
 from app.alerts.token_utils import generate_token, hash_token, verify_token
 from app.config import settings
 from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB, UserTravelProfileDB
+from app.observability import events
 from app.db.repositories.airports_repository import AirportsRepository
 from app.models import TripSearchRequest
 from app.tools.base import ToolContext
@@ -92,6 +93,11 @@ class SavedSearchService:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        events.watch_created(
+            anonymous=user is None,
+            trigger=request.triggerMode,
+            frequency=request.frequency,
+        )
         if verification_token:
             self._send_verification_email(row, verification_token)
         return self._to_response(row, manage_token=manage_token, unsubscribe_token=unsubscribe_token)
@@ -172,6 +178,7 @@ class SavedSearchService:
         row.updated_at = datetime.utcnow()
         self.db.commit()
         self.db.refresh(row)
+        events.watch_verified()
         return self._to_response(row)
 
     def resend_verification(self, saved_search_id: str, token: str) -> None:
@@ -447,6 +454,11 @@ class SavedSearchService:
             run.finished_at = datetime.utcnow()
             row.updated_at = datetime.utcnow()
             self.db.commit()
+            events.alert_run(
+                status=run.status,
+                result_count=run.result_count,
+                notified=notification_sent,
+            )
 
         return AlertRunResponse(
             savedSearchId=row.id,
@@ -595,7 +607,7 @@ class SavedSearchService:
         if claimed:
             row.last_notified_at = now
             return True
-        logger.info("alert_notification_already_claimed saved_search_id=%s", row.id)
+        events.alert_duplicate_prevented(saved_search_id=row.id)
         return False
 
     def _should_notify(self, row: SavedSearchDB, best_price: float) -> bool:

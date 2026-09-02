@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import routes as auth_routes
 from app.config import settings
+from app.observability.context import set_request_id
+from app.observability.logging import configure_logging
+from app.observability.sentry import configure_sentry
 from app.security import csrf
 from app.security import (
     RateLimitExceeded,
@@ -110,6 +113,15 @@ def validate_security_settings() -> None:
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
+    if settings.email_provider == "console":
+        # The default, and a development tool: it sends nothing and prints the
+        # message body — including confirmation tokens — to stdout. A
+        # production deploy that forgets EMAIL_PROVIDER would silently never
+        # notify anyone while writing live tokens into its logs.
+        errors.append(
+            "EMAIL_PROVIDER=console does not send email and prints message bodies, "
+            "including verification tokens. Configure a real provider in production."
+        )
     if settings.email_provider == "smtp" and not (
         settings.smtp_host and settings.smtp_username and settings.smtp_password
     ):
@@ -140,6 +152,9 @@ def validate_security_settings() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Before validation, so anything it reports is already structured.
+    configure_logging()
+    configure_sentry()
     validate_security_settings()
     yield
 
@@ -182,6 +197,10 @@ app.add_middleware(
 @app.middleware("http")
 async def security_headers_and_origin_check(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or uuid4().hex
+    # Every log line from here down carries it, including from code that knows
+    # nothing about HTTP — otherwise a provider failure cannot be tied to the
+    # search that caused it.
+    set_request_id(request_id)
     origin = request.headers.get("origin")
     is_oauth_callback = request.url.path.startswith("/auth/oauth/") and request.url.path.endswith("/callback")
     if request.method in unsafe_methods and origin and origin not in allowed_origins and not is_oauth_callback:

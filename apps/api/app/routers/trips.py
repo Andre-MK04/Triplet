@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from app.db.models import UserDB
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import TripSearchRequest, TripSearchResponse
 from app.config import settings
+from app.observability import events
 from app.security import RateLimitCategory, check_rate_limit
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import (
@@ -38,8 +41,19 @@ def search_trips(
     assert_origin_airports_allowed(user, len(request.originAirports))
 
     context = ToolContext(db=db, user_id=user.id if user else None)
+    started = time.perf_counter()
     try:
         result = tool_registry.run_tool("search_trips", request, context)
+        events.search_completed(
+            trip_count=len(result.trips),
+            duration_ms=round((time.perf_counter() - started) * 1000),
+            provider=result.providerUsed,
+            cached=result.cachedResultsUsed,
+            stale_fares=sum(
+                1 for trip in result.trips if (trip.price and trip.price.freshness == "stale")
+            ),
+            origins=len(request.originAirports),
+        )
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(

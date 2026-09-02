@@ -23,6 +23,7 @@ from app.ai.schemas import (
 )
 from app.config import settings
 from app.data.flight_places import is_supported_origin
+from app.observability import events
 from app.security import consume_ai_call
 from app.db.models import UserDB
 from app.models import TripSearchRequest
@@ -70,6 +71,7 @@ def run_ai_search(request: AISearchRequest, registry: ToolRegistry, context: Too
     if not consume_ai_call():
         # The service-wide daily ceiling is reached. Degrade to rule-based
         # parsing so search keeps working instead of failing outright.
+        events.ai_fallback(reason="daily_budget_reached")
         return run_rule_based_search(
             request,
             registry,

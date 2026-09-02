@@ -140,6 +140,10 @@ class Settings:
     # Interactive API docs describe every route, schema and error to anyone who
     # asks. Useful locally, an inventory for an attacker in production.
     expose_api_docs: bool = os.getenv("EXPOSE_API_DOCS", "").lower() == "true"
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    # Optional error reporting. Absent by default: observability must not
+    # require a paid vendor to work at all.
+    sentry_dsn: str | None = os.getenv("SENTRY_DSN") or None
     # How long an anonymous watch's confirmation link stays valid, and how long
     # an unconfirmed watch is kept before cleanup removes it.
     watch_verification_ttl_hours: int = int(os.getenv("WATCH_VERIFICATION_TTL_HOURS", "48"))
