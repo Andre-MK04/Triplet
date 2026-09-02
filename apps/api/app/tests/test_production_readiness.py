@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from fastapi.testclient import TestClient
@@ -236,18 +238,32 @@ def test_a_long_app_secret_is_accepted(monkeypatch):
     validate_security_settings()
 
 
-def test_production_refuses_the_console_email_provider(monkeypatch):
-    """It is the default, and it sends nothing.
+def test_the_console_email_provider_warns_but_still_boots(monkeypatch, caplog):
+    """It sends nothing, which is worth saying loudly and not worth an outage.
 
-    A deploy that forgets EMAIL_PROVIDER would silently never notify anyone,
-    while printing message bodies — including single-use confirmation tokens —
-    wherever stdout is collected.
+    The first version of this check raised, and because console is the default
+    it crash-looped a production deploy that had simply never set the variable —
+    taking search and discovery down over an email problem.
     """
     _production_base(monkeypatch)
     monkeypatch.setattr(settings, "ai_enabled", False)
     monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "email_require_real_provider", False)
 
-    with pytest.raises(RuntimeError, match="EMAIL_PROVIDER=console"):
+    with caplog.at_level(logging.WARNING):
+        validate_security_settings()
+
+    assert any("sends no email" in record.getMessage() for record in caplog.records)
+
+
+def test_a_deployment_may_demand_a_real_email_provider(monkeypatch):
+    """For anyone who would rather not start than run without email."""
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "email_require_real_provider", True)
+
+    with pytest.raises(RuntimeError, match="sends no email"):
         validate_security_settings()
 
 

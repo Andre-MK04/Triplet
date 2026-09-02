@@ -141,6 +141,12 @@ class Settings:
     # asks. Useful locally, an inventory for an attacker in production.
     expose_api_docs: bool = os.getenv("EXPOSE_API_DOCS", "").lower() == "true"
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    # Refuse to start in production rather than run without real email. Off by
+    # default: a missing variable must not crash-loop a service whose other
+    # features are working.
+    email_require_real_provider: bool = (
+        os.getenv("EMAIL_REQUIRE_REAL_PROVIDER", "false").lower() == "true"
+    )
     # Optional error reporting. Absent by default: observability must not
     # require a paid vendor to work at all.
     sentry_dsn: str | None = os.getenv("SENTRY_DSN") or None

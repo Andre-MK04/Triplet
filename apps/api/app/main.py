@@ -113,7 +113,6 @@ def validate_security_settings() -> None:
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
-    
     if settings.email_provider == "smtp" and not (
         settings.smtp_host and settings.smtp_username and settings.smtp_password
     ):
@@ -121,6 +120,21 @@ def validate_security_settings() -> None:
 
     if errors:
         raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
+
+    # The console provider sends nothing and is the default, so a deploy that
+    # never set EMAIL_PROVIDER quietly notifies nobody. That is worth saying
+    # loudly on every boot and is NOT worth refusing to start over: email is one
+    # feature, and taking search and discovery down with it makes a partial
+    # outage a total one. This was learned the hard way — the first version of
+    # this check crash-looped production over an unset variable.
+    if settings.email_provider == "console":
+        message = (
+            "EMAIL_PROVIDER=console sends no email — watch confirmations and fare "
+            "alerts will not be delivered. Configure a real provider."
+        )
+        if settings.email_require_real_provider:
+            raise RuntimeError("Production configuration is invalid: " + message)
+        logger.warning("email_provider_sends_nothing: %s", message)
 
     # Per-process limits are a real weakness beyond one worker, but not one worth
     # an outage over: warn on every boot, and fail only where the deployment has
