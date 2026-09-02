@@ -10,6 +10,7 @@ import { useAuth } from "./AuthContext";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Input";
 import { Notice } from "./ui/Misc";
+import { useLegalVersions } from "../lib/legalVersions";
 import { LG_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
 
 const RouteGlobe = dynamic(() => import("./RouteGlobe"), { ssr: false });
@@ -26,6 +27,7 @@ const RouteGlobe = dynamic(() => import("./RouteGlobe"), { ssr: false });
  */
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+  const legalVersions = useLegalVersions();
   const showGlobe = useMediaQuery(LG_BREAKPOINT);
   const router = useRouter();
   const { login, signup } = useAuth();
@@ -41,7 +43,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setIsSubmitting(true);
     try {
       if (mode === "signup") {
-        await signup(email, password, displayName);
+        await signup(email, password, displayName, legalVersions);
         router.push("/onboarding");
       } else {
         await login(email, password);
@@ -108,6 +110,25 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
             {isSubmitting ? "One moment…" : mode === "signup" ? "Create account" : "Log in"}
           </Button>
+
+          {/*
+            Below the button rather than behind a checkbox. A tick box people
+            click without reading is not more meaningful consent than a plain
+            sentence, and the version accepted is recorded either way.
+          */}
+          {mode === "signup" ? (
+            <p className="text-xs leading-relaxed text-mist-dim">
+              By creating an account you agree to Triplet&apos;s{" "}
+              <a href="/terms" className="text-mist underline underline-offset-2 hover:text-mint">
+                Terms of Service
+              </a>{" "}
+              and acknowledge the{" "}
+              <a href="/privacy" className="text-mist underline underline-offset-2 hover:text-mint">
+                Privacy Policy
+              </a>
+              .
+            </p>
+          ) : null}
         </form>
 
         <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-label text-mist-dim">

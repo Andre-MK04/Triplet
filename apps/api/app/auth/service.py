@@ -4,7 +4,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.alerts.email import build_email_provider
+from app.audit import hash_ip
 from app.auth.verification import send_verification_email
+from app.legal import (
+    CURRENT_PRIVACY_VERSION,
+    CURRENT_TERMS_VERSION,
+    is_current_privacy,
+    is_current_terms,
+)
 from app.auth.schemas import AuthUserResponse, SignupRequest, UpdateProfileRequest
 from app.auth.oauth import OAuthProfile
 from app.auth.security import (
@@ -43,6 +50,18 @@ class AuthService:
         existing = self.db.scalar(select(UserDB).where(UserDB.email == request.email))
         if existing:
             raise DuplicateEmailError("An account with this email already exists.")
+        # Validated against what is actually published, never taken as given.
+        # A client that submits an arbitrary string is claiming acceptance of a
+        # document that does not exist, and recording that would be worse than
+        # recording nothing.
+        if not is_current_terms(request.acceptedTermsVersion) or not is_current_privacy(
+            request.acknowledgedPrivacyVersion
+        ):
+            raise AuthError(
+                "Please accept the current Terms of Service and Privacy Policy to continue."
+            )
+
+        now = datetime.utcnow()
         user = UserDB(
             id=new_uuid(),
             email=request.email,
@@ -50,6 +69,9 @@ class AuthService:
             display_name=request.displayName,
             is_active=True,
             is_verified=False,
+            terms_accepted_at=now,
+            terms_version=CURRENT_TERMS_VERSION,
+            privacy_version=CURRENT_PRIVACY_VERSION,
         )
         self.db.add(user)
         self.db.flush()
@@ -225,7 +247,11 @@ class AuthService:
                 token_hash=token_hash,
                 expires_at=expires_at,
                 user_agent=user_agent,
-                ip_address=ip_address,
+                # Hashed, not raw. This column is written and never read —
+                # nothing displays it, exports it, or acts on it — so keeping a
+                # real address would be retaining personal data for no purpose,
+                # and it made the privacy policy's "not your raw IP" untrue.
+                ip_address=hash_ip(ip_address),
             )
         )
         return access_token, refresh_token

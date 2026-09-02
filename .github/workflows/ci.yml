@@ -109,9 +109,16 @@ jobs:
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
-    # Advisory: a new CVE in a transitive dependency should tell us, not block
-    # an unrelated fix from merging. Read it, do not ignore it.
-    continue-on-error: true
+    # No longer advisory-only. The policy is severity- and scope-aware, because
+    # a job that cannot fail is a job nobody reads, and a job that fails on
+    # things that cannot hurt anyone gets `|| true` added back within a week.
+    #
+    #   Runtime dependencies, high or critical  -> fail. These reach users.
+    #   Everything else                         -> report. Read it, act on it.
+    #
+    # Today that line is meaningful rather than symbolic: production has zero
+    # findings, while the dev toolchain has six including a critical — none of
+    # which ships to anyone.
     steps:
       - uses: actions/checkout@v4
 
@@ -120,19 +127,26 @@ jobs:
           python-version: "3.13"
 
       - name: Python dependencies
-        # Reported, never fatal: a CVE published overnight in a transitive
-        # dependency should tell us, not block an unrelated fix. Read the
-        # summary — it is printed in full whichever way it exits.
         run: |
           python -m pip install --upgrade pip pip-audit
-          pip-audit -r apps/api/requirements.txt --desc || true
+          pip-audit -r apps/api/requirements.txt --desc
 
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Node dependencies
-        run: npm audit --audit-level=high || true
+      - name: Install
+        run: npm ci
+
+      - name: Runtime dependencies (blocking)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Full tree including tooling (advisory)
+        # Reported so a dev-only advisory is visible and can be acted on, but
+        # not blocking, because it cannot reach a user.
+        run: npm audit || true
 
   secrets:
     name: Secret and database scan

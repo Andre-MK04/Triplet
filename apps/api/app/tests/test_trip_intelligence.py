@@ -6,6 +6,7 @@ from app.database import get_db
 from app.db.models import UserTravelProfileDB
 from app.main import app
 from app.models import Flight, GroundTransfer, TripOption, TripSearchRequest
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 from app.services.trip_scoring import (
     ScoringContext,
     calculate_deal_score,
@@ -222,7 +223,10 @@ def test_user_owned_suggestions_are_private(db_session):
 
     signup = client.post(
         "/auth/signup",
-        json={"email": "intel-tester@example.com", "password": "Strong-pass-123!", "displayName": "T"},
+        json={"email": "intel-tester@example.com", "password": "Strong-pass-123!", "displayName": "T",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
     assert signup.status_code == 200
 

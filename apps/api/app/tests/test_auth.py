@@ -6,6 +6,7 @@ from app.auth.service import AuthService
 from app.database import get_db
 from app.db.models import PasswordResetTokenDB, SavedSearchDB, UserDB, UserOAuthAccountDB, UserTravelProfileDB
 from app.main import app
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 
 
 def override_db(db_session):
@@ -20,7 +21,9 @@ def signup_payload(**overrides):
         "email": "traveler@example.com",
         "password": "Strong-pass-123!",
         "displayName": "Traveler",
-    }
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        }
     payload.update(overrides)
     return payload
 
@@ -40,7 +43,9 @@ def saved_search_payload(**overrides):
         "directOnly": False,
         "includeBaggage": False,
         "frequency": "weekly",
-    }
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        }
     payload.update(overrides)
     return payload
 
@@ -93,7 +98,10 @@ def test_login_me_refresh_and_logout_flow(db_session):
     client.post("/auth/signup", json=signup_payload())
     client.post("/auth/logout")
 
-    login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "Strong-pass-123!"})
+    login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "Strong-pass-123!",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
     me = client.get("/auth/me")
     refreshed = client.post("/auth/refresh")
     logged_out = client.post("/auth/logout")
@@ -112,7 +120,10 @@ def test_duplicate_signup_and_wrong_login_are_rejected(db_session):
     client = make_client(db_session)
     first = client.post("/auth/signup", json=signup_payload())
     duplicate = client.post("/auth/signup", json=signup_payload())
-    wrong_login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "wrong-pass"})
+    wrong_login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "wrong-pass",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
     app.dependency_overrides.clear()
 
     assert first.status_code == 200
@@ -132,13 +143,22 @@ def test_forgot_and_reset_password(db_session, monkeypatch):
 
     monkeypatch.setattr("app.auth.service.build_email_provider", lambda: FakeProvider())
     client.post("/auth/signup", json=signup_payload())
-    forgot = client.post("/auth/forgot-password", json={"email": "traveler@example.com"})
+    forgot = client.post("/auth/forgot-password", json={"email": "traveler@example.com",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
     token_row = db_session.query(PasswordResetTokenDB).one()
     reset_link = sent[0][3]
     raw_token = reset_link.rsplit("token=", 1)[1]
     reset = client.post("/auth/reset-password", json={"token": raw_token, "newPassword": "New-strong-pass-123!"})
-    old_login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "Strong-pass-123!"})
-    new_login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "New-strong-pass-123!"})
+    old_login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "Strong-pass-123!",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
+    new_login = client.post("/auth/login", json={"email": "traveler@example.com", "password": "New-strong-pass-123!",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
     app.dependency_overrides.clear()
 
     assert forgot.status_code == 200
@@ -377,3 +397,64 @@ def test_an_unusable_password_marker_never_counts_as_a_password():
         password_hash = unusable_password_hash()
 
     assert has_usable_password(Row()) is False
+
+
+# --- Legal acceptance is recorded, not assumed --------------------------------
+
+def test_signup_records_which_versions_were_accepted(db_session):
+    """"They must have accepted, the form required it" is not a record.
+
+    If anyone ever asks what a given account agreed to, the answer has to come
+    from a row, not from an argument about the UI.
+    """
+    client = make_client(db_session)
+    client.post("/auth/signup", json=signup_payload(email="legal-ok@example.com"))
+
+    user = db_session.query(UserDB).filter(UserDB.email == "legal-ok@example.com").one()
+    assert user.terms_version == CURRENT_TERMS_VERSION
+    assert user.privacy_version == CURRENT_PRIVACY_VERSION
+    assert user.terms_accepted_at is not None
+
+
+def test_signup_without_acceptance_is_refused(db_session):
+    client = make_client(db_session)
+    payload = signup_payload(email="legal-missing@example.com")
+    payload.pop("acceptedTermsVersion", None)
+    payload.pop("acknowledgedPrivacyVersion", None)
+
+    response = client.post("/auth/signup", json=payload)
+
+    assert response.status_code == 400
+    assert "Terms" in response.json()["detail"]
+
+
+def test_a_version_that_was_never_published_is_refused(db_session):
+    """The client does not get to decide what it accepted.
+
+    Recording acceptance of a document that never existed would be worse than
+    recording nothing at all.
+    """
+    client = make_client(db_session)
+    response = client.post(
+        "/auth/signup",
+        json=signup_payload(
+            email="legal-forged@example.com",
+            acceptedTermsVersion="1999-01-01",
+        ),
+    )
+
+    assert response.status_code == 400
+    assert db_session.query(UserDB).filter(UserDB.email == "legal-forged@example.com").count() == 0
+
+
+def test_a_stale_privacy_version_is_refused(db_session):
+    client = make_client(db_session)
+    response = client.post(
+        "/auth/signup",
+        json=signup_payload(
+            email="legal-stale@example.com",
+            acknowledgedPrivacyVersion="2020-01-01",
+        ),
+    )
+
+    assert response.status_code == 400

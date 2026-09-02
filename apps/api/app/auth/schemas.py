@@ -7,6 +7,13 @@ class SignupRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str
     displayName: str | None = Field(default=None, max_length=160)
+    #: Which published versions the signup form showed. Optional in the schema
+    #: and checked in the service, so an older client gets a clear message
+    #: rather than a validation error it cannot interpret. The value is never
+    #: trusted as given — it is compared against the current version, so a
+    #: client cannot record acceptance of something that was never published.
+    acceptedTermsVersion: str | None = Field(default=None, max_length=32)
+    acknowledgedPrivacyVersion: str | None = Field(default=None, max_length=32)
 
     @field_validator("email")
     @classmethod

@@ -12,6 +12,7 @@ from app.billing.service import start_trial
 from app.billing.usage import assert_ai_search_allowed, record_ai_search
 from app.billing.webhooks import process_stripe_event
 from app.config import settings
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 from app.database import Base, get_db
 from app.db.models import BillingEventDB, UsageCounterDB, UserDB
 from app.main import app
@@ -49,7 +50,10 @@ def make_client(db_session):
 def signup(client, email="billing@example.com"):
     return client.post(
         "/auth/signup",
-        json={"email": email, "password": "Strong-pass-123!", "displayName": "Billing User"},
+        json={"email": email, "password": "Strong-pass-123!", "displayName": "Billing User",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
 
 
@@ -68,7 +72,9 @@ def saved_search_payload(**overrides):
         "directOnly": False,
         "includeBaggage": False,
         "frequency": "daily",
-    }
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        }
     payload.update(overrides)
     return payload
 

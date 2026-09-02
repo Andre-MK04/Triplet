@@ -7,6 +7,7 @@ from app.database import get_db
 from app.main import app
 from app.tools.base import ToolContext
 from app.travel_map.service import TravelMapService, format_partial_date, parse_partial_date
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 
 
 def make_client(db_session):
@@ -20,7 +21,10 @@ def make_client(db_session):
 def signup(client, email="map@example.com"):
     response = client.post(
         "/auth/signup",
-        json={"email": email, "password": "Strong-pass-123!", "displayName": "Map Tester"},
+        json={"email": email, "password": "Strong-pass-123!", "displayName": "Map Tester",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
     assert response.status_code == 200
     return response

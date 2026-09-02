@@ -307,6 +307,12 @@ class UserDB(Base):
     trial_used: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: What this account agreed to, and when. Recorded at signup rather than
+    #: inferred later: "they must have accepted, the form required it" is not
+    #: something you can produce if anyone ever asks.
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    terms_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    privacy_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

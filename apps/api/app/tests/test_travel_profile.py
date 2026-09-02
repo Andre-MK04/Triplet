@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.database import get_db
 from app.main import app
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 
 
 def override_db(db_session):
@@ -19,7 +20,10 @@ def make_client(db_session):
 def signup(client, email="profile-tester@example.com"):
     response = client.post(
         "/auth/signup",
-        json={"email": email, "password": "Strong-pass-123!", "displayName": "Profile Tester"},
+        json={"email": email, "password": "Strong-pass-123!", "displayName": "Profile Tester",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
     assert response.status_code == 200
     return response

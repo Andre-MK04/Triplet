@@ -24,6 +24,7 @@ from app.db.models import EmailVerificationTokenDB, SavedSearchDB, UserDB
 from app.main import app
 from app.security import reset_rate_limits
 from app.tests.test_alerts import alert_payload, override_db
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 
 VICTIM = "victim@example.com"
 PASSWORD = "A-Long-Enough-Passw0rd!"
@@ -47,7 +48,10 @@ def client(db_session):
 def signup(client, email=VICTIM):
     response = client.post(
         "/auth/signup",
-        json={"email": email, "password": PASSWORD, "displayName": "Test"},
+        json={"email": email, "password": PASSWORD, "displayName": "Test",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
     assert response.status_code == 200, response.text
     return response
@@ -282,7 +286,10 @@ def test_a_mail_outage_does_not_cost_someone_their_account(client, db_session, m
 
     response = client.post(
         "/auth/signup",
-        json={"email": "outage@example.com", "password": PASSWORD, "displayName": "T"},
+        json={"email": "outage@example.com", "password": PASSWORD, "displayName": "T",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
 
     assert response.status_code == 200, "signup failed because email delivery failed"

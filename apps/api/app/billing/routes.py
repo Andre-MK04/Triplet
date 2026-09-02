@@ -27,6 +27,7 @@ from app.billing.stripe_client import (
 )
 from app.billing.webhooks import process_stripe_event
 from app.config import settings
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 from app.database import get_db
 from app.db.models import UserDB
 
@@ -44,6 +45,8 @@ def get_plans() -> PlansResponse:
         yearlySavingsPercent=yearly_savings_percent(),
         trialDurationDays=settings.triplet_trial_duration_days,
         anonymousMaxOriginAirports=settings.triplet_public_max_origin_airports,
+        termsVersion=CURRENT_TERMS_VERSION,
+        privacyVersion=CURRENT_PRIVACY_VERSION,
     )
 
 

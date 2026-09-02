@@ -28,6 +28,13 @@ class PlansResponse(BaseModel):
     #: Whether checkout can actually complete. False means Stripe is not
     #: configured, and the interface must not offer a flow that ends in an error.
     billingEnabled: bool
+    #: The document versions a new account must accept.
+    #:
+    #: Served rather than duplicated in the frontend: a version string in two
+    #: places eventually says two things, and signup is validated against the
+    #: backend's value, so a mismatch would silently reject every signup.
+    termsVersion: str
+    privacyVersion: str
     #: How many origin airports a signed-out visitor may search with.
     #:
     #: Not a plan, so it is not in `plans` — but the origin picker has to know

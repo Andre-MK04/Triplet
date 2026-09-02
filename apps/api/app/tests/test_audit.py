@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.db.models import AuditEventDB
 from app.main import app
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 
 
 def override_db(db_session):
@@ -20,7 +21,10 @@ def events(db_session, action: str) -> list[AuditEventDB]:
 def signup(client, email="audit-tester@example.com"):
     return client.post(
         "/auth/signup",
-        json={"email": email, "password": "Strong-pass-123!", "displayName": "Audit Tester"},
+        json={"email": email, "password": "Strong-pass-123!", "displayName": "Audit Tester",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
 
 
@@ -30,7 +34,10 @@ def test_signup_login_and_password_change_are_audited(db_session):
 
     signup(client)
     client.post("/auth/logout")
-    client.post("/auth/login", json={"email": "audit-tester@example.com", "password": "Strong-pass-123!"})
+    client.post("/auth/login", json={"email": "audit-tester@example.com", "password": "Strong-pass-123!",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
     client.post(
         "/auth/change-password",
         json={"currentPassword": "Strong-pass-123!", "newPassword": "Even-stronger-456!"},
@@ -50,7 +57,10 @@ def test_failed_login_is_audited_without_user_id(db_session):
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
 
-    client.post("/auth/login", json={"email": "nobody@example.com", "password": "Wrong-pass-123!"})
+    client.post("/auth/login", json={"email": "nobody@example.com", "password": "Wrong-pass-123!",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })
 
     failed = events(db_session, "auth.login_failed")
     assert len(failed) == 1
@@ -86,6 +96,8 @@ def test_watch_and_profile_changes_are_audited(db_session):
             "maxGroundTransferHours": 4,
             "tripStyle": "two nearby cities",
             "frequency": "weekly",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
         },
     )
     watch_id = created.json()["id"]

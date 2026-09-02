@@ -57,4 +57,16 @@ def record_audit_event(
 def hash_client_ip(request: Request | None) -> str | None:
     if not request or not request.client or not request.client.host:
         return None
-    return hashlib.sha256(f"{settings.app_secret}:{request.client.host}".encode()).hexdigest()[:32]
+    return hash_ip(request.client.host)
+
+
+def hash_ip(address: str | None) -> str | None:
+    """One-way, keyed to the app secret.
+
+    Enough to tell "the same source again" from "somewhere new", which is all
+    an abuse signal needs, without keeping an address that identifies a person
+    and their location.
+    """
+    if not address:
+        return None
+    return hashlib.sha256(f"{settings.app_secret}:{address}".encode()).hexdigest()[:32]

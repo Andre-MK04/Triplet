@@ -200,9 +200,9 @@ trip” actions hand the country to the existing `/discover` AI-search flow.
 
 ## Accounts And Authentication
 
-Triplet includes backend-managed email/password accounts for the MVP. Passwords are hashed before storage, access tokens and refresh tokens are stored in `httpOnly` cookies, and saved searches can belong to a logged-in user.
+Triplet includes backend-managed email/password accounts. Passwords are hashed with Argon2id before storage, access and refresh tokens live in `httpOnly` cookies, and saved searches can belong to a logged-in user. Password signups start unverified and are emailed a single-use confirmation link; Google OAuth accounts whose email Google reports as verified are trusted without one.
 
-The database intentionally stores `users.password_hash`, not the user's raw password. If you inspect the database after signup, you should see a value beginning with `pbkdf2_sha256$...`. You should never see or store the plain password.
+The database intentionally stores `users.password_hash`, not the user's raw password. If you inspect the database after signup you should see a value beginning with `$argon2id$...`. Accounts created before the migration to Argon2id still carry a `pbkdf2_sha256$...` hash; those verify normally and are re-hashed to Argon2id the next time that person logs in, so the estate migrates without anyone being asked to reset anything. You should never see or store the plain password.
 
 Local development defaults:
 
@@ -296,6 +296,8 @@ Logged-in saved-search routes:
 - `POST /me/saved-searches/{id}/run`
 
 The original token-based alert routes under `/alerts` still work for logged-out email alerts. If a browser is logged in and posts to `/alerts`, the saved search is linked to that account while still returning the manage/unsubscribe links.
+
+A watch does not send anything until its address has confirmed it. That applies to signed-in users too: the account's own address counts as proven only once the account itself is verified, so signing up as someone else's address does not let you point Triplet's mail at them.
 
 ## Step 9 Billing + Subscriptions
 
@@ -532,7 +534,7 @@ Triplet now has a more complete early-product flow across search, onboarding, sa
 Pages:
 
 - `/` marketing landing page: animated 3D route globe (SVG fallback on mobile/reduced motion), how-it-works, clearly-labeled demo trip cards, travel-profile preview, deal intelligence, security, pricing teaser.
-- `/discover` search page with AI/advanced tabs, airport chips, trip results, and the save-alert flow.
+- `/discover` one unified search — a plain-language box and a "Dates, budget, destination" disclosure over the same form — plus origin airports, trip results, sorting, and the watch flow. Structured searches are shareable: the URL carries the criteria.
 - `/login` and `/signup` dedicated auth pages (email/password + Google OAuth start).
 - `/onboarding` animated multi-step travel-profile quiz backed by `/me/travel-profile`.
 - `/dashboard` account dashboard with plan summary, usage meters, saved watches (preview, edit, pause, resume, delete), billing, and travel-profile shortcuts.

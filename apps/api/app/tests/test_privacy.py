@@ -12,6 +12,7 @@ from app.db.models import (
     UserTravelProfileDB,
 )
 from app.main import app
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 
 
 def override_db(db_session):
@@ -29,7 +30,10 @@ def make_client(db_session):
 def signup(client, email="privacy@example.com"):
     return client.post(
         "/auth/signup",
-        json={"email": email, "password": "Strong-pass-123!", "displayName": "Privacy Tester"},
+        json={"email": email, "password": "Strong-pass-123!", "displayName": "Privacy Tester",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        },
     )
 
 
@@ -45,6 +49,8 @@ def seed_user_data(client):
             "originAirports": ["VIE"], "startDate": "2026-08-01", "endDate": "2026-08-31",
             "minTripLengthDays": 5, "maxTripLengthDays": 7, "maxBudget": 220,
             "maxGroundTransferHours": 4, "tripStyle": "one city", "frequency": "weekly",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
         },
     )
     client.patch("/me/travel-map/countries/IS", json={"wishlist": True})
@@ -139,3 +145,32 @@ def test_retention_cleanup_prunes_only_old_data(db_session):
     assert summary["cachedDealsDeleted"] == 1
     assert db_session.scalar(select(func.count()).select_from(AuditEventDB)) == 1
     assert db_session.scalar(select(func.count()).select_from(CachedRoundTripDB)) == 1
+
+
+def test_session_rows_never_keep_a_raw_ip(db_session):
+    """The privacy policy says Triplet keeps a hash, not an address.
+
+    It was untrue: refresh_token_sessions stored request.client.host verbatim,
+    for a column nothing ever read.
+    """
+    from app.auth.service import AuthService
+    from app.db.models import RefreshTokenSessionDB
+    from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
+    from app.auth.schemas import SignupRequest
+
+    AuthService(db_session).signup(
+        SignupRequest(
+            email="ip-check@example.com",
+            password="A-Long-Enough-Passw0rd!",
+            acceptedTermsVersion=CURRENT_TERMS_VERSION,
+            acknowledgedPrivacyVersion=CURRENT_PRIVACY_VERSION,
+        ),
+        user_agent="pytest",
+        ip_address="203.0.113.42",
+    )
+
+    stored = [s.ip_address for s in db_session.query(RefreshTokenSessionDB).all()]
+    assert stored, "expected a session row"
+    for value in stored:
+        assert value != "203.0.113.42"
+        assert "203.0.113" not in (value or "")

@@ -9,10 +9,15 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     title: "What we collect and why",
     body: (
       <ul className="space-y-2">
-        <li>• <strong className="text-cloud">Account</strong>: email, an optional display name, and a hashed password — to sign you in and send alerts you asked for.</li>
-        <li>• <strong className="text-cloud">Travel profile</strong>: your airports, trip preferences and budget — solely to rank trips for you.</li>
-        <li>• <strong className="text-cloud">Saved watches</strong>: the searches you ask us to monitor, and when we last checked them.</li>
-        <li>• <strong className="text-cloud">Security logs</strong>: sign-in events and a salted, one-way hash of your IP (not your raw IP) to detect abuse.</li>
+        <li>• <strong className="text-cloud">Account</strong>: email, an optional display name, a hashed password, whether the address has been confirmed, and which versions of these documents you accepted when you signed up.</li>
+        <li>• <strong className="text-cloud">Sign-in with Google</strong>: the provider, your provider account ID and the email it reports. Triplet does not store provider access tokens.</li>
+        <li>• <strong className="text-cloud">Travel profile</strong>: your departure airports, base location, trip length, budget and comfort preferences — used to personalize search, ranking and watch behavior.</li>
+        <li>• <strong className="text-cloud">My World</strong>: the countries you mark as visited, lived in or on your wishlist, any dates you add, and your private notes. This is visible only to you.</li>
+        <li>• <strong className="text-cloud">Saved watches</strong>: the search criteria, the address to notify, the conditions that trigger an email, how often it runs, when it last ran and what was sent.</li>
+        <li>• <strong className="text-cloud">Trip suggestions</strong>: trips generated for you are stored so a link keeps working, and expire on their own.</li>
+        <li>• <strong className="text-cloud">Usage and plan</strong>: AI search counts, your plan, and trial status — to apply the limits your plan describes.</li>
+        <li>• <strong className="text-cloud">Sessions and security logs</strong>: sign-in events, session records with the browser you used, and a one-way keyed hash of your IP address rather than the address itself.</li>
+        <li>• <strong className="text-cloud">Billing</strong>: when paid plans are enabled, Stripe customer and subscription identifiers. Card numbers never reach Triplet.</li>
       </ul>
     ),
   },
@@ -76,10 +81,56 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
     title: "How long we keep it",
     body: (
       <ul className="space-y-2">
-        <li>• Account and profile data: until you delete your account.</li>
-        <li>• Security audit logs: pruned on a rolling window and anonymised when you erase your account.</li>
+        <li>• Account, profile and My World data: until you delete your account.</li>
+        <li>• Email confirmation and password reset links: short-lived and single-use.</li>
+        <li>• Sessions: until they expire or you log out, which revokes them.</li>
+        <li>• Watches you never confirmed: removed automatically after a set period, so an address that never said yes does not sit in the database indefinitely.</li>
         <li>• Trip suggestions and cached fares: short-lived and expire automatically.</li>
+        <li>• Security audit logs: pruned on a rolling window and anonymised when you erase your account.</li>
+        <li>• Fare observations: kept long-term as market data. See below.</li>
       </ul>
+    ),
+  },
+  {
+    title: "Fare history is market data",
+    body: (
+      <>
+        <p>
+          Triplet records the fares it observes — the route, the dates, the price, which source
+          reported it and when. That history is what lets Triplet say whether €120 to Lisbon is
+          genuinely good or merely normal, and it is the reason the product exists.
+        </p>
+        <p className="mt-3">
+          These observations describe a market, not a person. They are not linked to your
+          account, and deleting your account does not remove them, because there is nothing in
+          them that is yours. Your searches, watches, profile and trips are a different matter
+          and are erased with your account.
+        </p>
+      </>
+    ),
+  },
+  {
+    title: "What the AI sees",
+    body: (
+      <>
+        <p>
+          When you search in plain language, Triplet sends your request and the minimum
+          constraints needed to search it — dates, budget, airports — to the AI provider
+          configured for the service. It is never sent your password, your session, payment
+          details, or your private My World notes.
+        </p>
+        <p className="mt-3">
+          <strong className="text-cloud">Prices do not come from the AI.</strong> The model can
+          interpret a request, help shape search criteria and draft an itinerary. Every fare is
+          produced by Triplet&apos;s own deterministic search against provider data, and the
+          model cannot invent one or book anything.
+        </p>
+        <p className="mt-3">
+          Triplet supports more than one AI provider and uses the one configured for the
+          service at the time. Ask at the support address if you need to know which is
+          currently in use.
+        </p>
+      </>
     ),
   },
   {
