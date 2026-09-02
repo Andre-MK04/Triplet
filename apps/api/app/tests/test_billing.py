@@ -446,3 +446,18 @@ def test_free_user_cannot_create_daily_watch(db_session):
         assert "trial" in str(exc.detail).lower()
     else:
         raise AssertionError("Expected daily frequency to be blocked on Free")
+
+
+def test_plans_publish_the_signed_out_origin_limit():
+    """The origin picker needs this number and must not invent it.
+
+    Searching with more origins than allowed is refused with a 402 rather than
+    trimmed, so an interface that guesses this wrong walks the traveller into a
+    wall. It is not a plan limit, so it does not belong in `plans`.
+    """
+    from app.billing.routes import get_plans
+
+    payload = get_plans()
+
+    assert payload.anonymousMaxOriginAirports == settings.triplet_public_max_origin_airports
+    assert payload.anonymousMaxOriginAirports >= 1

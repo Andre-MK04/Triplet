@@ -21,6 +21,7 @@ import { EmptyState, Notice } from "../../components/ui/Misc";
 import { apiPost, apiGet } from "../../lib/api";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../../lib/airports";
 import { readSavedOrigins, saveOrigins } from "../../lib/originPreference";
+import { canAddOrigin, useOriginLimit } from "../../lib/originLimit";
 import { PRICE_DISCLAIMER } from "../../lib/price";
 import {
   emptyStateMessage,
@@ -125,6 +126,7 @@ const defaultForm: AdvancedForm = {
 
 export function DiscoverClient() {
   const { user } = useAuth();
+  const originLimit = useOriginLimit(Boolean(user));
   /**
    * True when results came from Triplet's fallback origins rather than a
    * choice. A search arriving from the landing page carries a query but no
@@ -430,7 +432,13 @@ export function DiscoverClient() {
 
   function toggleAirport(code: string) {
     setForm((current) => {
-      const originAirports = current.originAirports.includes(code)
+      const removing = current.originAirports.includes(code);
+      // Removing is always allowed — that is how someone over the ceiling gets
+      // back under it. Only adding is capped.
+      if (!removing && !canAddOrigin(originLimit, current.originAirports.length)) {
+        return current;
+      }
+      const originAirports = removing
         ? current.originAirports.filter((airport) => airport !== code)
         : [...current.originAirports, code];
       rememberOrigins(originAirports);
@@ -443,6 +451,7 @@ export function DiscoverClient() {
     setOriginLabels((current) => ({ ...current, [airport.iataCode]: airport.city ?? airport.name }));
     setForm((current) => {
       if (current.originAirports.includes(airport.iataCode)) return current;
+      if (!canAddOrigin(originLimit, current.originAirports.length)) return current;
       const originAirports = [...current.originAirports, airport.iataCode];
       rememberOrigins(originAirports);
       return { ...current, originAirports };
@@ -573,6 +582,7 @@ export function DiscoverClient() {
                 labels={originLabels}
                 onToggle={toggleAirport}
                 onAdd={addOrigin}
+                limit={originLimit}
               />
               <TripPlanChoice
                 value={form.tripPlan}

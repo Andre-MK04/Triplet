@@ -28,6 +28,13 @@ class PlansResponse(BaseModel):
     #: Whether checkout can actually complete. False means Stripe is not
     #: configured, and the interface must not offer a flow that ends in an error.
     billingEnabled: bool
+    #: How many origin airports a signed-out visitor may search with.
+    #:
+    #: Not a plan, so it is not in `plans` — but the origin picker has to know
+    #: it, because searching with more than this is refused with a 402 rather
+    #: than quietly trimmed. Served here so the interface reads the number from
+    #: configuration instead of repeating it.
+    anonymousMaxOriginAirports: int
     #: Only present when both amounts are configured, so no saving is ever
     #: quoted that was not calculated from the real prices.
     yearlySavingsPercent: int | None = None

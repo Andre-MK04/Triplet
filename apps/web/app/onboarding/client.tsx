@@ -11,6 +11,7 @@ import { Button, ButtonLink } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
 import { Input } from "../../components/ui/Input";
 import { Notice, Spinner } from "../../components/ui/Misc";
+import { canAddOrigin, originLimitMessage, useOriginLimit } from "../../lib/originLimit";
 import { apiGet, apiPut } from "../../lib/api";
 import type { AirportResult, ComfortRule, LocationResult, TravelProfile, TripType } from "../../lib/types";
 
@@ -124,6 +125,12 @@ export function OnboardingClient() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [recommended, setRecommended] = useState<AirportResult[]>([]);
+  const originLimit = useOriginLimit(true);
+  // Read inside the recommendation effect without making the limit a
+  // dependency: arriving late must not re-run the fetch or re-preselect over
+  // someone's edits.
+  const preselectCount = useRef(3);
+  preselectCount.current = originLimit.known ? Math.max(1, Math.min(3, originLimit.max)) : 3;
   const [recStatus, setRecStatus] = useState<"idle" | "loading" | "empty">("idle");
   const preselectedFor = useRef<number | null>(null);
 
@@ -166,7 +173,14 @@ export function OnboardingClient() {
               ? {
                   ...cur,
                   recommendedOriginAirports: recommendedCodes,
-                  originAirports: cur.originAirports.length === 0 ? recommendedCodes.slice(0, 3) : cur.originAirports,
+                  // Preselect up to what the plan actually allows. This used
+                  // to be a hardcoded three, which matched the Free limit by
+                  // coincidence — lower the limit in config and onboarding
+                  // would have handed people a set the search then refused.
+                  originAirports:
+                    cur.originAirports.length === 0
+                      ? recommendedCodes.slice(0, preselectCount.current)
+                      : cur.originAirports,
                 }
               : cur,
           );
@@ -334,7 +348,15 @@ export function OnboardingClient() {
                 <Chip
                   key={a.iataCode}
                   selected={p.originAirports.includes(a.iataCode)}
-                  onClick={() => update("originAirports", toggleInList(p.originAirports, a.iataCode))}
+                  disabled={
+                    !p.originAirports.includes(a.iataCode) &&
+                    !canAddOrigin(originLimit, p.originAirports.length)
+                  }
+                  onClick={() => {
+                    const has = p.originAirports.includes(a.iataCode);
+                    if (!has && !canAddOrigin(originLimit, p.originAirports.length)) return;
+                    update("originAirports", toggleInList(p.originAirports, a.iataCode));
+                  }}
                 >
                   {a.city || a.name} · {a.iataCode}
                   {a.distanceKm != null ? ` · ${Math.round(a.distanceKm)} km` : ""}
@@ -342,6 +364,11 @@ export function OnboardingClient() {
               ))}
             </div>
           )}
+          {originLimitMessage(originLimit, p.originAirports.length) ? (
+            <p className="mt-2 text-xs leading-relaxed text-mist" role="status">
+              {originLimitMessage(originLimit, p.originAirports.length)}
+            </p>
+          ) : null}
         </div>
       ),
     },

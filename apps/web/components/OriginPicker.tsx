@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Autocomplete } from "./Autocomplete";
 import { Chip } from "./ui/Chip";
 import { AIRPORTS_BY_CODE, ORIGIN_AIRPORT_CODES } from "../lib/airports";
+import { canAddOrigin, originLimitMessage, type OriginLimit } from "../lib/originLimit";
 import type { AirportResult } from "../lib/types";
 
 const originsEndpoint = (query: string) =>
@@ -16,11 +17,14 @@ export function OriginPicker({
   labels,
   onToggle,
   onAdd,
+  limit,
 }: {
   selected: string[];
   labels: Record<string, string>;
   onToggle: (code: string) => void;
   onAdd: (airport: AirportResult) => void;
+  /** How many airports this visitor may search with. */
+  limit: OriginLimit;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -41,6 +45,14 @@ export function OriginPicker({
   // question Triplet has to ask. "Your origin airports (0)" claimed a set that
   // did not exist and gave no hint that picking one was the next move.
   const needsSetup = selected.length === 0;
+
+  // Adding is blocked at the ceiling because the search behind it answers 402
+  // rather than trimming — better to say so here than to let someone finish
+  // choosing and then be refused. Deselecting always stays available, which is
+  // what makes an over-limit selection recoverable rather than a dead end.
+  const canAdd = canAddOrigin(limit, selected.length);
+  const limitNote = originLimitMessage(limit, selected.length);
+  const overLimit = limit.known && selected.length > limit.max;
   const summary =
     selected.length === 0
       ? "No airports selected"
@@ -88,13 +100,41 @@ export function OriginPicker({
             Common Central European origins
           </p>
           <div className="flex flex-wrap gap-2">
-            {[...new Set([...ORIGIN_AIRPORT_CODES, ...selected])].map((code) => (
-              <Chip key={code} selected={selected.includes(code)} onClick={() => onToggle(code)}>
-                {name(code)} {code}
-              </Chip>
-            ))}
+            {[...new Set([...ORIGIN_AIRPORT_CODES, ...selected])].map((code) => {
+              const isSelected = selected.includes(code);
+              return (
+                <Chip
+                  key={code}
+                  selected={isSelected}
+                  disabled={!isSelected && !canAdd}
+                  onClick={() => onToggle(code)}
+                >
+                  {name(code)} {code}
+                </Chip>
+              );
+            })}
           </div>
-          <div className="mt-3">
+          {limitNote ? (
+            <p
+              className={
+                "mt-3 border-l-2 pl-3 text-xs leading-relaxed " +
+                (overLimit ? "border-coral text-coral" : "border-line text-mist")
+              }
+              role={overLimit ? "alert" : "status"}
+            >
+              {limitNote}
+              {limit.canRaise ? (
+                <>
+                  {" "}
+                  <a href="/pricing" className="underline underline-offset-2 hover:text-mint">
+                    See plans
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
+
+          <div className={canAdd ? "mt-3" : "hidden"}>
             <Autocomplete<AirportResult>
               endpoint={originsEndpoint}
               value={query}

@@ -43,6 +43,7 @@ def get_plans() -> PlansResponse:
         billingEnabled=settings.billing_enabled,
         yearlySavingsPercent=yearly_savings_percent(),
         trialDurationDays=settings.triplet_trial_duration_days,
+        anonymousMaxOriginAirports=settings.triplet_public_max_origin_airports,
     )
 
 
