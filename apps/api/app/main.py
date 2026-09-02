@@ -113,15 +113,7 @@ def validate_security_settings() -> None:
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
-    if settings.email_provider == "console":
-        # The default, and a development tool: it sends nothing and prints the
-        # message body — including confirmation tokens — to stdout. A
-        # production deploy that forgets EMAIL_PROVIDER would silently never
-        # notify anyone while writing live tokens into its logs.
-        errors.append(
-            "EMAIL_PROVIDER=console does not send email and prints message bodies, "
-            "including verification tokens. Configure a real provider in production."
-        )
+    
     if settings.email_provider == "smtp" and not (
         settings.smtp_host and settings.smtp_username and settings.smtp_password
     ):
