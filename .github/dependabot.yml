@@ -1,9 +1,20 @@
 version: 2
 
-# Grouped and weekly on purpose. Fifty separate pull requests is not attention
-# to security, it is a queue nobody reads — and an unread queue is where a real
-# advisory goes to hide. Routine upgrades arrive as a handful of grouped PRs;
-# security fixes are what the audit job blocks on, and those are read.
+# Grouped, weekly, and minor/patch only.
+#
+# The first version of this file excluded major bumps for next, react and
+# react-dom by name, which missed the point: the problem is not those three
+# packages, it is that a major bump is a piece of work rather than a merge.
+# It opened twelve pull requests within the hour, ten of them majors —
+# tailwind 3 to 4 (which moves the PostCSS plugin and fails the build),
+# typescript 5 to 7, openai 1 to 3, anthropic 0 to 1, redis 5 to 8. One of
+# them broke a Vercel preview deploy immediately.
+#
+# So majors are excluded as a class, per ecosystem, and are taken deliberately
+# when someone has time to read a changelog. This does not weaken security
+# coverage: `version-update:semver-major` scopes to version updates only, and
+# Dependabot still opens security PRs for a vulnerable dependency at any
+# severity — which is the thing the CI audit job blocks on anyway.
 updates:
   - package-ecosystem: npm
     # The workspace root. The lockfile lives here, not in apps/web — assuming
@@ -14,21 +25,14 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     groups:
-      # Patch and minor together: individually they are noise, and reviewing
-      # them as one diff is how they actually get looked at.
+      # One reviewable diff instead of a dozen. Individually these are noise;
+      # together they get looked at.
       routine:
         update-types:
           - minor
           - patch
     ignore:
-      # Next and React move deliberately here, not automatically. This app is
-      # on Next 16, whose conventions differ enough from earlier versions that
-      # a major bump is a piece of work, not a merge.
-      - dependency-name: next
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pip
@@ -42,9 +46,20 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    groups:
+      routine:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
