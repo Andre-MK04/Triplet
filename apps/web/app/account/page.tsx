@@ -24,6 +24,7 @@ export default function AccountPage() {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
   const [status, setStatus] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -108,6 +109,17 @@ export default function AccountPage() {
     );
   }
 
+  async function resendVerification() {
+    try {
+      await apiPost("/auth/verify-email/resend");
+    } catch {
+      // The endpoint deliberately answers identically whether it sent, was
+      // throttled, or found nothing to do. A network error should not
+      // contradict that by telling a different story.
+    }
+    setVerificationSent(true);
+  }
+
   const sectionLabel = "mb-5 block font-mono text-[11px] font-semibold uppercase tracking-label text-mist";
 
   return (
@@ -126,6 +138,35 @@ export default function AccountPage() {
         {status ? (
           <div className="mb-6">
             <Notice tone={status.tone}>{status.text}</Notice>
+          </div>
+        ) : null}
+
+        {/*
+          Shown here and not on every page. An unverified account can still
+          browse, search and set up a profile — the only thing it cannot do is
+          serve as proof that someone owns this address, so the notice belongs
+          where the address itself is on screen.
+        */}
+        {!user.isVerified ? (
+          <div className="mb-6 border-l-2 border-gold px-4 py-3">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-label text-gold">
+              Email not confirmed
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-mist">
+              Triplet will not send fare alerts to {user.email} until it is confirmed, and
+              watches you set will ask for confirmation separately.
+            </p>
+            <div className="mt-3">
+              {verificationSent ? (
+                <p className="text-sm text-mint" role="status">
+                  If that address still needs confirming, a new link is on its way.
+                </p>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={resendVerification}>
+                  Send a confirmation link
+                </Button>
+              )}
+            </div>
           </div>
         ) : null}
 

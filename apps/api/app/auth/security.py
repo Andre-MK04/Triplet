@@ -135,9 +135,26 @@ def create_refresh_token() -> tuple[str, str, datetime]:
     return raw, hash_token(raw), expires_at
 
 
+#: How long an account email verification link stays usable.
+EMAIL_VERIFICATION_TTL_HOURS = 24
+
+
 def create_reset_token() -> tuple[str, str, datetime]:
     raw = secrets.token_urlsafe(48)
     expires_at = datetime.utcnow() + timedelta(hours=1)
+    return raw, hash_token(raw), expires_at
+
+
+def create_email_verification_token() -> tuple[str, str, datetime]:
+    """A single-use link proving someone can read a mailbox.
+
+    Longer-lived than a password reset because it is not a credential: it grants
+    no access, it only records that the address was reachable. A day gives
+    someone time to find the mail without leaving a useful token lying around
+    for a week.
+    """
+    raw = secrets.token_urlsafe(48)
+    expires_at = datetime.utcnow() + timedelta(hours=EMAIL_VERIFICATION_TTL_HOURS)
     return raw, hash_token(raw), expires_at
 
 

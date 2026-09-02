@@ -63,3 +63,13 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     newPassword: str
+
+
+class VerifyEmailRequest(BaseModel):
+    """The token from a verification link, and nothing else.
+
+    No email field: the token identifies the account, so accepting an address
+    here would only create a way to guess at one.
+    """
+
+    token: str = Field(min_length=16, max_length=512)

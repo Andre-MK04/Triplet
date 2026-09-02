@@ -52,9 +52,16 @@ class SavedSearchService:
     def create_saved_search(self, request: CreateSavedSearchRequest, user: UserDB | None = None) -> SavedSearchResponse:
         self._validate_request(request)
 
-        # A signed-in user watching their own account address has already proved
-        # they own it; anyone else has merely typed an address into a box.
-        email_is_proven = bool(user and request.email.lower() == (user.email or "").lower())
+        # An account's email address is proof of nothing until the account has
+        # proven it. Without `is_verified` here, anyone could sign up as someone
+        # else's address, never confirm it, and have Triplet start mailing a
+        # stranger who had confirmed nothing — the signed-in path skipped the
+        # double opt-in that the anonymous path enforces.
+        email_is_proven = bool(
+            user
+            and user.is_verified
+            and request.email.strip().lower() == (user.email or "").strip().lower()
+        )
         if not email_is_proven:
             self._guard_unverified_flood(request.email)
 

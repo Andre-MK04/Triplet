@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.alerts.email import build_email_provider
+from app.auth.verification import send_verification_email
 from app.auth.schemas import AuthUserResponse, SignupRequest, UpdateProfileRequest
 from app.auth.oauth import OAuthProfile
 from app.auth.security import (
@@ -55,6 +56,13 @@ class AuthService:
         access_token, refresh_token = self._create_session(user, user_agent, ip_address)
         self.db.commit()
         self.db.refresh(user)
+
+        # After the commit, and its result deliberately ignored. The account
+        # exists and is signed in whether or not mail is working; a provider
+        # outage must cost someone a link they can request again, not the
+        # account they just created.
+        send_verification_email(self.db, user)
+
         return user, access_token, refresh_token
 
     def login(self, email: str, password: str, user_agent: str | None = None, ip_address: str | None = None):

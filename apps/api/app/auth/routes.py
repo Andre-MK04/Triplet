@@ -18,6 +18,7 @@ from app.auth.oauth import (
     verify_oauth_state,
 )
 from app.auth.rate_limit import auth_rate_limit
+from app.auth.verification import VerificationError, resend_verification, verify_email
 from app.auth.schemas import (
     AuthResponse,
     ChangePasswordRequest,
@@ -26,6 +27,7 @@ from app.auth.schemas import (
     ResetPasswordRequest,
     SignupRequest,
     UpdateProfileRequest,
+    VerifyEmailRequest,
 )
 from app.auth.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.auth.service import AuthError, AuthService, DuplicateEmailError, auth_user_response
@@ -283,3 +285,45 @@ def _first(values: list[str] | None) -> str | None:
     if not values:
         return None
     return values[0]
+
+
+@router.post("/verify-email")
+def verify_email_route(
+    payload: VerifyEmailRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(auth_rate_limit("verify_email")),
+) -> dict:
+    """Consume a verification link.
+
+    Deliberately unauthenticated: the link often arrives in a mail client on a
+    device with no Triplet session, and requiring one would strand exactly the
+    people the link is for. The token is the credential.
+    """
+    try:
+        user = verify_email(db, payload.token)
+    except VerificationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    record_audit_event(db, "auth.email_verified", user_id=user.id, request=request, commit=True)
+    return {"message": "Email verified.", "email": user.email}
+
+
+@router.post("/verify-email/resend")
+def resend_verification_route(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+    _: None = Depends(auth_rate_limit("verify_email_resend")),
+) -> dict:
+    """Send another verification link to the signed-in account's own address.
+
+    Takes no email parameter on purpose. Accepting one would turn an
+    authenticated endpoint into a way to send Triplet-branded mail to any
+    address, which is the problem this whole feature exists to close.
+
+    The response never distinguishes "sent", "already verified" and "throttled".
+    All three are indistinguishable to the caller, so a session cannot be used
+    to probe account state, and the copy stays true in every case.
+    """
+    resend_verification(db, user)
+    return {"message": "If that account still needs confirming, a new link is on its way."}
