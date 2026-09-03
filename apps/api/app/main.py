@@ -7,6 +7,12 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import routes as auth_routes
+from app.alerts.email import (
+    KNOWN_EMAIL_PROVIDERS,
+    EmailProviderError,
+    build_email_provider,
+    normalized_email_provider,
+)
 from app.config import settings
 from app.observability.context import set_request_id
 from app.observability.logging import configure_logging
@@ -48,6 +54,19 @@ logger = logging.getLogger(__name__)
 
 #: RFC 7518 §3.2 — an HMAC-SHA256 key should be at least the hash length.
 MIN_APP_SECRET_BYTES = 32
+
+
+def _resolved_provider_delivers() -> bool:
+    """Whether the configured provider actually reaches a mailbox.
+
+    Built rather than string-matched, so the answer comes from the object that
+    would do the sending. A provider that cannot even be constructed — bad
+    SMTP_HOST, unknown name — delivers nothing, which is the honest answer here.
+    """
+    try:
+        return build_email_provider().delivers
+    except EmailProviderError:
+        return False
 
 
 def validate_security_settings() -> None:
@@ -113,10 +132,7 @@ def validate_security_settings() -> None:
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
-    if settings.email_provider == "smtp" and not (
-        settings.smtp_host and settings.smtp_username and settings.smtp_password
-    ):
-        errors.append("SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD are required when EMAIL_PROVIDER=smtp.")
+
 
     if errors:
         raise RuntimeError("Production configuration is invalid: " + " ".join(errors))
@@ -127,10 +143,17 @@ def validate_security_settings() -> None:
     # feature, and taking search and discovery down with it makes a partial
     # outage a total one. This was learned the hard way — the first version of
     # this check crash-looped production over an unset variable.
-    if settings.email_provider == "console":
+    #
+    # Asked of the resolved provider rather than the configured string. The
+    # string comparison this replaced could be satisfied by a typo: EMAIL_PROVIDER
+    # set to "SMTP" or "resend" is not the literal "console", so the check passed
+    # while delivery still went nowhere — including with
+    # EMAIL_REQUIRE_REAL_PROVIDER=true, the flag that exists to prevent exactly that.
+    if not _resolved_provider_delivers():
         message = (
-            "EMAIL_PROVIDER=console sends no email — watch confirmations and fare "
-            "alerts will not be delivered. Configure a real provider."
+            f"EMAIL_PROVIDER={settings.email_provider!r} delivers no email — watch "
+            "confirmations, verification links and fare alerts will not arrive. "
+            "Configure a real provider."
         )
         if settings.email_require_real_provider:
             raise RuntimeError("Production configuration is invalid: " + message)

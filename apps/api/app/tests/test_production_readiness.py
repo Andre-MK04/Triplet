@@ -253,7 +253,11 @@ def test_the_console_email_provider_warns_but_still_boots(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING):
         validate_security_settings()
 
-    assert any("sends no email" in record.getMessage() for record in caplog.records)
+    # Matched on the substance rather than the exact sentence: the wording has
+    # changed once already, and the property under test is that it warns.
+    logged = " ".join(record.getMessage() for record in caplog.records)
+    assert "no email" in logged
+    assert "console" in logged
 
 
 def test_a_deployment_may_demand_a_real_email_provider(monkeypatch):
@@ -263,7 +267,7 @@ def test_a_deployment_may_demand_a_real_email_provider(monkeypatch):
     monkeypatch.setattr(settings, "email_provider", "console")
     monkeypatch.setattr(settings, "email_require_real_provider", True)
 
-    with pytest.raises(RuntimeError, match="sends no email"):
+    with pytest.raises(RuntimeError, match="no email"):
         validate_security_settings()
 
 
