@@ -230,6 +230,17 @@ class Settings:
     alerts_public_base_url: str = os.getenv("ALERTS_PUBLIC_BASE_URL", "http://localhost:3000")
     email_provider: str = os.getenv("EMAIL_PROVIDER", "console")
     email_from: str = os.getenv("EMAIL_FROM", "alerts@triplet.local")
+    #: Where replies should go, when that is not the sending address.
+    #:
+    #: Sending from an address needs no mailbox — the domain's DKIM signature
+    #: is what authorises it. Receiving a reply does need one. This lets mail
+    #: go out as alerts@yourdomain while replies land somewhere a person
+    #: actually reads, without operating a mailbox literally called "alerts".
+    #:
+    #: Unset means replies go to EMAIL_FROM, which is only correct if that
+    #: address is monitored. People reply to fare alerts — to ask something, to
+    #: complain, and eventually to make a GDPR request.
+    email_reply_to: str = os.getenv("EMAIL_REPLY_TO", "")
     smtp_host: str | None = os.getenv("SMTP_HOST") or None
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
     smtp_username: str | None = os.getenv("SMTP_USERNAME") or None

@@ -12,6 +12,39 @@ class EmailProviderError(RuntimeError):
     pass
 
 
+def reply_to_header() -> str | None:
+    """The Reply-To address, when one is configured and usable.
+
+    Validated rather than passed through. A malformed Reply-To is worse than
+    none at all: some receivers treat a broken header as a spam signal, and
+    that cost lands on the deliverability of every message Triplet sends, not
+    just on the one reply nobody could make.
+
+    The check is deliberately shallow — one address, containing an @, with
+    something either side and no header-injection characters. Anything more
+    elaborate would reject valid addresses, which is the more common mistake.
+    """
+    value = (settings.email_reply_to or "").strip()
+    if not value:
+        return None
+
+    # A newline here would let a configuration value inject extra headers.
+    if any(ch in value for ch in "\r\n"):
+        logger.error("email_reply_to_invalid: EMAIL_REPLY_TO contains a line break; ignoring it.")
+        return None
+
+    local, _, domain = value.partition("@")
+    if not local or not domain or "." not in domain:
+        logger.error(
+            "email_reply_to_invalid: EMAIL_REPLY_TO=%r is not an address; ignoring it so replies "
+            "fall back to EMAIL_FROM.",
+            value,
+        )
+        return None
+
+    return value
+
+
 @dataclass
 class EmailProvider:
     provider_name: str
@@ -32,13 +65,29 @@ class ConsoleEmailProvider(EmailProvider):
         super().__init__(provider_name="console", delivers=False)
 
     def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
-        logger.info("console_email to=%s subject=%s\n%s", to, subject, text_body)
+        # Reports the same headers the SMTP provider would set, so what someone
+        # sees locally matches what a recipient would get. A console provider
+        # that quietly differs from the real one is a poor rehearsal.
+        reply_to = reply_to_header()
+        logger.info(
+            "console_email to=%s reply_to=%s subject=%s\n%s",
+            to,
+            reply_to or settings.email_from,
+            subject,
+            text_body,
+        )
         # Through the logger rather than print, so the same redaction every
         # other line gets applies here too. The body of a Triplet email
         # routinely contains a single-use token, and print() bypasses all of it.
         logger.info(
             "console_email_sent",
-            extra={"event": "email.console", "to": to, "subject": subject, "body": text_body},
+            extra={
+                "event": "email.console",
+                "to": to,
+                "replyTo": reply_to,
+                "subject": subject,
+                "body": text_body,
+            },
         )
 
 
@@ -64,6 +113,9 @@ class SMTPEmailProvider(EmailProvider):
         message["From"] = settings.email_from
         message["To"] = to
         message["Subject"] = subject
+        reply_to = reply_to_header()
+        if reply_to:
+            message["Reply-To"] = reply_to
         message.set_content(text_body)
         message.add_alternative(html_body, subtype="html")
 

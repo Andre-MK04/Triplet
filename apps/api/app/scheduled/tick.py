@@ -16,7 +16,9 @@ import os
 import time
 from datetime import datetime
 
+from app.alerts.email import build_email_provider
 from app.alerts.runner import run_due_alerts
+from app.config import settings
 from app.observability import events
 from app.deals.featured import refresh_featured_deals
 from app.deals.refresher import refresh_deals
@@ -26,6 +28,45 @@ logger = logging.getLogger(__name__)
 
 # Hour (UTC) at which the once-a-day retention cleanup runs on an hourly cron.
 RETENTION_HOUR = int(os.getenv("RETENTION_HOUR_UTC", "3"))
+
+
+def _alerts_would_be_delivered(summary: dict) -> bool:
+    """Whether it is worth running the alert pass at all.
+
+    This runs in the cron service, which never starts FastAPI — so the
+    production configuration guard in `app.main` has never protected it. The
+    consequence was specific and bad: with a provider that delivers nothing,
+    the alert runner claims each watch's notification slot *before* sending and
+    marks it notified afterwards regardless. Every due watch would advance its
+    cooldown for an email nobody received, and that deal would never be re-sent
+    once the configuration was fixed. Silent, permanent, and invisible in the
+    watch history, which would say the alert went out.
+
+    A deployment that has declared it wants real email gets the pass skipped,
+    so nothing is spent. Anywhere else it still runs — local work with the
+    console provider is how the alert path gets exercised at all — but says
+    plainly what it is about to cost.
+    """
+    provider_delivers = build_email_provider().delivers
+    if provider_delivers:
+        return True
+
+    if settings.email_require_real_provider:
+        message = (
+            "alerts skipped: EMAIL_REQUIRE_REAL_PROVIDER is set but the configured provider "
+            "delivers no email. Running the pass would burn every due watch's cooldown on "
+            "messages nobody receives."
+        )
+        logger.error("tick_alerts_skipped_no_delivery: %s", message)
+        summary["errors"].append(f"alerts: {message}")
+        return False
+
+    logger.warning(
+        "tick_alerts_no_delivery: the configured email provider delivers nothing, so this pass "
+        "will advance each notified watch's cooldown without anyone receiving mail. Set "
+        "EMAIL_REQUIRE_REAL_PROVIDER=true on this service to skip the pass instead."
+    )
+    return True
 
 
 def run_tick(now: datetime | None = None) -> dict:
@@ -52,11 +93,12 @@ def run_tick(now: datetime | None = None) -> dict:
         logger.exception("tick_featured_deals_failed")
         summary["errors"].append(f"featured: {exc}")
 
-    try:
-        summary["alertsRun"] = len(run_due_alerts())
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("tick_alerts_failed")
-        summary["errors"].append(f"alerts: {exc}")
+    if _alerts_would_be_delivered(summary):
+        try:
+            summary["alertsRun"] = len(run_due_alerts())
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("tick_alerts_failed")
+            summary["errors"].append(f"alerts: {exc}")
 
     if now.hour == RETENTION_HOUR:
         try:
