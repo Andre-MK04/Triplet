@@ -168,7 +168,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
       <div className="pointer-events-none relative hidden items-center justify-center opacity-50 lg:flex" aria-hidden>
         <div className="aspect-square w-[min(42vw,560px)] max-w-full">
-          {showGlobe ? <RouteGlobe interactive={false} /> : null}
+          {showGlobe ? <RouteGlobe interactive={false} cameraDistance={6.25} /> : null}
         </div>
       </div>
     </div>
