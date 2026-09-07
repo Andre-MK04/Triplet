@@ -49,6 +49,8 @@ class FlightSearchService:
         self.deals_cache_used = False
         self.deals_provider_attempted = False
         self.deals_provider_succeeded = False
+        self.deals_provider_warnings: list[str] = []
+        self.deals_requests_attempted = 0
         self._scope: DestinationScope | None = None
 
     def search_candidate_flights(self, request: TripSearchRequest) -> list[Flight]:
@@ -207,7 +209,8 @@ class FlightSearchService:
                 return {}
             try:
                 provider = build_live_provider(self.db)
-            except (UnknownFlightProviderError, ProviderError):
+            except (UnknownFlightProviderError, ProviderError) as exc:
+                self.deals_provider_warnings.append(str(exc))
                 return {}
 
         lookup = getattr(provider, "one_way_legs", None)
@@ -222,8 +225,11 @@ class FlightSearchService:
         )
         try:
             fares = lookup(legs, window)
-        except ProviderError:
+        except ProviderError as exc:
+            self.deals_provider_warnings.append(str(exc))
             return {}
+        self.deals_requests_attempted = provider.requests_attempted
+        self.deals_provider_warnings.extend(provider.warnings)
         self.deals_provider_succeeded = any(fares.values())
         return fares
 
@@ -293,9 +299,16 @@ class FlightSearchService:
         metadata.cachedResultsUsed = metadata.cachedResultsUsed or self.deals_cache_used
         metadata.liveProviderAttempted = metadata.liveProviderAttempted or self.deals_provider_attempted
         metadata.liveProviderSucceeded = metadata.liveProviderSucceeded or self.deals_provider_succeeded
-        if self.provider.name == "travelpayouts":
-            metadata.providerWarnings = list(dict.fromkeys([*metadata.providerWarnings, *self.provider.warnings]))
-            metadata.requestsAttempted = self.provider.requests_attempted or metadata.requestsAttempted
+        metadata.providerWarnings = list(
+            dict.fromkeys(
+                [*metadata.providerWarnings, *self.provider.warnings, *self.deals_provider_warnings]
+            )
+        )
+        metadata.requestsAttempted = (
+            self.deals_requests_attempted
+            or self.provider.requests_attempted
+            or metadata.requestsAttempted
+        )
         return metadata
 
     def _build_provider(self, db: Session | None) -> FlightProvider:
@@ -359,6 +372,12 @@ class FlightSearchService:
         return FlightSearchResult(flights=merged, metadata=metadata)
 
     def _search_with_provider(self, provider: FlightProvider, request: TripSearchRequest) -> list[Flight]:
+        # Chained trips are priced from their ordered one-way legs below. A broad
+        # outbound/return search here cannot build that chain, wastes provider
+        # calls, and used to produce a misleading "provider unavailable" warning
+        # even when the later leg lookups succeeded.
+        if request.tripPlan != "return":
+            return []
         return_window_end = request.endDate + timedelta(days=request.maxTripLengthDays)
         if (
             provider.name == "travelpayouts"

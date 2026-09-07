@@ -17,7 +17,8 @@ from app.services.itinerary_builder import (
     flight_legs,
     plan_route,
 )
-from app.tools.travel_tools import _resolve_country_route_stops
+from app.services.trip_scoring import ScoringContext
+from app.tools.travel_tools import _resolve_country_route_stops, build_chained_trips
 
 
 def request(**overrides) -> TripSearchRequest:
@@ -271,6 +272,64 @@ def test_country_sequence_resolves_to_fare_backed_cities_in_requested_order():
 
 def test_country_sequence_is_not_sent_to_provider_when_one_country_has_no_city():
     assert _resolve_country_route_stops(["JP", "KR", "CN"], ["TYO", "BJS"]) is None
+
+
+def test_country_chain_tries_an_alternative_city_and_returns_the_nearest_real_duration():
+    """Regression: CPH→Tokyo→Seoul→Guangzhou had no Guangzhou→CPH fare.
+
+    Shanghai completed the same three-country request, but only as a 43–44-night
+    itinerary. The search should return that real, clearly relaxed option rather
+    than treating Guangzhou as the only possible Chinese city and returning none.
+    """
+
+    class FareSearch:
+        def discover_round_trip_fares(self, _request):
+            from app.providers.travelpayouts.mapper import RoundTripFare
+
+            return [
+                RoundTripFare(origin="CPH", destination=code, price=price)
+                for code, price in [("TYO", 390), ("SEL", 410), ("CAN", 430), ("SHA", 450)]
+            ]
+
+        def one_way_fares_for(self, _request, legs):
+            available = {
+                ("CPH", "TYO"): [
+                    OneWayFare(origin="CPH", destination="TYO", departureDate="2026-09-14", price=421),
+                    OneWayFare(origin="CPH", destination="TYO", departureDate="2026-09-15", price=427),
+                ],
+                ("TYO", "SEL"): [
+                    OneWayFare(origin="TYO", destination="SEL", departureDate="2026-09-20", price=70),
+                    OneWayFare(origin="TYO", destination="SEL", departureDate="2026-09-21", price=72),
+                ],
+                ("SEL", "CAN"): [OneWayFare(origin="SEL", destination="CAN", departureDate="2026-09-24", price=97)],
+                ("SEL", "SHA"): [
+                    OneWayFare(origin="SEL", destination="SHA", departureDate="2026-10-07", price=103),
+                ],
+                ("SHA", "CPH"): [OneWayFare(origin="SHA", destination="CPH", departureDate="2026-10-28", price=338)],
+            }
+            return {leg: available.get(leg, []) for leg in legs}
+
+        def resolve_scope(self, _request):
+            return type("Scope", (), {"label": "Japan, South Korea, China"})()
+
+    ask = request(
+        originAirports=["CPH"],
+        startDate=date(2026, 9, 1),
+        endDate=date(2026, 12, 29),
+        minTripLengthDays=14,
+        maxTripLengthDays=21,
+        maxBudget=1500,
+        routeStops=["JP", "KR", "CN"],
+        destinationCountries=["JP", "KR", "CN"],
+    )
+
+    trips, note = build_chained_trips(ask, FareSearch(), ScoringContext())
+
+    assert len(trips) >= 2
+    assert all([stay.code for stay in trip.stays] == ["TYO", "SEL", "SHA"] for trip in trips)
+    assert {trip.nights for trip in trips} == {43, 44}
+    assert all("Different trip length" in trip.tags for trip in trips)
+    assert note and "14–21" in note and "closest" in note.lower()
 
 
 def test_explicit_stops_are_never_overridden_by_a_proposal():

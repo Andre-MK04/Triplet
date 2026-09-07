@@ -60,6 +60,14 @@ RELAXED_RESULT_LIMIT = 8
 # first few origins are planned; each adds a whole route's worth of lookups.
 MAX_CHAINED_ORIGINS = 3
 MAX_CHAINED_RESULTS = 12
+# Country names are not routes. Keep a small beam of fare-backed city choices
+# so one unpriceable city (for example Guangzhou with no observed flight home)
+# cannot make the whole country request look impossible.
+MAX_COUNTRY_ROUTE_CANDIDATES = 2
+# A multi-city chain is much more likely to be date-sparse than a return fare.
+# If the requested duration has no complete chain, reuse the same observed legs
+# to offer the nearest honest itinerary rather than inventing missing fares.
+RELAXED_CHAIN_MAX_DAYS = 60
 
 
 class UnsupportedFlightPlaceError(ValueError):
@@ -115,6 +123,7 @@ def build_chained_trips(
 
     note: str | None = None
     all_trips: list = []
+    relaxed_trips: list = []
     for origin in request.originAirports[:MAX_CHAINED_ORIGINS]:
         candidates, discovered = _routes_for_origin(request, flight_search, origin)
         if not candidates:
@@ -127,10 +136,13 @@ def build_chained_trips(
         if request.routeStops is None:
             note = note or _proposal_note(request, candidates)
         elif candidates and list(request.routeStops) != candidates[0]:
-            route = " → ".join(place_city(code) or code for code in candidates[0])
+            route_options = "; ".join(
+                " → ".join(place_city(code) or code for code in route)
+                for route in candidates
+            )
             note = note or (
-                f"You named countries rather than cities, so {settings.app_name} used {route}, "
-                "choosing cities with fare observations in each country."
+                f"You named countries rather than cities, so {settings.app_name} tested "
+                f"fare-backed city combinations in each country: {route_options}."
             )
 
         legs_by_route = {}
@@ -153,12 +165,45 @@ def build_chained_trips(
         if not fares:
             continue
         for legs in legs_by_route.values():
-            for trip in build_itineraries(request, origin, legs, fares):
+            exact = build_itineraries(request, origin, legs, fares)
+            for trip in exact:
                 _finish_itinerary(trip, request, scoring)
                 all_trips.append(trip)
 
-    all_trips = _rescore(all_trips, request, scoring)
-    return all_trips[:MAX_CHAINED_RESULTS], (note if all_trips else note)
+            if exact:
+                continue
+            relaxed_request = request.model_copy(
+                update={
+                    "minTripLengthDays": 1,
+                    "maxTripLengthDays": max(request.maxTripLengthDays, RELAXED_CHAIN_MAX_DAYS),
+                }
+            )
+            for trip in build_itineraries(relaxed_request, origin, legs, fares):
+                _finish_itinerary(trip, request, scoring)
+                trip.tags.insert(0, "Different trip length")
+                trip.warnings.insert(
+                    0,
+                    f"You asked for {request.minTripLengthDays}–{request.maxTripLengthDays} days; "
+                    f"this closest fare-backed itinerary is {trip.nights} days.",
+                )
+                relaxed_trips.append(trip)
+
+    selected = all_trips or relaxed_trips
+    selected = _rescore(selected, request, scoring)
+    if not all_trips and selected:
+        found_lengths = sorted({trip.nights for trip in selected})
+        length_label = (
+            str(found_lengths[0])
+            if len(found_lengths) == 1
+            else f"{found_lengths[0]}–{found_lengths[-1]}"
+        )
+        relaxed_note = (
+            f"No complete {request.minTripLengthDays}–{request.maxTripLengthDays} day chain was observed. "
+            f"These are the closest fare-backed multi-city options at {length_label} days; "
+            "their actual dates and durations are shown."
+        )
+        note = f"{note} {relaxed_note}" if note else relaxed_note
+    return selected[:MAX_CHAINED_RESULTS], note
 
 
 def _routes_for_origin(
@@ -182,8 +227,8 @@ def _routes_for_origin(
         if all(get_place(code) is not None for code in request.routeStops):
             return [list(request.routeStops)], None
         reachable = _reachable_cities(request, flight_search, origin)
-        resolved = _resolve_country_route_stops(request.routeStops, reachable)
-        return ([resolved], reachable) if resolved else ([], [])
+        resolved = _resolve_country_route_candidates(request.routeStops, reachable)
+        return (resolved, reachable) if resolved else ([], [])
     if request.tripPlan == "open_jaw" and request.destinationAirports and request.returnOriginAirports:
         return [[request.destinationAirports[0], request.returnOriginAirports[0]]], None
 
@@ -194,7 +239,23 @@ def _routes_for_origin(
 
 
 def _resolve_country_route_stops(stops: list[str], reachable: list[str]) -> list[str] | None:
-    """Resolve ordered country placeholders to real fare-backed city codes."""
+    """Resolve ordered country placeholders to the best fare-backed city route."""
+    routes = _resolve_country_route_candidates(stops, reachable, limit=1)
+    return routes[0] if routes else None
+
+
+def _resolve_country_route_candidates(
+    stops: list[str],
+    reachable: list[str],
+    limit: int = MAX_COUNTRY_ROUTE_CANDIDATES,
+) -> list[list[str]]:
+    """Resolve country placeholders to a small set of real city combinations.
+
+    ``reachable`` is cheapest-first. A bounded beam preserves that ranking while
+    retaining an alternative city in a country; downstream fare lookup then
+    proves which complete chain is actually priceable. Concrete cities remain
+    concrete and are never silently replaced.
+    """
     available: list[str] = []
     for code in reachable:
         place = get_place(code)
@@ -204,30 +265,33 @@ def _resolve_country_route_stops(stops: list[str], reachable: list[str]) -> list
         if city_code not in available:
             available.append(city_code)
 
-    resolved: list[str] = []
+    routes: list[list[str]] = [[]]
     for raw in stops:
         code = canonical_code(raw)
         place = get_place(code)
         if place:
-            selected = canonical_code(place.city_code or place.code)
+            options = [canonical_code(place.city_code or place.code)]
         elif country := get_country(code):
-            selected = next(
-                (
-                    candidate
-                    for candidate in available
-                    if (candidate_place := get_place(candidate)) is not None
-                    and candidate_place.country_code == country.code
-                    and candidate not in resolved
-                ),
-                None,
-            )
-            if selected is None:
-                return None
+            options = [
+                candidate
+                for candidate in available
+                if (candidate_place := get_place(candidate)) is not None
+                and candidate_place.country_code == country.code
+            ]
+            if not options:
+                return []
         else:
-            return None
-        if selected not in resolved:
-            resolved.append(selected)
-    return resolved if len(resolved) >= 2 else None
+            return []
+
+        expanded: list[list[str]] = []
+        for route in routes:
+            for selected in options:
+                if selected not in route:
+                    expanded.append([*route, selected])
+        routes = expanded[: max(1, limit)]
+        if not routes:
+            return []
+    return [route for route in routes if len(route) >= 2]
 
 
 def _reachable_cities(
