@@ -113,6 +113,11 @@ export function canAddOrigin(limit: OriginLimit, selectedCount: number): boolean
   return selectedCount < limit.max;
 }
 
+/** A picker can advance only with a non-empty selection within its ceiling. */
+export function originSelectionValid(limit: OriginLimit, selectedCount: number): boolean {
+  return selectedCount > 0 && (!limit.known || selectedCount <= limit.max);
+}
+
 /** Plain wording for why nothing more can be added, or null when it can. */
 export function originLimitMessage(
   limit: OriginLimit,

@@ -86,6 +86,14 @@ def test_signup_issues_a_verification_token(client, db_session):
     assert row.expires_at > datetime.utcnow()
 
 
+def test_console_provider_never_claims_a_verification_email_was_sent(client, db_session):
+    """The no-delivery provider used to return a false success."""
+    signup(client)
+    user = user_by_email(db_session)
+
+    assert send_verification_email(db_session, user) is False
+
+
 def test_verification_email_uses_farelin_brand_and_domain(client, monkeypatch):
     sent = []
     import app.auth.verification as verification
@@ -137,6 +145,9 @@ def test_an_unverified_account_cannot_vouch_for_its_own_address(client, db_sessi
     watch = db_session.get(SavedSearchDB, response.json()["id"])
     assert watch.email_verified_at is None, "unverified account was treated as proof of ownership"
     assert watch.verification_token_hash is not None, "no confirmation was demanded"
+    assert response.json()["emailVerificationRequired"] is True
+    assert response.json()["verificationEmailAccepted"] is False
+    assert response.json()["verificationResendPath"].startswith(f"/alerts/{watch.id}/resend-verification?token=")
 
 
 def test_a_verified_account_watching_its_own_address_needs_no_second_confirmation(
@@ -153,6 +164,9 @@ def test_a_verified_account_watching_its_own_address_needs_no_second_confirmatio
     watch = db_session.get(SavedSearchDB, response.json()["id"])
     assert watch.email_verified_at is not None
     assert watch.verification_token_hash is None
+    assert response.json()["emailVerificationRequired"] is False
+    assert response.json()["verificationEmailAccepted"] is None
+    assert response.json()["verificationResendPath"] is None
 
 
 def test_a_verified_account_still_cannot_vouch_for_someone_elses_address(client, db_session):
@@ -167,6 +181,36 @@ def test_a_verified_account_still_cannot_vouch_for_someone_elses_address(client,
     watch = db_session.get(SavedSearchDB, response.json()["id"])
     assert watch.email_verified_at is None
     assert watch.verification_token_hash is not None
+
+
+def test_alternate_watch_address_reports_when_smtp_accepts_confirmation(
+    client, db_session, monkeypatch
+):
+    import app.alerts.service as alerts_service
+
+    class Delivering:
+        provider_name = "test-smtp"
+        delivers = True
+
+        def send_email(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(alerts_service, "build_email_provider", lambda: Delivering())
+    signup(client)
+    user = user_by_email(db_session)
+    user.is_verified = True
+    db_session.commit()
+
+    response = client.post(
+        "/alerts",
+        json=alert_payload(email="alternate@example.com", frequency="weekly"),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["emailVerificationRequired"] is True
+    assert response.json()["verificationEmailAccepted"] is True
+    watch = db_session.get(SavedSearchDB, response.json()["id"])
+    assert watch.verification_sent_at is not None
 
 
 # --- Consuming the token ------------------------------------------------------
@@ -248,7 +292,7 @@ def test_every_failure_reads_the_same(client, db_session):
 
 # --- Resend -------------------------------------------------------------------
 
-def test_resending_supersedes_the_previous_link(client, db_session):
+def test_resending_supersedes_the_previous_link(client, db_session, monkeypatch):
     signup(client)
     user = user_by_email(db_session)
     first = send_and_capture(db_session, user)
@@ -259,6 +303,16 @@ def test_resending_supersedes_the_previous_link(client, db_session):
     ):
         row.created_at = stale
     db_session.commit()
+
+    import app.auth.verification as verification
+
+    class Delivering:
+        delivers = True
+
+        def send_email(self, *args, **kwargs):
+            return None
+
+    monkeypatch.setattr(verification, "build_email_provider", lambda: Delivering())
 
     assert resend_verification(db_session, user) is True
     with pytest.raises(VerificationError):
@@ -290,6 +344,7 @@ def test_the_resend_endpoint_never_says_whether_it_sent(client, db_session):
 
     assert first.status_code == second.status_code == 200
     assert first.json() == second.json()
+    assert first.json()["deliveryConfigured"] is False
 
 
 # --- Failure handling ---------------------------------------------------------

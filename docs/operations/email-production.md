@@ -11,6 +11,11 @@ service; it is not a separate `EMAIL_PROVIDER` implementation.
 4. Add a DMARC record using a monitoring policy such as `p=none` initially.
 5. Review reports before tightening the DMARC policy.
 
+Resend's shared `resend.dev` test sender is restricted to the Resend account
+owner's address. It cannot prove alternate-email verification works. Sending a
+confirmation to any other address requires the verified `farelin.com` domain
+and an `EMAIL_FROM` address on that domain.
+
 Do not copy record values from this repository: selectors and verification
 values are account-specific. Resend's dashboard is the source of truth.
 
@@ -62,5 +67,11 @@ marks the scheduled tick as failed so the deployment can alert on it.
 6. Create and confirm a Watch.
 7. Run or await a real eligible Watch alert.
 8. Reply to a message and confirm it reaches `hello@farelin.com`.
+
+When testing an alternate address, the save response now distinguishes a watch
+that needs confirmation from a confirmation message accepted by SMTP. “Accepted”
+means the mail server took responsibility for it; inbox placement can still be
+affected by DNS, bounces, spam filtering, or the recipient mailbox. Check the
+Resend delivery log for the final delivery/bounce state.
 
 Automated tests use an in-process fake SMTP object and never send external mail.

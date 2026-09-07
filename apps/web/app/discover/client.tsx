@@ -980,6 +980,18 @@ export function DiscoverClient() {
                             </>
                           ) : null}
                         </Notice>
+                        {watch.saved?.verificationResendPath ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="mt-3"
+                            disabled={watch.isSaving}
+                            onClick={() => void watch.resendVerification()}
+                          >
+                            {watch.isSaving ? "Sending…" : "Resend confirmation"}
+                          </Button>
+                        ) : null}
                       </div>
                     ) : null}
                   </motion.form>

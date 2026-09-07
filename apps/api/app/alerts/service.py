@@ -92,7 +92,10 @@ class SavedSearchService:
             unsubscribe_token_hash=hash_token(unsubscribe_token),
             email_verified_at=now if email_is_proven else None,
             verification_token_hash=hash_token(verification_token) if verification_token else None,
-            verification_sent_at=None if email_is_proven else now,
+            # Set only after a delivering provider accepts the message. The old
+            # code stamped this before attempting SMTP, so a failed or console
+            # send looked exactly like a successful confirmation email.
+            verification_sent_at=None,
             verification_expires_at=None
             if email_is_proven
             else now + timedelta(hours=settings.watch_verification_ttl_hours),
@@ -135,7 +138,7 @@ class SavedSearchService:
                 "Please confirm one of those first, or try again later."
             )
 
-    def _send_verification_email(self, row: SavedSearchDB, verification_token: str) -> None:
+    def _send_verification_email(self, row: SavedSearchDB, verification_token: str) -> bool:
         """Ask the address to confirm it wants this watch.
 
         A send failure must not lose the watch — the row is already committed
@@ -156,10 +159,23 @@ class SavedSearchService:
             "If it wasn't you, ignore this email — nothing was set up and we won't email you again.</p>"
         )
         try:
-            build_email_provider().send_email(row.email, subject, html_body, text_body)
-        except (EmailProviderError, smtplib.SMTPException, OSError):
+            provider = build_email_provider()
+            if not getattr(provider, "delivers", True):
+                logger.error(
+                    "watch_verification_email_not_delivered saved_search_id=%s provider=%s",
+                    row.id,
+                    provider.provider_name,
+                )
+                return False
+            provider.send_email(row.email, subject, html_body, text_body)
+            row.verification_sent_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(row)
+            return True
+        except Exception:  # noqa: BLE001 - preserve the watch and report a failed acceptance
             # Never log the token or the link: both are the credential itself.
             logger.exception("watch_verification_email_failed saved_search_id=%s", row.id)
+            return False
 
     def verify_saved_search(self, token: str) -> SavedSearchResponse:
         """Activate a watch from its emailed confirmation link.
@@ -188,19 +204,19 @@ class SavedSearchService:
         events.watch_verified()
         return self._to_response(row)
 
-    def resend_verification(self, saved_search_id: str, token: str) -> None:
+    def resend_verification(self, saved_search_id: str, token: str) -> bool:
         """Send a fresh confirmation link, invalidating the previous one."""
         row = self._get_authorized(saved_search_id, token)
         if row.email_verified_at is not None:
-            return  # Already confirmed; nothing to send and nothing to reveal.
+            return False  # Already confirmed; nothing to send and nothing to reveal.
         verification_token = generate_token()
         now = datetime.utcnow()
         row.verification_token_hash = hash_token(verification_token)
-        row.verification_sent_at = now
+        row.verification_sent_at = None
         row.verification_expires_at = now + timedelta(hours=settings.watch_verification_ttl_hours)
         self.db.commit()
         self.db.refresh(row)
-        self._send_verification_email(row, verification_token)
+        return self._send_verification_email(row, verification_token)
 
     def purge_stale_unverified(self) -> int:
         """Delete watches whose address was never confirmed.
@@ -737,4 +753,13 @@ def saved_search_to_response(
         lastBestTripId=row.last_best_trip_id,
         manageUrl=f"{base_url}/alerts/{row.id}?token={manage_token}" if manage_token else None,
         unsubscribeUrl=f"{base_url}/alerts/{row.id}/unsubscribe?token={unsubscribe_token}" if unsubscribe_token else None,
+        emailVerificationRequired=row.email_verified_at is None,
+        verificationEmailAccepted=(
+            None if row.email_verified_at is not None else row.verification_sent_at is not None
+        ),
+        verificationResendPath=(
+            f"/alerts/{row.id}/resend-verification?token={manage_token}"
+            if manage_token and row.email_verified_at is None
+            else None
+        ),
     )

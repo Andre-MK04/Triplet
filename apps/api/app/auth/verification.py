@@ -87,7 +87,14 @@ def send_verification_email(db: Session, user: UserDB, *, commit: bool = True) -
 
     link = f"{settings.frontend_url.rstrip('/')}/verify-email?token={raw}"
     try:
-        build_email_provider().send_email(
+        provider = build_email_provider()
+        if not getattr(provider, "delivers", True):
+            logger.error(
+                "verification_email_not_delivered provider=%s",
+                provider.provider_name,
+            )
+            return False
+        provider.send_email(
             user.email,
             f"Verify your {settings.app_name} email",
             (

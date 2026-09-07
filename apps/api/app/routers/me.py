@@ -131,7 +131,13 @@ def upsert_travel_profile(
     row.recommended_origin_airports = list(request.recommendedOriginAirports)
     row.deal_sensitivity = request.dealSensitivity
     row.absolute_max_budget = request.absoluteMaxBudget
-    row.alert_trigger_mode = request.alertTriggerMode
+    # The notification choice must affect actual alert decisions, not merely
+    # decorate the profile. "Urgent only" maps to the existing deterministic
+    # route-deal trigger; other choices keep the explicit trigger supplied by
+    # newer clients (normally "any").
+    row.alert_trigger_mode = (
+        "route_deal" if request.notificationFrequency == "urgent_only" else request.alertTriggerMode
+    )
     row.comfort_rule_modes = dict(request.comfortRuleModes)
     row.theme_preference = request.themePreference
     if row.onboarding_completed_at is None:

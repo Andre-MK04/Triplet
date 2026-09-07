@@ -124,6 +124,11 @@ class SavedSearchResponse(BaseModel):
     lastBestTripId: str | None = None
     manageUrl: str | None = None
     unsubscribeUrl: str | None = None
+    emailVerificationRequired: bool = False
+    # SMTP acceptance is not the same as inbox delivery. None means no
+    # confirmation was required (the account address was already proven).
+    verificationEmailAccepted: bool | None = None
+    verificationResendPath: str | None = None
 
 
 class AlertPreviewResponse(BaseModel):

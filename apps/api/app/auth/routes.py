@@ -30,6 +30,7 @@ from app.auth.schemas import (
     VerifyEmailRequest,
 )
 from app.auth.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
+from app.alerts.email import build_email_provider
 from app.auth.service import AuthError, AuthService, DuplicateEmailError, auth_user_response
 from app.config import settings
 from app.database import get_db
@@ -321,9 +322,17 @@ def resend_verification_route(
     authenticated endpoint into a way to send Triplet-branded mail to any
     address, which is the problem this whole feature exists to close.
 
-    The response never distinguishes "sent", "already verified" and "throttled".
-    All three are indistinguishable to the caller, so a session cannot be used
-    to probe account state, and the copy stays true in every case.
+    The caller is already signed in and receives its verification state from
+    /auth/me, so returning whether this delivery attempt was accepted reveals
+    no additional account data. It does prevent the UI from claiming a message
+    is on its way when SMTP is disabled or rejected it.
     """
-    resend_verification(db, user)
-    return {"message": "If that account still needs confirming, a new link is on its way."}
+    delivery_accepted = resend_verification(db, user)
+    delivery_configured = build_email_provider().delivers
+    return {
+        "message": "If that account still needs confirming, a new link is on its way.",
+        # This reveals deployment readiness, not whether an address exists or
+        # is verified. The caller is already signed in and knows both anyway.
+        "deliveryConfigured": delivery_configured,
+        "deliveryAccepted": delivery_accepted,
+    }

@@ -117,9 +117,10 @@ def resend_alert_verification(
     check_rate_limit(RateLimitCategory.ALERTS, http_request)
 
     def run() -> dict[str, bool]:
-        SavedSearchService(db).resend_verification(saved_search_id, token)
-        # Always the same answer, whether or not it was already verified.
-        return {"ok": True}
+        accepted = SavedSearchService(db).resend_verification(saved_search_id, token)
+        # The manage token authorizes this exact watch, so it is safe and useful
+        # to report whether SMTP accepted the new confirmation message.
+        return {"ok": True, "deliveryAccepted": accepted}
 
     return _handle_alert_errors(run)
 

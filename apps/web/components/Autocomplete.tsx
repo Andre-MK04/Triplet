@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { apiGet } from "../lib/api";
+import { shouldSearchAutocomplete } from "../lib/autocomplete";
 
 type AutocompleteProps<T> = {
   /** Builds the request path from the (already-encoded) query. */
@@ -13,6 +14,8 @@ type AutocompleteProps<T> = {
   renderOption: (item: T) => React.ReactNode;
   optionKey: (item: T) => string;
   onSelect: (item: T) => void;
+  /** Called as the traveller edits after a committed selection. */
+  onQueryChange?: (query: string) => void;
   /** Text shown in the input after a selection (controlled by the parent). */
   value?: string;
 };
@@ -29,6 +32,7 @@ export function Autocomplete<T>({
   renderOption,
   optionKey,
   onSelect,
+  onQueryChange,
   value,
 }: AutocompleteProps<T>) {
   const [query, setQuery] = useState(value ?? "");
@@ -37,20 +41,31 @@ export function Autocomplete<T>({
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [highlight, setHighlight] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
+  const committedValue = useRef(value ?? "");
 
   useEffect(() => {
-    if (value !== undefined) setQuery(value);
+    if (value === undefined) return;
+    committedValue.current = value;
+    setQuery(value);
+    setResults([]);
+    setStatus("idle");
+    setOpen(false);
   }, [value]);
 
   useEffect(() => {
     const term = query.trim();
-    if (term.length < minChars) {
+    // A selected label is display state, not a new search. Previously choosing
+    // "Copenhagen, Denmark" immediately queried that full label, opened the
+    // menu again, and contradicted the successful selection with "No matches".
+    if (!shouldSearchAutocomplete(query, committedValue.current, minChars, value !== undefined)) {
       setResults([]);
       setStatus("idle");
+      setOpen(false);
       return;
     }
     let cancelled = false;
     setStatus("loading");
+    setOpen(true);
     const timer = setTimeout(() => {
       apiGet<T[]>(endpoint(encodeURIComponent(term)))
         .then((data) => {
@@ -64,6 +79,7 @@ export function Autocomplete<T>({
           if (cancelled) return;
           setStatus("error");
           setResults([]);
+          setOpen(true);
         });
     }, 220);
     return () => {
@@ -82,7 +98,7 @@ export function Autocomplete<T>({
 
   function choose(item: T) {
     onSelect(item);
-    if (value !== undefined) setQuery(value);
+    setResults([]);
     setOpen(false);
   }
 
@@ -107,7 +123,11 @@ export function Autocomplete<T>({
     <div ref={boxRef} className="relative">
       <input
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => {
+          const next = event.target.value;
+          setQuery(next);
+          onQueryChange?.(next);
+        }}
         onFocus={() => results.length && setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}

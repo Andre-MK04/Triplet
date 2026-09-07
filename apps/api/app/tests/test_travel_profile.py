@@ -157,3 +157,18 @@ def test_push_cannot_be_stored_as_an_active_preference(db_session):
     app.dependency_overrides.clear()
 
     assert response.json()["notificationFrequency"] != "push_later"
+
+
+def test_urgent_only_profile_uses_the_route_deal_alert_trigger(db_session):
+    client = make_client(db_session)
+    signup(client)
+
+    response = client.put(
+        "/me/travel-profile",
+        json=profile_payload(notificationFrequency="urgent_only", alertTriggerMode="any"),
+    )
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200, response.text
+    assert response.json()["notificationFrequency"] == "urgent_only"
+    assert response.json()["alertTriggerMode"] == "route_deal"

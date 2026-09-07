@@ -11,6 +11,7 @@ import { useResolvedTheme } from "./useResolvedTheme";
 import { useCountryFeatures } from "../lib/worldTopology";
 import type { PolygonCoordinates } from "../lib/worldTopology";
 import { BRAND } from "../lib/brand";
+import { globeControlsEnabled } from "../lib/globeMotion";
 
 
 function usePrefersReducedMotion(): boolean {
@@ -345,7 +346,11 @@ export default function RouteGlobe({
       <OrbitControls
         enableZoom={false}
         enablePan={false}
-        enabled={interactive}
+        // OrbitControls owns auto-rotation as well as pointer interaction. A
+        // disabled controller cannot rotate, which left decorative auth globes
+        // frozen because they intentionally pass interactive={false}.
+        enabled={globeControlsEnabled(interactive, shouldAnimate)}
+        enableRotate={interactive}
         autoRotate={shouldAnimate}
         autoRotateSpeed={0.3}
         rotateSpeed={0.6}

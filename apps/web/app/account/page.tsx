@@ -111,13 +111,25 @@ export default function AccountPage() {
 
   async function resendVerification() {
     try {
-      await apiPost("/auth/verify-email/resend");
+      const result = await apiPost<{ deliveryConfigured: boolean; deliveryAccepted: boolean }>("/auth/verify-email/resend");
+      if (!result.deliveryConfigured) {
+        setStatus({
+          tone: "error",
+          text: "Farelin's email service is not configured to deliver yet. Your account is safe, but no confirmation message was sent.",
+        });
+        return;
+      }
+      if (!result.deliveryAccepted) {
+        setStatus({
+          tone: "error",
+          text: "No new confirmation message was accepted. If you just signed up, wait a minute and check spam before trying again.",
+        });
+        return;
+      }
+      setVerificationSent(true);
     } catch {
-      // The endpoint deliberately answers identically whether it sent, was
-      // throttled, or found nothing to do. A network error should not
-      // contradict that by telling a different story.
+      setStatus({ tone: "error", text: "Could not request a confirmation email. Please try again." });
     }
-    setVerificationSent(true);
   }
 
   const sectionLabel = "mb-5 block font-mono text-[11px] font-semibold uppercase tracking-label text-mist";

@@ -275,6 +275,10 @@ export type SavedSearch = {
   lastBestPrice?: number | null;
   manageUrl?: string | null;
   unsubscribeUrl?: string | null;
+  emailVerificationRequired?: boolean;
+  /** SMTP accepted the confirmation message; mailbox delivery can still fail. */
+  verificationEmailAccepted?: boolean | null;
+  verificationResendPath?: string | null;
 };
 
 export type TripType =

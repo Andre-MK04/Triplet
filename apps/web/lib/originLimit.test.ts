@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canAddOrigin, originLimitMessage, type OriginLimit } from "./originLimit";
+import { canAddOrigin, originLimitMessage, originSelectionValid, type OriginLimit } from "./originLimit";
 
 const free: OriginLimit = { max: 3, known: true, planName: "Free", canRaise: true };
 const anon: OriginLimit = { max: 6, known: true, planName: null, canRaise: true };
@@ -59,6 +59,11 @@ describe("capping origin selection to what the plan allows", () => {
     // canAddOrigin governs adding only; the picker always permits deselection,
     // which is the only way back under the limit.
     expect(canAddOrigin(free, 8)).toBe(false);
+  });
+
+  it("does not let onboarding continue with four airports on Free", () => {
+    expect(originSelectionValid(free, 3)).toBe(true);
+    expect(originSelectionValid(free, 4)).toBe(false);
   });
 
   it("uses the singular for a limit of one", () => {
