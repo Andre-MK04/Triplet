@@ -129,24 +129,50 @@ def parse_destinations(text: str, exclude: set[str] | None = None) -> list[str] 
 
 
 def parse_destination_filters(text: str, origin_airports: list[str]) -> tuple[list[str], list[str], list[str]]:
-    padded = f" {text.casefold()} "
     origin_countries = {
         place.country_code for code in origin_airports if (place := get_place(code)) is not None
     }
-    countries: list[str] = []
-    for country in country_catalog().countries:
-        names = (country.name, *country.aliases)
-        if country.code not in origin_countries and any(f" {name.casefold()} " in padded for name in names):
-            countries.append(country.code)
-    regions = [region for region in REGION_TO_COUNTRY_CODES if f" {region} " in padded]
+    countries = [code for code in _country_codes_in_order(text) if code not in origin_countries]
+    regions = [region for region in REGION_TO_COUNTRY_CODES if _contains_phrase(text, region)]
     continents = [
         continent
         for continent in country_catalog().continents
         if continent != "Antarctica"
-        and f" {continent.casefold()} " in padded
+        and _contains_phrase(text, continent)
         and not re.search(rf"\b(?:outside|beyond|not in) {re.escape(continent.casefold())}\b", text)
     ]
     return countries, regions, continents
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Match a named place next to punctuation as well as whitespace."""
+    return bool(
+        re.search(
+            rf"(?<!\w){re.escape(phrase.casefold())}(?!\w)",
+            text.casefold(),
+        )
+    )
+
+
+def _country_codes_in_order(text: str) -> list[str]:
+    """ISO country codes in the order the traveller named the countries."""
+    mentions: list[tuple[int, str]] = []
+    folded = text.casefold()
+    for country in country_catalog().countries:
+        positions = [
+            match.start()
+            for name in (country.name, *country.aliases)
+            if (
+                match := re.search(
+                    rf"(?<!\w){re.escape(name.casefold())}(?!\w)",
+                    folded,
+                )
+            )
+        ]
+        if positions:
+            mentions.append((min(positions), country.code))
+    mentions.sort()
+    return list(dict.fromkeys(code for _, code in mentions))
 
 
 _RETURN_FROM_PATTERN = re.compile(
@@ -286,6 +312,17 @@ def parse_route_stops(text: str, exclude: set[str] | None = None) -> list[str] |
         return None
     stops: list[str] = []
     for fragment in _SEQUENCE_SPLIT.split(text):
+        # A sequence may name countries rather than cities ("Japan, South Korea,
+        # then China"). Keep the ISO code as an ordered placeholder; the search
+        # engine resolves it to a real city with observed fares before any
+        # provider call. Picking the alphabetically first airport here produced
+        # routes such as Asahikawa → Cheongju → Altay.
+        countries = _country_codes_in_order(fragment)
+        if len(countries) == 1:
+            code = countries[0]
+            if code not in exclude and code not in stops:
+                stops.append(code)
+            continue
         # One stop per fragment. A city name can match several places (Barcelona
         # is in Spain and in Venezuela), and a sequence names one city per step,
         # so the best match for the step is the only one that belongs in it.

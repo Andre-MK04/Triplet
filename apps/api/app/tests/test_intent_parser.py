@@ -152,6 +152,16 @@ def test_multi_city_takes_one_stop_per_step_despite_duplicate_city_names():
     assert intent.routeStops == ["BCN", "LIS"]
 
 
+def test_multi_city_country_sequence_preserves_country_order_and_punctuation():
+    intent = parse_trip_intent(
+        "discover a multi-city trip to Japan, South Korea and then China"
+    )
+
+    assert intent.tripPlan == "multi_city"
+    assert intent.destinationCountries == ["JP", "KR", "CN"]
+    assert intent.routeStops == ["JP", "KR", "CN"]
+
+
 def test_flying_home_from_another_city_is_an_open_jaw_not_a_multi_city():
     intent = parse_trip_intent(
         "from budapest to stockholm, then from helsinki back to budapest in august 5 days under 300"

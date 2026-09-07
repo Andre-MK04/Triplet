@@ -7,7 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.intent_parser import parse_trip_intent
 from app.config import settings
-from app.data.flight_places import canonical_code, is_flightable_place, is_supported_origin
+from app.data.country_catalog import get_country
+from app.data.flight_places import canonical_code, get_place, is_flightable_place, is_supported_origin
 from app.data.geography import place_city
 from app.db.models import UserCountryDB, UserTravelProfileDB
 from app.db.repositories.airports_repository import AirportsRepository
@@ -125,6 +126,12 @@ def build_chained_trips(
             continue
         if request.routeStops is None:
             note = note or _proposal_note(request, candidates)
+        elif candidates and list(request.routeStops) != candidates[0]:
+            route = " → ".join(place_city(code) or code for code in candidates[0])
+            note = note or (
+                f"You named countries rather than cities, so {settings.app_name} used {route}, "
+                "choosing cities with fare observations in each country."
+            )
 
         legs_by_route = {}
         wanted: list[tuple[str, str]] = []
@@ -166,7 +173,17 @@ def _routes_for_origin(
     nothing we could reach.
     """
     if request.routeStops:
-        return [list(request.routeStops)], None
+        # City and airport codes are already concrete. ISO country codes are
+        # placeholders produced by both the LLM and rule parser for requests
+        # such as "Japan, South Korea, then China". They must be resolved before
+        # pricing because the second stop becomes the next provider query's
+        # origin, and provider route endpoints accept city/airport codes there —
+        # not country codes.
+        if all(get_place(code) is not None for code in request.routeStops):
+            return [list(request.routeStops)], None
+        reachable = _reachable_cities(request, flight_search, origin)
+        resolved = _resolve_country_route_stops(request.routeStops, reachable)
+        return ([resolved], reachable) if resolved else ([], [])
     if request.tripPlan == "open_jaw" and request.destinationAirports and request.returnOriginAirports:
         return [[request.destinationAirports[0], request.returnOriginAirports[0]]], None
 
@@ -174,6 +191,43 @@ def _routes_for_origin(
     # actually have fares to? Everything downstream chooses only from these.
     reachable = _reachable_cities(request, flight_search, origin)
     return propose_route_stops(request, origin, reachable), reachable
+
+
+def _resolve_country_route_stops(stops: list[str], reachable: list[str]) -> list[str] | None:
+    """Resolve ordered country placeholders to real fare-backed city codes."""
+    available: list[str] = []
+    for code in reachable:
+        place = get_place(code)
+        if not place:
+            continue
+        city_code = canonical_code(place.city_code or place.code)
+        if city_code not in available:
+            available.append(city_code)
+
+    resolved: list[str] = []
+    for raw in stops:
+        code = canonical_code(raw)
+        place = get_place(code)
+        if place:
+            selected = canonical_code(place.city_code or place.code)
+        elif country := get_country(code):
+            selected = next(
+                (
+                    candidate
+                    for candidate in available
+                    if (candidate_place := get_place(candidate)) is not None
+                    and candidate_place.country_code == country.code
+                    and candidate not in resolved
+                ),
+                None,
+            )
+            if selected is None:
+                return None
+        else:
+            return None
+        if selected not in resolved:
+            resolved.append(selected)
+    return resolved if len(resolved) >= 2 else None
 
 
 def _reachable_cities(

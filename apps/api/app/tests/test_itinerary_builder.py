@@ -17,6 +17,7 @@ from app.services.itinerary_builder import (
     flight_legs,
     plan_route,
 )
+from app.tools.travel_tools import _resolve_country_route_stops
 
 
 def request(**overrides) -> TripSearchRequest:
@@ -257,6 +258,19 @@ def test_open_jaw_proposals_are_crossable_pairs_of_real_cities():
 
 def test_a_region_with_almost_nothing_reachable_proposes_nothing():
     assert propose_route_stops(region_request(), "VIE", ["CPH"]) == []
+
+
+def test_country_sequence_resolves_to_fare_backed_cities_in_requested_order():
+    resolved = _resolve_country_route_stops(
+        ["JP", "KR", "CN"],
+        ["SEL", "BJS", "TYO", "OSA"],
+    )
+
+    assert resolved == ["TYO", "SEL", "BJS"]
+
+
+def test_country_sequence_is_not_sent_to_provider_when_one_country_has_no_city():
+    assert _resolve_country_route_stops(["JP", "KR", "CN"], ["TYO", "BJS"]) is None
 
 
 def test_explicit_stops_are_never_overridden_by_a_proposal():
