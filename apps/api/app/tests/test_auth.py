@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.auth.oauth import OAUTH_STATE_COOKIE_NAME, OAuthProfile, generate_oauth_state
 from app.auth.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.auth.service import AuthService
+from app.config import settings
 from app.database import get_db
 from app.db.models import PasswordResetTokenDB, SavedSearchDB, UserDB, UserOAuthAccountDB, UserTravelProfileDB
 from app.main import app
@@ -142,6 +143,8 @@ def test_forgot_and_reset_password(db_session, monkeypatch):
             sent.append((to_email, subject, html_body, text_body))
 
     monkeypatch.setattr("app.auth.service.build_email_provider", lambda: FakeProvider())
+    monkeypatch.setattr(settings, "app_name", "Farelin")
+    monkeypatch.setattr(settings, "frontend_url", "https://farelin.com")
     client.post("/auth/signup", json=signup_payload())
     forgot = client.post("/auth/forgot-password", json={"email": "traveler@example.com",
             "acceptedTermsVersion": CURRENT_TERMS_VERSION,
@@ -162,6 +165,8 @@ def test_forgot_and_reset_password(db_session, monkeypatch):
     app.dependency_overrides.clear()
 
     assert forgot.status_code == 200
+    assert sent[0][1] == "Reset your Farelin password"
+    assert "https://farelin.com/reset-password?token=" in sent[0][3]
     assert token_row.used_at is not None
     assert reset.status_code == 200
     assert old_login.status_code == 401

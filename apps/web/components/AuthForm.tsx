@@ -12,6 +12,7 @@ import { Field, Input } from "./ui/Input";
 import { Notice } from "./ui/Misc";
 import { useLegalVersions } from "../lib/legalVersions";
 import { LG_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
+import { BRAND } from "../lib/brand";
 
 const RouteGlobe = dynamic(() => import("./RouteGlobe"), { ssr: false });
 
@@ -64,7 +65,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           {mode === "signup" ? "New account" : "Welcome back"}
         </p>
         <h1 className="font-display text-3xl font-bold text-cloud">
-          {mode === "signup" ? "Create your travel profile." : "Log in to Triplet."}
+          {mode === "signup" ? "Create your travel profile." : `Log in to ${BRAND.name}.`}
         </h1>
         <p className="mt-2 text-sm text-mist">
           {mode === "signup"
@@ -118,7 +119,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           */}
           {mode === "signup" ? (
             <p className="text-xs leading-relaxed text-mist-dim">
-              By creating an account you agree to Triplet&apos;s{" "}
+              By creating an account you agree to {BRAND.name}&apos;s{" "}
               <a href="/terms" className="text-mist underline underline-offset-2 hover:text-mint">
                 Terms of Service
               </a>{" "}
@@ -152,7 +153,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </>
           ) : (
             <>
-              New to Triplet?{" "}
+              New to {BRAND.name}?{" "}
               <Link href="/signup" className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
                 Create an account →
               </Link>

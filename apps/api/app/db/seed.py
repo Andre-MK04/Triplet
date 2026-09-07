@@ -215,7 +215,7 @@ def remove_demo_flights() -> None:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Seed Triplet reference data.")
+    parser = argparse.ArgumentParser(description="Seed Farelin reference data.")
     parser.add_argument(
         "--no-demo-flights",
         action="store_true",
@@ -243,4 +243,4 @@ if __name__ == "__main__":
         print(f"Imported/updated {import_airports()} airports.")
     else:
         seed_database(include_demo_flights=not args.no_demo_flights)
-        print("Seeded Triplet database" + (" (reference data only)." if args.no_demo_flights else "."))
+        print("Seeded Farelin database" + (" (reference data only)." if args.no_demo_flights else "."))

@@ -10,6 +10,7 @@ import { AIRPORTS } from "../lib/airports";
 import { useResolvedTheme } from "./useResolvedTheme";
 import { useCountryFeatures } from "../lib/worldTopology";
 import type { PolygonCoordinates } from "../lib/worldTopology";
+import { BRAND } from "../lib/brand";
 
 
 function usePrefersReducedMotion(): boolean {
@@ -308,7 +309,7 @@ export default function RouteGlobe({
       <div
         className="flex h-full min-h-64 items-center justify-center rounded-full border border-line bg-ink-soft"
         role="img"
-        aria-label={ariaLabel ?? "Triplet globe"}
+        aria-label={ariaLabel ?? `${BRAND.name} globe`}
       >
         <div className="relative h-48 w-48 rounded-full border border-mint/40 bg-ink-raised shadow-[inset_-24px_-18px_45px_rgba(0,0,0,0.18)]">
           <span className="absolute left-[28%] top-[30%] h-2 w-2 rounded-full bg-mint" />

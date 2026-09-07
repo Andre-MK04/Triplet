@@ -87,7 +87,7 @@ def build_alert_html(
     </p>
     <p style="margin:0;font-size:12px;color:{MIST};">{account_line}</p>
     <p style="margin:12px 0 0;font-size:11px;color:{MIST};">
-      You are receiving this because you saved a {escape(settings.app_name)} alert for this search.
+      You are receiving this because you created a {escape(settings.app_name)} Watch.
     </p>
   </div>
 </body>
@@ -178,7 +178,7 @@ def build_alert_text(
             f"{settings.app_name} does not sell or book flights. Prices and availability can change "
             "after you open the provider site.",
             manage_note,
-            f"You are receiving this because you saved a {settings.app_name} alert.",
+            f"You are receiving this because you created a {settings.app_name} Watch.",
         ]
     )
     return "\n".join(lines)

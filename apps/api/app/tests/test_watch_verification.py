@@ -80,6 +80,16 @@ def test_confirming_activates_the_watch(client, db_session, monkeypatch):
     assert SavedSearchService(db_session).list_due_saved_searches() != [] or row.is_active
 
 
+def test_watch_confirmation_uses_farelin_brand_and_domain(client, db_session, monkeypatch):
+    monkeypatch.setattr(settings, "app_name", "Farelin")
+    monkeypatch.setattr(settings, "alerts_public_base_url", "https://farelin.com")
+
+    _capture_verification_token(client, db_session, monkeypatch)
+
+    assert _SENT[-1][0] == "Confirm your Farelin watch"
+    assert "https://farelin.com/watch/confirm?token=" in _SENT[-1][1]
+
+
 def test_a_confirmation_token_works_only_once(client, db_session, monkeypatch):
     token = _capture_verification_token(client, db_session, monkeypatch)
     assert client.post(f"/alerts/verify?token={token}").status_code == 200

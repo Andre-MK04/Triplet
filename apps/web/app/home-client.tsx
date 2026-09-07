@@ -230,17 +230,17 @@ const methodology = [
   {
     step: "01 / Describe",
     title: "Tell us your kind of trip.",
-    text: "Rough budget, rough dates, your airports, your travel mood — in plain language or with every knob. Triplet turns it into a real search across the airports you choose.",
+    text: "Rough budget, rough dates, your airports, your travel mood — in plain language or with every knob. Farelin turns it into a real search across the airports you choose.",
   },
   {
     step: "02 / Watch",
     title: "We keep an eye on the fares.",
-    text: "Every hour, Triplet checks for new fare observations from the airports you follow and compares what it finds against the route's history. Cheap is measured against reality, not an inflated anchor.",
+    text: "Every hour, Farelin checks for new fare observations from the airports you follow and compares what it finds against the route's history. Cheap is measured against reality, not an inflated anchor.",
   },
   {
     step: "03 / Go",
     title: "Fly when it's genuinely good.",
-    text: "When something stands out, Triplet turns it into a clear trip idea with a transparent score and sends you a quiet email — no countdown timers, no pressure.",
+    text: "When something stands out, Farelin turns it into a clear trip idea with a transparent score and sends you a quiet email — no countdown timers, no pressure.",
   },
 ];
 
@@ -262,7 +262,7 @@ export function HomeClient() {
               on a whim.
             </h1>
             <p className="mt-7 max-w-md font-display text-xl font-medium leading-relaxed text-mist">
-              Tell us roughly what you want. Triplet watches the fares from your airports and tells you
+              Tell us roughly what you want. Farelin watches the fares from your airports and tells you
               when it&apos;s worth flying.
             </p>
             <div className="mt-10">
@@ -333,9 +333,9 @@ export function HomeClient() {
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-mist">
                   Fares change constantly. Every price you see is an observed fare carrying the time it
-                  was observed. Triplet checks hourly for newer data, but the fare itself may have been
+                  was observed. Farelin checks hourly for newer data, but the fare itself may have been
                   seen earlier than that — the timestamp on each price is the one that matters, not how
-                  often Triplet looks. Always confirm the final fare with the airline before you pay.
+                  often Farelin looks. Always confirm the final fare with the airline before you pay.
                 </p>
               </div>
             </Reveal>
@@ -361,7 +361,7 @@ export function HomeClient() {
               Your next trip is already out there.
             </h2>
             <p className="mx-auto mt-4 max-w-md text-mist">
-              Set up your travel profile once — Triplet keeps watching so you don&apos;t have to.
+              Set up your travel profile once — Farelin keeps watching so you don&apos;t have to.
             </p>
             <div className="mt-9 flex justify-center">
               <ButtonLink href="/signup" size="lg">

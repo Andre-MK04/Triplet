@@ -1,6 +1,6 @@
-# Triplet Design System
+# Farelin Design System
 
-The web app calls its own look **"Triplet Editorial Instrument"** — the visual
+The web app calls its own look **"Farelin Editorial Instrument"** — the visual
 language of a flight departure board crossed with a printed boarding pass:
 flat surfaces, hairline rules, monospace small-caps labels, sharp corners on
 structure and round corners only on things that are literally round (dots,
@@ -233,9 +233,9 @@ Disabled state: `opacity-50`, cursor not-allowed, no other treatment.
 
 The single primary CTA per trip card is **"Check live price ↗"** — always
 solid mint, always paired with an external-link arrow glyph, always the
-visually heaviest thing on the card. This is deliberate: Triplet finds
+visually heaviest thing on the card. This is deliberate: Farelin finds
 candidates, the provider confirms the fare, and the button language must
-never imply Triplet itself is booking or guaranteeing the price.
+never imply Farelin itself is booking or guaranteeing the price.
 
 ---
 
@@ -414,7 +414,7 @@ a style preference:
   carries a tooltip/explanation naming the typical observed range. Don't
   invent a deal badge without backing data on mobile either.
 - **The CTA is always "Check live price"**, never "Book now" / "Reserve" /
-  anything implying Triplet itself transacts or guarantees availability.
+  anything implying Farelin itself transacts or guarantees availability.
 
 ---
 
@@ -444,7 +444,7 @@ a style preference:
   it across UI chrome.
 - Native OS toggle/radio/checkbox styling left unstyled — always the custom
   mono-label + circular-bullet treatment from §6.3.
-- Presenting any fare as guaranteed, live, or bookable-through-Triplet
+- Presenting any fare as guaranteed, live, or bookable-through-Farelin
   language.
 - Icon-heavy empty states, mascots, illustrations — the system is
   typographic and ruled, not illustrative.

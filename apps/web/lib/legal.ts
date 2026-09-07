@@ -1,5 +1,5 @@
 /**
- * Who legally operates Triplet.
+ * Who legally operates Farelin.
  *
  * Every value here is read from configuration and every one may be absent.
  * Nothing in this file invents an operator name, company number, VAT number or
@@ -16,7 +16,7 @@ function configured(value: string | undefined): string | null {
 }
 
 export const legalOperator = {
-  /** Trading or company name, e.g. "Triplet Labs OÜ". */
+  /** Trading or company name, e.g. "Farelin". */
   name: configured(process.env.NEXT_PUBLIC_LEGAL_OPERATOR_NAME),
   /** Where users reach a human about the service. */
   supportEmail: configured(process.env.NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL),

@@ -96,7 +96,7 @@ function BoardingPassPreview({ profile }: { profile: TravelProfile }) {
     <aside className="hidden h-fit border border-line bg-ink-raised lg:block" aria-label="Travel profile preview">
       <div className="border-b border-dashed border-line px-5 py-4">
         <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">
-          Triplet · Travel profile
+          Farelin · Travel profile
         </p>
       </div>
       <dl className="px-5 py-2">

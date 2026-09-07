@@ -8,6 +8,7 @@ import { AffiliateDisclosure } from "./AffiliateDisclosure";
 import { useAuth } from "./AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, ButtonLink } from "./ui/Button";
+import { BRAND } from "../lib/brand";
 
 const navLinks = [
   { href: "/discover", label: "Discover" },
@@ -43,7 +44,7 @@ export function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold text-cloud">
           <TripletMark />
-          Triplet
+          {BRAND.name}
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Main">
@@ -180,7 +181,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[minmax(0,5fr)_repeat(3,minmax(0,2fr))]">
         <div className="max-w-xs">
           <p className="flex items-center gap-2 font-display text-base font-bold text-cloud">
-            <TripletMark size={20} /> Triplet
+            <TripletMark size={20} /> {BRAND.name}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-mist">
             Find cheap trips, not just cheap flights. Prices are observed at check time and can change —
@@ -206,7 +207,7 @@ export function Footer() {
       </div>
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 font-mono text-[10px] uppercase tracking-label text-mist-dim sm:px-6">
-          <span>© {new Date().getFullYear()} Triplet — does not sell or book flights</span>
+          <span>© {new Date().getFullYear()} {BRAND.name} — does not sell or book flights</span>
           {/* No live status claim: nothing here was ever connected to system
               state, so a green dot reading "Systems nominal" asserted health
               Triplet was not measuring. A real status page can earn one back. */}

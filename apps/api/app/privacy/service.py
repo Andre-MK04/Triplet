@@ -15,6 +15,7 @@ test_privacy.py's "no rows remain" assertion.
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.models import (
     AlertDeliveryDB,
     AlertRunDB,
@@ -111,7 +112,7 @@ def export_user_data(db: Session, user: UserDB) -> dict:
             for u in usage
         ],
         "note": (
-            "This is all personal data linked to your Triplet account. It excludes "
+            f"This is all personal data linked to your {settings.app_name} account. It excludes "
             "security material we never expose (password and token hashes)."
         ),
     }

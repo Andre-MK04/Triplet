@@ -12,7 +12,7 @@ export default function BillingSuccessPage() {
         title="Checkout complete"
         action={<ButtonLink href="/dashboard">Open dashboard</ButtonLink>}
       >
-        Welcome to Triplet Pro! Your subscription status will update as soon as Stripe sends the
+        Welcome to Farelin Pro! Your subscription status will update as soon as Stripe sends the
         confirmation webhook — usually within seconds.
       </EmptyState>
     </AppShell>

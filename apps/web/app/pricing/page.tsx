@@ -5,7 +5,7 @@ import { PricingClient } from "./client";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Triplet is free to start. Pro adds more origin airports, more watches and daily checks.",
+    "Farelin is free to start. Pro adds more origin airports, more watches and daily checks.",
   alternates: { canonical: "/pricing" },
 };
 

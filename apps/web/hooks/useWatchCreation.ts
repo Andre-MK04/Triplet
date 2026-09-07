@@ -71,11 +71,11 @@ export function useWatchCreation(
       setStatus({
         tone: "success",
         text: user
-          ? "Saved! Triplet is now watching this search — see it on your dashboard."
+          ? "Saved! Farelin is now watching this search — see it on your dashboard."
           : // An anonymous watch is not watching anything yet: it waits for the
             // address to confirm it. Saying "saved" would promise alerts that
             // will never arrive if the email is ignored.
-            `Check ${email || "your email"} to confirm this watch. Triplet starts watching once you do.`,
+            `Check ${email || "your email"} to confirm this watch. Farelin starts watching once you do.`,
       });
     } catch (saveError) {
       setStatus({ tone: "error", text: limitAwareError(saveError) });

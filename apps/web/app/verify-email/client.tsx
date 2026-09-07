@@ -98,7 +98,7 @@ export function VerifyEmailClient() {
             That address is confirmed.
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-mist">
-            Triplet can now send fare alerts to it, and watches you set on this account
+            Farelin can now send fare alerts to it, and watches you set on this account
             will not need confirming separately.
           </p>
           <div className="mt-8 flex justify-center gap-4">
@@ -138,7 +138,7 @@ export function VerifyEmailClient() {
             )
           ) : (
             <p className="text-sm leading-relaxed text-mist-dim">
-              Log in and Triplet can send you a fresh link.
+              Log in and Farelin can send you a fresh link.
             </p>
           )}
           <div className="flex justify-center gap-4">

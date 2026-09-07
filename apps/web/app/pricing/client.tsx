@@ -36,11 +36,11 @@ type BillingStatus = {
 const FAQ = [
   {
     q: "Are prices guaranteed?",
-    a: "No. Triplet shows observed or cached fare opportunities. Final prices must always be checked with the provider.",
+    a: "No. Farelin shows observed or cached fare opportunities. Final prices must always be checked with the provider.",
   },
   {
-    q: "Does Triplet book flights?",
-    a: "No. Triplet helps you discover and monitor trips. Booking happens with the airline or travel provider.",
+    q: "Does Farelin book flights?",
+    a: "No. Farelin helps you discover and monitor trips. Booking happens with the airline or travel provider.",
   },
   {
     q: "Why is there a limit on AI searches?",
@@ -119,7 +119,7 @@ export function PricingClient() {
       await apiPost("/billing/start-trial");
       await refresh();
       loadBilling();
-      setStatus({ tone: "success", text: `Your ${trialDays}-day Triplet Pro trial is active. Enjoy!` });
+      setStatus({ tone: "success", text: `Your ${trialDays}-day Farelin Pro trial is active. Enjoy!` });
     } catch (error) {
       const message =
         error instanceof ApiError ? error.message : "Could not start your trial. Please try again.";
@@ -235,7 +235,7 @@ export function PricingClient() {
             Find cheap trips, not just cheap flights.
           </h1>
           <p className="mt-4 max-w-xl leading-relaxed text-mist">
-            Triplet watches fares from your selected airports and turns unusually cheap fares into trip
+            Farelin watches fares from your selected airports and turns unusually cheap fares into trip
             ideas. Start free, upgrade when you want ongoing alerts. Prices are observed, not guaranteed.
           </p>
         </header>
@@ -271,7 +271,7 @@ export function PricingClient() {
               {free?.name ?? "Free"}
             </span>
             <span className="mono-num mt-3 font-display text-5xl font-bold leading-none text-coral">€0</span>
-            <span className="mt-2 text-sm text-mist">For trying Triplet.</span>
+            <span className="mt-2 text-sm text-mist">For trying Farelin.</span>
             <ul className="mt-6 flex-1">
               {(free?.features ?? []).map((feature) => (
                 <li key={feature} className="border-t border-line py-2.5 text-sm text-mist">
@@ -286,7 +286,7 @@ export function PricingClient() {
 
           <div className="flex flex-col px-0 py-8 sm:px-8 sm:pr-0">
             <span className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
-              {pro?.name ?? "Triplet Pro"}
+              {pro?.name ?? "Farelin Pro"}
             </span>
             <span className="mono-num mt-3 font-display text-5xl font-bold leading-none text-coral">{proPrice}</span>
             <span className="mt-2 text-sm text-mist">For flexible travelers.</span>
@@ -306,7 +306,7 @@ export function PricingClient() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-lg">
               <h2 className="font-display text-2xl font-bold text-cloud">
-                Try Triplet Pro free for {trialDays} days
+                Try Farelin Pro free for {trialDays} days
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-mist">
                 No card required. Get enough access to test real alerts, open-jaw suggestions, and your
@@ -364,7 +364,7 @@ export function PricingClient() {
             </table>
           </div>
           <p className="mt-5 font-mono text-[10px] uppercase tracking-label text-mist-dim">
-            Triplet finds and monitors fare opportunities. It does not sell flights, and prices are never
+            Farelin finds and monitors fare opportunities. It does not sell flights, and prices are never
             guaranteed. Check the final price with the provider before booking.
           </p>
         </section>

@@ -17,6 +17,7 @@ from typing import Literal
 from pydantic import BaseModel, ValidationError
 
 from app.ai.providers import AIProviderError, build_ai_provider
+from app.config import settings
 from app.data.destination_styles import STYLE_LABELS
 from app.data.geography import place_city, place_country
 
@@ -107,7 +108,7 @@ def _build_prompts(trip: dict, profile: dict | None) -> tuple[str, str]:
     }
 
     system = (
-        "You are Triplet's trip planner. Produce a concise, feasible day-by-day plan for the trip below, "
+        f"You are {settings.app_name}'s trip planner. Produce a concise, feasible day-by-day plan for the trip below, "
         "tailored to the traveller's interests. STRICT RULES:\n"
         "- Respect the exact arrival and departure date-times: schedule nothing before arrival on the first "
         "day or after the flight home on the last day, and leave time to reach the airport.\n"

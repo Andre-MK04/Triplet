@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/discover" },
   title: "Discover trips",
   description:
-    "Describe the trip you want, or fine-tune every knob. Triplet builds complete trip ideas from real observed fares.",
+    "Describe the trip you want, or fine-tune every knob. Farelin builds complete trip ideas from real observed fares.",
 };
 
 // Server-rendered fallback: the heading and intro paint immediately, before the
@@ -18,7 +18,7 @@ function DiscoverFallback() {
       <header className="mb-8 max-w-2xl">
         <h1 className="font-display text-3xl font-bold text-cloud sm:text-4xl">Discover trips</h1>
         <p className="mt-2 text-mist">
-          Describe the trip you want, or fine-tune every knob. Triplet builds complete trip ideas
+          Describe the trip you want, or fine-tune every knob. Farelin builds complete trip ideas
           from real observed fares.
         </p>
       </header>

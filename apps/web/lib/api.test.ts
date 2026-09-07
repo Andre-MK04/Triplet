@@ -24,7 +24,7 @@ describe("network failures", () => {
       expect(error).toBeInstanceOf(ApiError);
       const api = error as ApiError;
       expect(api.message).not.toMatch(/failed to fetch/i);
-      expect(api.message).toContain("couldn't reach Triplet");
+      expect(api.message).toContain("couldn't reach Farelin");
       // Status 0 marks "no response at all", so callers can distinguish a
       // connection problem from a server that answered with an error.
       expect(api.status).toBe(0);

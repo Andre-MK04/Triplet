@@ -1,17 +1,17 @@
 # Database backup and restore
 
-**Read this before inviting real users.** Right now Triplet's data exists in
+**Read this before inviting real users.** Right now Farelin's data exists in
 one PostgreSQL database on Railway, and this repository contains no backup
 automation of its own.
 
 That sentence is the point of this document. Everything below distinguishes
-what Triplet implements from what the hosting provider must be configured to
+what Farelin implements from what the hosting provider must be configured to
 do — because the most common way to lose data is to assume someone else's
 system was already handling it.
 
 ---
 
-## What Triplet implements
+## What Farelin implements
 
 | Concern | Status |
 |---|---|
@@ -22,7 +22,7 @@ system was already handling it.
 | **Database backups** | **None. This is the provider's job — see below.** |
 | **Restore tooling** | **None. The procedure below is manual and deliberate.** |
 
-Triplet does not back itself up, and no code in this repository will notice if
+Farelin does not back itself up, and no code in this repository will notice if
 backups stop happening. Verifying that is a standing operational task, not
 something the application can assert.
 
@@ -30,7 +30,7 @@ something the application can assert.
 
 ## What must be configured on the host
 
-Triplet runs on Railway with a managed PostgreSQL instance. **Confirm each of
+Farelin runs on Railway with a managed PostgreSQL instance. **Confirm each of
 these in the Railway dashboard — do not assume any of them.**
 
 - [ ] Automated backups are enabled for the production database.
@@ -59,7 +59,7 @@ checked against.
 
 - `users`, `user_oauth_accounts` — accounts, password hashes, verification
   state, legal acceptance records
-- `user_travel_profiles` — everything someone told Triplet about how they travel
+- `user_travel_profiles` — everything someone told Farelin about how they travel
 - `saved_searches` — watches, including the confirmations people gave
 - `user_countries`, `country_visits` — a personal travel history that exists
   nowhere else and cannot be reconstructed
@@ -167,7 +167,7 @@ afterwards — quarterly is a reasonable cadence for a product this size. The
 test is the procedure above, run against a genuine backup, ending at step 6.
 
 Record when you last did it. If the answer is "never" or "I don't remember",
-the honest position is that Triplet does not have verified backups.
+the honest position is that Farelin does not have verified backups.
 
 ---
 

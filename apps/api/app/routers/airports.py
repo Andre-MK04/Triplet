@@ -3,6 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import settings
 from app.db.repositories.airports_repository import AirportsRepository
 from app.models import Airport
 
@@ -21,7 +22,7 @@ def list_airports(originCandidatesOnly: bool = False, db: Session = Depends(get_
         raise HTTPException(
             status_code=503,
             detail=(
-                "Database is not ready. Start the Triplet PostgreSQL container, "
+                f"Database is not ready. Start the {settings.app_name} PostgreSQL container, "
                 "run migrations, and seed the database."
             ),
         ) from exc

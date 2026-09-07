@@ -75,12 +75,8 @@ def test_alerts_run_normally_when_email_is_deliverable(stub_jobs, monkeypatch):
     assert stub_jobs["alerts"] == 1
 
 
-def test_local_work_still_exercises_the_alert_path(stub_jobs, monkeypatch, caplog):
-    """Without the strict flag the pass still runs — that is how it gets tested.
-
-    But it says what it is about to cost, because a warning nobody reads is
-    still better than a cooldown nobody can explain.
-    """
+def test_non_strict_mode_also_preserves_cooldowns(stub_jobs, monkeypatch, caplog):
+    """Local diagnostics may degrade quietly, but may not fake a send."""
     import logging
 
     set_delivery(monkeypatch, delivers=False, strict=False)
@@ -88,6 +84,6 @@ def test_local_work_still_exercises_the_alert_path(stub_jobs, monkeypatch, caplo
     with caplog.at_level(logging.WARNING):
         tick.run_tick()
 
-    assert stub_jobs["alerts"] == 1
+    assert stub_jobs["alerts"] == 0
     logged = " ".join(record.getMessage() for record in caplog.records)
     assert "cooldown" in logged

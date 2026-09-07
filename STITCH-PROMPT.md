@@ -1,4 +1,4 @@
-# Stitch prompts for the Triplet redesign
+# Stitch prompts for the Farelin redesign
 
 How to use: paste the **Project context** block first (Stitch keeps it as context for the
 session), then generate one screen at a time with the per-screen prompts. Regenerate or
@@ -9,9 +9,9 @@ rows") rather than re-pasting everything.
 
 ## Project context (paste first, keep with every screen)
 
-Design a dark, premium web app called **Triplet** — a flight-deal discovery tool for
+Design a dark, premium web app called **Farelin** — a flight-deal discovery tool for
 Europe. The product: a traveller from the Vienna region (airports like VIE, BUD, ZAG,
-LJU, TRS, VCE) types a loose wish — "somewhere warm in August under €150" — and Triplet
+LJU, TRS, VCE) types a loose wish — "somewhere warm in August under €150" — and Farelin
 finds real round-trip deals across all of Europe, scores each one (a DealScore for how
 good the price is, a FitScore for how well it matches the traveller's personal style),
 and can generate an AI day-by-day itinerary once they pick a trip. Prices are cached
@@ -42,9 +42,9 @@ a navigation instrument, not a stock globe.
 
 ## Screen 1 — Landing page
 
-Landing page for Triplet. Layout:
+Landing page for Farelin. Layout:
 
-- Slim top nav: wordmark "Triplet" left; links Discover, Pricing, Privacy; a quiet
+- Slim top nav: wordmark "Farelin" left; links Discover, Pricing, Privacy; a quiet
   "Sign in" text link and one solid mint "Get started" button right.
 - Hero, asymmetric: left column takes ~40% with an oversized editorial headline like
   "Europe, on a whim." and a subline explaining the product in one sentence ("Tell us

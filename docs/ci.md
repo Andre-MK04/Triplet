@@ -28,7 +28,7 @@ findings nobody had triaged.
 on purpose: a CVE published in a transitive dependency overnight should tell us,
 not block an unrelated fix from merging. **Read it anyway.** When this job first
 ran it found 30 known vulnerabilities across five packages, including nine in
-PyJWT, which signs Triplet's session tokens. Those are fixed; the audit is clean
+PyJWT, which signs Farelin's session tokens. Those are fixed; the audit is clean
 as of the commit that added it.
 
 **Secret and database scan** — fails the build if any `.db`/`.sqlite` file or a

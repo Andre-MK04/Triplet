@@ -6,7 +6,7 @@ from uuid import uuid4
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.alerts.email import EmailProviderError, build_email_provider
+from app.alerts.email import EmailProvider, EmailProviderError, build_email_provider
 from app.alerts.templates import build_alert_html, build_alert_subject, build_alert_text
 from app.alerts.schemas import (
     AlertPreviewResponse,
@@ -142,15 +142,15 @@ class SavedSearchService:
         and the traveller can ask for a fresh link — so this never raises.
         """
         link = f"{settings.alerts_public_base_url.rstrip('/')}/watch/confirm?token={verification_token}"
-        subject = "Confirm your Triplet watch"
+        subject = f"Confirm your {settings.app_name} watch"
         text_body = (
-            "Someone asked Triplet to watch flight prices and send the results to this address.\n\n"
+            f"Someone asked {settings.app_name} to watch flight prices and send the results to this address.\n\n"
             f"If that was you, confirm it here:\n{link}\n\n"
             f"The link works for {settings.watch_verification_ttl_hours} hours. "
             "If it wasn't you, ignore this email — nothing was set up and we won't email you again."
         )
         html_body = (
-            "<p>Someone asked Triplet to watch flight prices and send the results to this address.</p>"
+            f"<p>Someone asked {settings.app_name} to watch flight prices and send the results to this address.</p>"
             f'<p>If that was you, <a href="{link}">confirm your watch</a>.</p>'
             f"<p>The link works for {settings.watch_verification_ttl_hours} hours. "
             "If it wasn't you, ignore this email — nothing was set up and we won't email you again.</p>"
@@ -443,9 +443,14 @@ class SavedSearchService:
             # send itself, with nothing committed in between — so two runners
             # could both read the same last_notified_at, both pass the cooldown,
             # and both email the same traveller the same deal.
-            if should_notify and self._claim_notification_slot(row):
-                self._send_delivery(row, run, output)
-                notification_sent = True
+            if should_notify:
+                provider = build_email_provider()
+                if not provider.delivers:
+                    warnings.append(
+                        "The configured email provider cannot deliver, so this Watch kept its notification slot."
+                    )
+                elif self._claim_notification_slot(row):
+                    notification_sent = self._send_delivery(row, run, output, provider)
 
             run.status = "success" if trips else "no_results"
             run.provider_used = output.providerUsed
@@ -476,7 +481,13 @@ class SavedSearchService:
             warnings=warnings,
         )
 
-    def _send_delivery(self, row: SavedSearchDB, run: AlertRunDB, output: SearchTripsOutput) -> None:
+    def _send_delivery(
+        self,
+        row: SavedSearchDB,
+        run: AlertRunDB,
+        output: SearchTripsOutput,
+        provider: EmailProvider | None = None,
+    ) -> bool:
         # The last gate before an email is addressed. list_due_saved_searches
         # already filters these out, but delivery is where the irreversible
         # side effect happens, so it refuses on its own authority too.
@@ -484,9 +495,10 @@ class SavedSearchService:
             raise AlertValidationError(
                 "This watch's email address has not been confirmed, so no alert was sent."
             )
+        provider = provider or build_email_provider()
         city_names = {airport.code: airport.city for airport in AirportsRepository(self.db).list_airports()}
         manage_note = (
-            "Manage this watch on your Triplet dashboard."
+            f"Manage this watch on your {settings.app_name} dashboard."
             if row.user_id
             else "Use your manage/unsubscribe links from the alert creation response."
         )
@@ -503,13 +515,13 @@ class SavedSearchService:
             provider=settings.email_provider,
         )
         try:
-            provider = build_email_provider()
             delivery.provider = provider.provider_name
             provider.send_email(row.email, subject, html_body, text_body)
         except (EmailProviderError, OSError, smtplib.SMTPException) as exc:
             delivery.status = "error"
             delivery.error_message = str(exc)
         self.db.add(delivery)
+        return delivery.status == "sent"
 
     def _search(self, row: SavedSearchDB) -> SearchTripsOutput:
         request = saved_search_to_trip_request(row)

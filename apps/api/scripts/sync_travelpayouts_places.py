@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Triplet's flightable global place catalogue from Travelpayouts data."""
+"""Generate Farelin's flightable global place catalogue from Travelpayouts data."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ COUNTRY_CATALOG = ROOT / "app" / "data" / "country_catalog.json"
 def fetch(name: str, source_dir: Path | None) -> list[dict]:
     if source_dir:
         return json.loads((source_dir / f"travelpayouts-{name}.json").read_text(encoding="utf-8"))
-    request = Request(f"{BASE_URL}/{name}.json", headers={"User-Agent": "Triplet place catalogue sync"})
+    request = Request(f"{BASE_URL}/{name}.json", headers={"User-Agent": "Farelin place catalogue sync"})
     with urlopen(request, timeout=60) as response:
         return json.load(response)
 

@@ -34,7 +34,7 @@ export function ShareSearch({ url, className = "" }: { url: string; className?: 
     // people actually send links through.
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: "A trip search on Triplet", url });
+        await navigator.share({ title: "A trip search on Farelin", url });
         return;
       } catch (error) {
         // A cancelled share sheet is a decision, not a failure — do not fall

@@ -42,10 +42,9 @@ def _alerts_would_be_delivered(summary: dict) -> bool:
     once the configuration was fixed. Silent, permanent, and invisible in the
     watch history, which would say the alert went out.
 
-    A deployment that has declared it wants real email gets the pass skipped,
-    so nothing is spent. Anywhere else it still runs — local work with the
-    console provider is how the alert path gets exercised at all — but says
-    plainly what it is about to cost.
+    A provider that declares it cannot deliver always gets the pass skipped, so
+    nothing is spent. The strict flag controls whether that degraded state is a
+    failed tick or a warning; it never controls whether fake delivery is allowed.
     """
     provider_delivers = build_email_provider().delivers
     if provider_delivers:
@@ -62,11 +61,11 @@ def _alerts_would_be_delivered(summary: dict) -> bool:
         return False
 
     logger.warning(
-        "tick_alerts_no_delivery: the configured email provider delivers nothing, so this pass "
-        "will advance each notified watch's cooldown without anyone receiving mail. Set "
-        "EMAIL_REQUIRE_REAL_PROVIDER=true on this service to skip the pass instead."
+        "tick_alerts_skipped_no_delivery: the configured email provider delivers nothing, so "
+        "the alert pass was skipped without advancing any Watch cooldowns. Set "
+        "EMAIL_REQUIRE_REAL_PROVIDER=true in production to make this a failed tick."
     )
-    return True
+    return False
 
 
 def run_tick(now: datetime | None = None) -> dict:

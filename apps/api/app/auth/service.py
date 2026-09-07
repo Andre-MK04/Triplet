@@ -214,9 +214,9 @@ class AuthService:
         provider = build_email_provider()
         provider.send_email(
             user.email,
-            f"{settings.app_name} password reset",
-            f"<p>Reset your password: {reset_link}</p>",
-            f"Reset your password: {reset_link}",
+            f"Reset your {settings.app_name} password",
+            f"<p>Reset your {settings.app_name} password: {reset_link}</p>",
+            f"Reset your {settings.app_name} password: {reset_link}",
         )
 
     def reset_password(self, raw_token: str, new_password: str) -> None:

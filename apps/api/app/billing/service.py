@@ -111,7 +111,7 @@ def available_plans() -> list[PlanInfo]:
         ),
         PlanInfo(
             plan="pro",
-            name="Triplet Pro",
+            name=f"{settings.app_name} Pro",
             priceLabel=settings.triplet_pro_price_monthly_label,
             priceYearlyLabel=settings.triplet_pro_price_yearly_label,
             features=[*_describe_limits(_pro_limits()), "Travel profile", "Dashboard"],
@@ -149,7 +149,7 @@ class TrialError(ValueError):
 def start_trial(db: Session, user: UserDB) -> dict:
     """Start the one-time, no-card 7-day Pro trial for this user."""
     if get_user_plan(user) == "pro" and user.subscription_status in {"active", "past_due"}:
-        raise TrialError("You already have Triplet Pro.")
+        raise TrialError(f"You already have {settings.app_name} Pro.")
     if not can_start_trial(user):
         raise TrialError("You've already used your free trial.")
     now = datetime.utcnow()

@@ -93,7 +93,7 @@ export function OriginPicker({
       {open ? (
         <div className="absolute left-0 right-0 z-20 mt-1 border border-line bg-ink-raised p-4 shadow-xl">
           {/* Named as the sample it is. These are Central European airports
-              because that is where Triplet's fare history is densest, not
+              because that is where Farelin&apos;s fare history is densest, not
               because the person reading this lives near them — the search box
               below reaches every European airport. */}
           <p className="mb-2 font-mono text-[10px] uppercase tracking-label text-mist-dim">

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.ai.intent_parser import parse_trip_intent
+from app.config import settings
 from app.data.flight_places import canonical_code, is_flightable_place, is_supported_origin
 from app.data.geography import place_city
 from app.db.models import UserCountryDB, UserTravelProfileDB
@@ -208,7 +209,7 @@ def _proposal_note(request: TripSearchRequest, candidates: list[list[str]]) -> s
         " → ".join(place_city(code) or code for code in stops) for stops in candidates[:3]
     )
     return (
-        f"You named a region rather than cities, so Triplet planned the {shape} routes: {routes}. "
+        f"You named a region rather than cities, so {settings.app_name} planned the {shape} routes: {routes}. "
         "Only places inside that region were considered."
     )
 
@@ -378,7 +379,7 @@ class SearchTripsTool(Tool):
         if invalid_origins:
             raise UnsupportedFlightPlaceError(
                 f"Unsupported origin airport(s): {', '.join(invalid_origins)}. "
-                "Triplet searches trips departing from Europe, so origins must be European airports."
+                f"{settings.app_name} searches trips departing from Europe, so origins must be European airports."
             )
         request.originAirports = [canonical_code(code) for code in request.originAirports]
         for field_name in ("destinationAirports", "returnOriginAirports"):

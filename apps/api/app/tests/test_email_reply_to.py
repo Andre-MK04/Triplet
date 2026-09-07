@@ -9,7 +9,13 @@ complain, and eventually to make a GDPR request.
 
 import pytest
 
-from app.alerts.email import SMTPEmailProvider, reply_to_header
+from app.alerts.email import (
+    EmailProviderError,
+    SMTPEmailProvider,
+    reply_to_header,
+    safe_email_status,
+    sender_header,
+)
 from app.config import settings
 
 CREDS = dict(smtp_host="smtp.example.com", smtp_username="u", smtp_password="p")
@@ -20,6 +26,8 @@ def email_config(monkeypatch):
     def configure(reply_to: str, **overrides):
         monkeypatch.setattr(settings, "email_from", "alerts@farelin.test")
         monkeypatch.setattr(settings, "email_reply_to", reply_to)
+        monkeypatch.setattr(settings, "app_name", "Farelin")
+        monkeypatch.setattr(settings, "email_provider", "smtp")
         for key, value in {**CREDS, **overrides}.items():
             monkeypatch.setattr(settings, key, value)
 
@@ -33,6 +41,7 @@ def sent_message(monkeypatch):
     class FakeSMTP:
         def __init__(self, host, port, timeout=None):
             captured["host"] = host
+            captured["port"] = port
 
         def __enter__(self):
             return self
@@ -41,10 +50,10 @@ def sent_message(monkeypatch):
             return False
 
         def starttls(self):
-            pass
+            captured["starttls"] = True
 
         def login(self, username, password):
-            pass
+            captured["login"] = (username, password)
 
         def send_message(self, message):
             captured["message"] = message
@@ -63,8 +72,62 @@ def test_a_configured_reply_to_reaches_the_message(email_config, monkeypatch):
 
     message = captured["message"]
     assert message["Reply-To"] == "hello@farelin.test"
-    # The sender is unchanged: mail still comes from alerts@, replies go elsewhere.
-    assert message["From"] == "alerts@farelin.test"
+    assert message["From"] == "Farelin <alerts@farelin.test>"
+
+
+def test_sender_display_name_is_formatted_safely(email_config):
+    email_config("hello@farelin.test")
+    assert sender_header() == "Farelin <alerts@farelin.test>"
+
+
+@pytest.mark.parametrize(
+    "email_from",
+    [
+        "Farelin <alerts@farelin.test>",
+        "alerts@farelin.test\r\nBcc: attacker@example.com",
+    ],
+)
+def test_sender_address_cannot_supply_display_or_injected_headers(
+    email_config, monkeypatch, email_from
+):
+    email_config("hello@farelin.test")
+    monkeypatch.setattr(settings, "email_from", email_from)
+
+    with pytest.raises(EmailProviderError):
+        sender_header()
+
+
+def test_sender_display_name_cannot_inject_headers(email_config, monkeypatch):
+    email_config("hello@farelin.test")
+    monkeypatch.setattr(settings, "app_name", "Farelin\r\nBcc: attacker@example.com")
+
+    with pytest.raises(EmailProviderError):
+        sender_header()
+
+
+def test_smtp_uses_port_587_starttls_and_authentication(email_config, monkeypatch):
+    email_config("hello@farelin.test", smtp_port=587, smtp_use_tls=True)
+    captured = sent_message(monkeypatch)
+
+    SMTPEmailProvider().send_email("t@example.com", "Confirm", "<p>x</p>", "x")
+
+    assert captured["port"] == 587
+    assert captured["starttls"] is True
+    assert captured["login"] == ("u", "p")
+
+
+def test_safe_status_exposes_no_smtp_credentials(email_config):
+    email_config("hello@farelin.test")
+    status = safe_email_status()
+
+    assert status == {
+        "provider": "smtp",
+        "configured": True,
+        "delivers": True,
+        "fromDomain": "farelin.test",
+        "replyToConfigured": True,
+    }
+    assert "password" not in str(status).lower()
 
 
 def test_no_header_when_unset_so_replies_fall_back_to_the_sender(email_config, monkeypatch):

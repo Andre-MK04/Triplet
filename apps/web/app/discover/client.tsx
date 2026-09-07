@@ -543,7 +543,7 @@ export function DiscoverClient() {
         <header className="mb-8 max-w-2xl">
           <h1 className="font-display text-3xl font-bold text-cloud sm:text-4xl">Discover trips</h1>
           <p className="mt-2 text-mist">
-            Search worldwide from supported European airports. Triplet builds complete trip ideas from real
+            Search worldwide from supported European airports. Farelin builds complete trip ideas from real
             observed fares.
           </p>
         </header>
@@ -574,7 +574,7 @@ export function DiscoverClient() {
                   htmlFor="ai-trip-input"
                   className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint"
                 >
-                  Ask Triplet AI
+                  Ask Farelin AI
                 </label>
                 <button
                   type="button"
@@ -591,9 +591,9 @@ export function DiscoverClient() {
                   id="ai-explainer"
                   className="mb-3 border-l-2 border-mint/40 pl-3 text-xs leading-relaxed text-mist"
                 >
-                  Triplet uses AI to interpret your request — it works out the origins, dates,
+                  Farelin uses AI to interpret your request — it works out the origins, dates,
                   budget and trip shape you mean. Flight prices come from fare data and
-                  Triplet&apos;s own observations, not from the AI model.
+                  Farelin&apos;s own observations, not from the AI model.
                 </p>
               ) : null}
               <div className="flex items-start gap-3">
@@ -821,7 +821,7 @@ export function DiscoverClient() {
 
           {!isLoading && aiSummary ? (
             <div className="border-l-2 border-mint pl-4">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">Triplet</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">Farelin</p>
               <p className="mt-1 max-w-3xl text-sm leading-relaxed text-cloud">{aiSummary}</p>
               {aiMissingFields.length > 0 ? (
                 <p className="mt-1.5 font-mono text-xs text-gold">
@@ -839,7 +839,7 @@ export function DiscoverClient() {
               know whose airports these are before they start comparing prices. */}
           {!isLoading && originsWereAssumed ? (
             <Notice tone="warning">
-              These are example departures from Central Europe — you haven&apos;t told Triplet
+              These are example departures from Central Europe — you haven&apos;t told Farelin
               where you fly from yet. Set your airports under “Where can you fly from?” to
               search fares you can actually reach.
             </Notice>
@@ -932,7 +932,7 @@ export function DiscoverClient() {
                       ) : null}
                       {/* Two separate questions, deliberately not merged: what
                           makes a trip worth telling you about, and how often
-                          Triplet may check. Merging them is why "notify me less"
+                          Farelin may check. Merging them is why "notify me less"
                           used to also mean "notify me about less". */}
                       <Field label="Tell me when">
                         <Select
@@ -1017,7 +1017,7 @@ export function DiscoverClient() {
           {!isLoading && !hasSearched ? (
             <EmptyState title="Where could you go?">
               <span className="block">
-                Triplet builds complete trips from real fares — out and back, a chain of cities, or in one
+                Farelin builds complete trips from real fares — out and back, a chain of cities, or in one
                 city and home from another. Try one of these:
               </span>
               <span className="mt-4 flex flex-col items-center gap-2">

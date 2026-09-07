@@ -1,13 +1,13 @@
 # Legal operator configuration
 
-Triplet's Terms page names whoever operates the service. Those details live in
+Farelin's Terms page names whoever operates the service. Those details live in
 configuration, and **nothing in the codebase invents them** — no placeholder
 company name, registration number, VAT number or address exists anywhere, and
 none should be added. Publishing a registration that does not exist is worse
 than publishing none, and placeholders have a way of surviving to production.
 
 Where a value is absent the Terms page omits that line rather than filling it.
-With none set it says plainly that Triplet is operated as a personal project
+With none set it says plainly that Farelin is operated as a personal project
 rather than a registered company, which is accurate for an unincorporated
 service and is not a gap you must close before launching.
 
@@ -19,8 +19,8 @@ service, so they are the opposite of a secret.
 
 | Variable | Example | Needed when |
 |---|---|---|
-| `NEXT_PUBLIC_LEGAL_OPERATOR_NAME` | `Triplet Labs OÜ` | You trade under a company or business name |
-| `NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL` | `support@triplet.example` | Always recommended — it is how users reach you |
+| `NEXT_PUBLIC_LEGAL_OPERATOR_NAME` | `Farelin` | You trade under a company or business name |
+| `NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL` | `hello@farelin.com` | Always recommended — it is how users reach you |
 | `NEXT_PUBLIC_LEGAL_ADDRESS` | `Sepapaja 6, 15551 Tallinn, Estonia` | You are a registered business |
 | `NEXT_PUBLIC_LEGAL_REGISTRATION_NUMBER` | `16123456` | Your jurisdiction requires it on published terms |
 | `NEXT_PUBLIC_LEGAL_VAT_NUMBER` | `EE102345678` | You are VAT registered |
@@ -43,6 +43,6 @@ incorporated. This is a prompt to check your own obligations, not legal advice.
 The Terms page states that statutory consumer rights are unaffected and that
 liability which cannot legally be limited is not limited. Leave those in. If you
 incorporate, have the page reviewed against the law where you are established —
-distance-selling and withdrawal rules differ, and Triplet's own position (it
+distance-selling and withdrawal rules differ, and Farelin's own position (it
 sells nothing and is not party to the booking) is what keeps the current wording
 short.

@@ -20,6 +20,7 @@ from app.auth.verification import (
     verify_email,
 )
 from app.database import get_db
+from app.config import settings
 from app.db.models import EmailVerificationTokenDB, SavedSearchDB, UserDB
 from app.main import app
 from app.security import reset_rate_limits
@@ -83,6 +84,24 @@ def test_signup_issues_a_verification_token(client, db_session):
     assert row is not None
     assert row.used_at is None
     assert row.expires_at > datetime.utcnow()
+
+
+def test_verification_email_uses_farelin_brand_and_domain(client, monkeypatch):
+    sent = []
+    import app.auth.verification as verification
+
+    class Capture:
+        def send_email(self, to, subject, html, text):
+            sent.append((to, subject, html, text))
+
+    monkeypatch.setattr(settings, "app_name", "Farelin")
+    monkeypatch.setattr(settings, "frontend_url", "https://farelin.com")
+    monkeypatch.setattr(verification, "build_email_provider", lambda: Capture())
+
+    signup(client)
+
+    assert sent[0][1] == "Verify your Farelin email"
+    assert "https://farelin.com/verify-email?token=" in sent[0][3]
 
 
 def test_the_token_is_never_stored_in_the_clear(client, db_session, monkeypatch):

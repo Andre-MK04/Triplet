@@ -13,17 +13,17 @@ const SECTIONS = [
       "Refresh tokens are stored only as hashes, rotate on every use, and are revoked server-side when you log out.",
       "State-changing requests carry a CSRF token, so another site cannot act as you using your cookies.",
       "Password resets and email confirmations use single-use links that expire. Both are stored only as hashes, so a database copy does not yield working links.",
-      "Confirming your email address is what lets Triplet send fare alerts to it. Until then, a watch on that address asks the address itself to confirm.",
+      "Confirming your email address is what lets Farelin send fare alerts to it. Until then, a watch on that address asks the address itself to confirm.",
     ],
   },
   {
     icon: "🗂",
     title: "Your data",
     points: [
-      "Your travel profile — airports, budget, preferences — personalizes Triplet's search, ranking and watch behavior.",
-      "Triplet stores observed flight prices, not your browsing history.",
+      "Your travel profile — airports, budget, preferences — personalizes Farelin's search, ranking and watch behavior.",
+      "Farelin stores observed flight prices, not your browsing history.",
       "Alert emails include one-click manage and unsubscribe links; those tokens are stored only as hashes.",
-      "Triplet does not sell your data, and loads no advertising or affiliate-tracking scripts. Affiliate attribution is carried in the outbound booking link itself.",
+      "Farelin does not sell your data, and loads no advertising or affiliate-tracking scripts. Affiliate attribution is carried in the outbound booking link itself.",
       "Logs are redacted before they are written: credentials, tokens and anything credential-shaped are stripped, including inside stack traces.",
     ],
   },
@@ -41,8 +41,8 @@ const SECTIONS = [
     icon: "💳",
     title: "Payments",
     points: [
-      "When paid plans are enabled, subscriptions are processed by Stripe. Card numbers never touch Triplet's servers.",
-      "Triplet never charges you for flights — it does not sell or book them.",
+      "When paid plans are enabled, subscriptions are processed by Stripe. Card numbers never touch Farelin's servers.",
+      "Farelin never charges you for flights — it does not sell or book them.",
     ],
   },
   {
@@ -66,7 +66,7 @@ export function SecurityClient() {
         <header className="text-center">
           <h1 className="font-display text-4xl font-bold text-cloud">Security &amp; privacy</h1>
           <p className="mx-auto mt-3 max-w-xl text-mist">
-            Plain-language answers about how Triplet protects your account and data. No legal maze — if
+            Plain-language answers about how Farelin protects your account and data. No legal maze — if
             something here is unclear, that's a bug too.
           </p>
         </header>

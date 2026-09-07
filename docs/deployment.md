@@ -1,6 +1,6 @@
-# Triplet Deployment
+# Farelin Deployment
 
-This document is the production-readiness checklist for the Triplet MVP.
+This document is the production-readiness checklist for Farelin.
 
 ## Environment Files
 
@@ -26,11 +26,11 @@ Set these before deploying with `APP_ENV=production`:
 ```text
 APP_ENV=production
 DATABASE_URL=postgresql+psycopg://...
-FRONTEND_URL=https://your-frontend-domain
+FRONTEND_URL=https://farelin.com
 API_PUBLIC_BASE_URL=https://your-api-domain
 APP_SECRET=<long random secret>
 AUTH_COOKIE_SECURE=true
-AUTH_COOKIE_SAMESITE=none
+AUTH_COOKIE_SAMESITE=lax
 ```
 
 The API refuses to start in production if the development secret, insecure cookies, or non-HTTPS public URLs are still configured.
@@ -63,7 +63,7 @@ SKYSCANNER_MEDIA_PARTNER_ID=<partner id>
 SKYSCANNER_AFFILIATE_BASE_URL=https://skyscanner.net/g/referrals/v1
 ```
 
-Triplet does not sell or book flights. It discovers trip options and sends users to Skyscanner or partner pages through provider deep links or affiliate referral links.
+Farelin does not sell or book flights. It discovers trip options and sends users to Skyscanner or partner pages through provider deep links or affiliate referral links.
 
 Run the sanitized smoke test:
 

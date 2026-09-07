@@ -1,4 +1,4 @@
-# Triplet MCP Plan
+# Farelin MCP Plan
 
 Future MCP server name: `triplet-travel-mcp`
 

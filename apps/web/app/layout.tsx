@@ -3,7 +3,7 @@ import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/g
 import "./globals.css";
 
 import { AuthProvider } from "../components/AuthContext";
-import { siteUrl } from "../lib/site";
+import { BRAND } from "../lib/brand";
 import { THEME_INIT_SCRIPT } from "../lib/theme";
 
 const display = Bricolage_Grotesque({
@@ -24,28 +24,29 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   // Absolute URLs for Open Graph and canonicals are resolved against this.
-  metadataBase: new URL(siteUrl()),
+  metadataBase: new URL(BRAND.url),
+  applicationName: BRAND.name,
   title: {
-    default: "Triplet — Find cheap trips, not just cheap flights",
-    template: "%s · Triplet",
+    default: `${BRAND.name} — ${BRAND.tagline}`,
+    template: `%s · ${BRAND.name}`,
   },
   description:
-    "Choose your airports, set your travel style, and Triplet watches for unusually cheap fares that can become real trips.",
+    `Choose your airports and travel style, and ${BRAND.name} finds unusually good observed fares that can become real trips.`,
   // Deliberately no canonical here. Next merges parent metadata into children,
   // so a canonical on the root layout is inherited by every page that does not
   // set its own — telling crawlers that /pricing, /terms and /security are all
   // really the homepage. Each stable public page declares its own instead.
   openGraph: {
     type: "website",
-    siteName: "Triplet",
-    title: "Triplet — Find cheap trips, not just cheap flights",
+    siteName: BRAND.name,
+    title: `${BRAND.name} — ${BRAND.tagline}`,
     description:
       "Flexible trip discovery from the airports you choose, with every fare shown as what it is: recently observed, never guaranteed.",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Triplet — Find cheap trips, not just cheap flights",
+    title: `${BRAND.name} — ${BRAND.tagline}`,
     description:
       "Flexible trip discovery from the airports you choose, with every fare shown as what it is: recently observed, never guaranteed.",
   },

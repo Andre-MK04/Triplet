@@ -388,7 +388,7 @@ def validate_search_request(raw: dict[str, Any], context: ToolContext) -> TripSe
     invalid = [code for code in request.originAirports if not is_supported_origin(code)]
     if invalid:
         raise ValueError(
-            f"Triplet departs from Europe, so these are not usable origins: {', '.join(invalid)}."
+            f"{settings.app_name} departs from Europe, so these are not usable origins: {', '.join(invalid)}."
         )
     return request
 

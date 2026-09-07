@@ -35,7 +35,7 @@ export function providerNotice(
         // Not "live fares were unavailable": Triplet has no live fare feed, so
         // saying that implies a capability it does not have and makes the
         // fallback sound like a degraded version of something better.
-        "Couldn't reach the fare provider — showing fares Triplet observed earlier, which may be out of date.",
+        "Couldn't reach the fare provider — showing fares Farelin observed earlier, which may be out of date.",
     };
   }
   if (metadata.cachedResultsUsed && !metadata.liveProviderSucceeded) {

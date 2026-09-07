@@ -21,7 +21,7 @@ def normalize_database_url(url: str) -> str:
 class Settings:
     app_env: str = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "local"))
     environment: str = app_env
-    app_name: str = os.getenv("APP_NAME", "Triplet")
+    app_name: str = os.getenv("APP_NAME", "Farelin")
     database_url: str = normalize_database_url(
         os.getenv(
             "DATABASE_URL",
@@ -117,6 +117,7 @@ class Settings:
     auth_cookie_domain: str | None = os.getenv("AUTH_COOKIE_DOMAIN") or None
     auth_password_min_length: int = int(os.getenv("AUTH_PASSWORD_MIN_LENGTH", "12"))
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    additional_allowed_origins: str = os.getenv("ADDITIONAL_ALLOWED_ORIGINS", "")
     api_public_base_url: str = os.getenv("API_PUBLIC_BASE_URL", os.getenv("AUTH_PUBLIC_BASE_URL", "http://localhost:8001"))
     auth_rate_limit_window_seconds: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "300"))
     auth_rate_limit_max_attempts: int = int(os.getenv("AUTH_RATE_LIMIT_MAX_ATTEMPTS", "20"))
@@ -229,7 +230,7 @@ class Settings:
     alerts_min_hours_between_notifications: int = int(os.getenv("ALERTS_MIN_HOURS_BETWEEN_NOTIFICATIONS", "24"))
     alerts_public_base_url: str = os.getenv("ALERTS_PUBLIC_BASE_URL", "http://localhost:3000")
     email_provider: str = os.getenv("EMAIL_PROVIDER", "console")
-    email_from: str = os.getenv("EMAIL_FROM", "alerts@triplet.local")
+    email_from: str = os.getenv("EMAIL_FROM", "alerts@farelin.local")
     #: Where replies should go, when that is not the sending address.
     #:
     #: Sending from an address needs no mailbox — the domain's DKIM signature

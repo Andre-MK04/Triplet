@@ -14,10 +14,10 @@ import { TripDetailClient } from "./client";
 
 const FALLBACK: Metadata = {
   title: "Trip details",
-  description: "A trip Triplet found, with every flight, date and observed fare.",
+  description: "A trip Farelin found, with every flight, date and observed fare.",
   robots: { index: false, follow: false },
   openGraph: {
-    title: "A trip on Triplet",
+    title: "A trip on Farelin",
     description: "Every flight, date and observed fare — check the live price before booking.",
     type: "website",
   },

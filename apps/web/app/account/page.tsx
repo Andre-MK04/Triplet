@@ -153,7 +153,7 @@ export default function AccountPage() {
               Email not confirmed
             </p>
             <p className="mt-1.5 text-sm leading-relaxed text-mist">
-              Triplet will not send fare alerts to {user.email} until it is confirmed, and
+              Farelin will not send fare alerts to {user.email} until it is confirmed, and
               watches you set will ask for confirmation separately.
             </p>
             <div className="mt-3">
@@ -193,11 +193,11 @@ export default function AccountPage() {
                 <strong className="text-cloud">
                   {(user.connectedProviders ?? []).map(providerName).join(" and ") || "a connected account"}
                 </strong>
-                , so there is no Triplet password to change. You can add one if you would rather sign
+                , so there is no Farelin password to change. You can add one if you would rather sign
                 in with an email and password too — we will email you a link to set it.
               </p>
               <ButtonLink href="/reset-password" variant="secondary">
-                Set a Triplet password
+                Set a Farelin password
               </ButtonLink>
             </div>
           ) : (
@@ -288,7 +288,7 @@ export default function AccountPage() {
 
       <ConfirmDialog
         open={deleteOpen}
-        title="Delete your Triplet account?"
+        title="Delete your Farelin account?"
         confirmLabel="Delete my account"
         confirmPhrase="DELETE"
         isWorking={isDeleting}
@@ -301,10 +301,10 @@ export default function AccountPage() {
           <li>— your travel profile and origin airports</li>
           <li>— your travel map: visited, lived and wishlist countries</li>
           <li>— your saved watches and their history</li>
-          <li>— every trip suggestion Triplet has generated for you</li>
+          <li>— every trip suggestion Farelin has generated for you</li>
         </ul>
         <p className="text-cloud">
-          This cannot be undone, and Triplet cannot recover any of it afterwards.
+          This cannot be undone, and Farelin cannot recover any of it afterwards.
         </p>
       </ConfirmDialog>
     </AppShell>

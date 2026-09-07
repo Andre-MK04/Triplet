@@ -11,7 +11,7 @@ import type { TripOption } from "./types";
 export type SortKey = "best" | "cheapest" | "freshest" | "fastest";
 
 export const SORT_OPTIONS: { key: SortKey; label: string; hint: string }[] = [
-  { key: "best", label: "Best", hint: "Triplet's ranking: quality, price, freshness and fit" },
+  { key: "best", label: "Best", hint: "Farelin's ranking: quality, price, freshness and fit" },
   { key: "cheapest", label: "Cheapest", hint: "Lowest comparable trip total" },
   { key: "freshest", label: "Freshest", hint: "Most recently observed fare" },
   { key: "fastest", label: "Fastest", hint: "Least time in the air" },

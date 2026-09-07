@@ -90,7 +90,7 @@ export function ResultsToolbar({
           aria-controls="ranking-explainer"
           className="ml-1 font-mono text-[11px] uppercase tracking-label text-mist underline transition-colors hover:text-mint"
         >
-          How Triplet ranks
+          How Farelin ranks
         </button>
       </div>
 
@@ -106,11 +106,11 @@ export function ResultsToolbar({
           id="ranking-explainer"
           ref={dialogRef}
           role="region"
-          aria-label="How Triplet ranks results"
+          aria-label="How Farelin ranks results"
           tabIndex={-1}
           className="mt-3 border-l-2 border-mint/40 pl-4 text-sm leading-relaxed text-mist"
         >
-          <p className="text-cloud">Best first means Triplet&apos;s own ranking, which weighs:</p>
+          <p className="text-cloud">Best first means Farelin&apos;s own ranking, which weighs:</p>
           <ul className="mt-2 space-y-1.5">
             <li>
               <strong className="text-cloud">Trip quality</strong> — how good the trip itself is:
@@ -124,7 +124,7 @@ export function ResultsToolbar({
             </li>
             <li>
               <strong className="text-cloud">Price</strong> — how this fare compares with the
-              others in the same result set, and with prices Triplet has recorded for similar
+              others in the same result set, and with prices Farelin has recorded for similar
               trips before.
             </li>
             <li>
@@ -133,12 +133,12 @@ export function ResultsToolbar({
             </li>
           </ul>
           <p className="mt-3">
-            Cheapness alone does not win. A very cheap fare that Triplet last saw two days ago
+            Cheapness alone does not win. A very cheap fare that Farelin last saw two days ago
             can rank below a slightly dearer one seen this morning, because the older price is
             likelier to have moved.
           </p>
           <p className="mt-3 text-cloud">
-            Commission never affects ranking. Whether a result earns Triplet money is not one of
+            Commission never affects ranking. Whether a result earns Farelin money is not one of
             the inputs, and there are tests that fail if it becomes one.
           </p>
         </div>

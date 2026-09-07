@@ -81,9 +81,9 @@ type DashboardBilling = {
 
 const PLAN_LABEL: Record<string, string> = {
   free: "Free",
-  trial: "Triplet Pro trial",
-  pro: "Triplet Pro",
-  owner: "Triplet Owner",
+  trial: "Farelin Pro trial",
+  pro: "Farelin Pro",
+  owner: "Farelin Owner",
 };
 
 type DashboardData = {
@@ -534,7 +534,7 @@ export function DashboardClient() {
           </h1>
           {data ? (
             <p className="mt-3 leading-relaxed text-mist">
-              Triplet is watching{" "}
+              Farelin is watching{" "}
               <span className="text-cloud">
                 {data.billing.usage.activeSavedSearches}
                 {data.billing.usage.unlimited ? "" : ` of ${data.billing.usage.savedSearchLimit}`}
@@ -552,7 +552,7 @@ export function DashboardClient() {
               .
             </p>
           ) : (
-            <p className="mt-3 text-mist">Triplet keeps watching while you&apos;re away.</p>
+            <p className="mt-3 text-mist">Farelin keeps watching while you&apos;re away.</p>
           )}
           {data ? (
             <p className="mono-num mt-2 font-mono text-[10px] uppercase tracking-label text-mist-dim">
@@ -616,7 +616,7 @@ export function DashboardClient() {
                   title="No watches yet"
                   action={<ButtonLink href="/discover">Run your first search</ButtonLink>}
                 >
-                  Run a search on the Discover page, then hit “Watch this search” — Triplet will email you
+                  Run a search on the Discover page, then hit “Watch this search” — Farelin will email you
                   when a real deal shows up.
                 </EmptyState>
               ) : (

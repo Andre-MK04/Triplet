@@ -8,7 +8,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:800
 // blocking between vercel.app and railway.app can't break auth this way.
 const apiProxyTarget = process.env.API_PROXY_TARGET;
 
-// Triplet loads no third-party scripts. Affiliate commission is earned through
+// Farelin loads no third-party scripts. Affiliate commission is earned through
 // the `marker` query parameter that the API puts into every Aviasales booking
 // URL it builds (see providers/travelpayouts/affiliate_links.py), so the
 // Travelpayouts Drive script was never what carried attribution — it was
@@ -46,6 +46,22 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../.."),
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.farelin.com" }],
+        destination: "https://farelin.com/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "triplet-web.vercel.app" }],
+        destination: "https://farelin.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

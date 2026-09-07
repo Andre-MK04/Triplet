@@ -136,7 +136,7 @@ export function priceBadge(trip: TripOption): PriceBadge | null {
   return {
     label,
     explanation: range
-      ? `${formatPrice(trip.totalPrice)} is lower than most fares Triplet has recorded for similar trips. ${range}.`
-      : `${formatPrice(trip.totalPrice)} is lower than most fares Triplet has recorded for similar trips.`,
+      ? `${formatPrice(trip.totalPrice)} is lower than most fares Farelin has recorded for similar trips. ${range}.`
+      : `${formatPrice(trip.totalPrice)} is lower than most fares Farelin has recorded for similar trips.`,
   };
 }

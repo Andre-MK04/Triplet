@@ -8,8 +8,8 @@
 export function AffiliateDisclosure({ className = "" }: { className?: string }) {
   return (
     <p className={`text-xs leading-relaxed text-mist-dim ${className}`}>
-      Triplet may earn a commission when you book through certain links. Triplet adds no fee to
-      the fare — the booking provider sets the final price. Commission does not affect how Triplet
+      Farelin may earn a commission when you book through certain links. Farelin adds no fee to
+      the fare — the booking provider sets the final price. Commission does not affect how Farelin
       ranks results.
     </p>
   );

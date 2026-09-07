@@ -124,8 +124,8 @@ export function PriceHistoryPanel({ trip }: { trip: TripOption }) {
         </h2>
         <p className="mt-3 max-w-prose text-sm leading-relaxed text-mist">
           {trip.price?.isEstimate
-            ? "This total is assembled from separately observed fares, so Triplet does not compare it against single-ticket history — that would be comparing two different things."
-            : "Triplet has not recorded enough comparable fares on this route yet to say whether this price is unusual."}
+            ? "This total is assembled from separately observed fares, so Farelin does not compare it against single-ticket history — that would be comparing two different things."
+            : "Farelin has not recorded enough comparable fares on this route yet to say whether this price is unusual."}
         </p>
       </section>
     );
@@ -144,11 +144,11 @@ export function PriceHistoryPanel({ trip }: { trip: TripOption }) {
   const spoken = [
     `This fare is ${formatPrice(trip.totalPrice)}.`,
     typicalLow != null && typicalHigh != null
-      ? `Comparable fares Triplet has observed typically run ${formatPrice(typicalLow)} to ${formatPrice(typicalHigh)}.`
+      ? `Comparable fares Farelin has observed typically run ${formatPrice(typicalLow)} to ${formatPrice(typicalHigh)}.`
       : null,
     medianPrice != null ? `The median is ${formatPrice(medianPrice)}.` : null,
     `Based on ${sampleCount} comparable observation${sampleCount === 1 ? "" : "s"}.`,
-    verdict ? `Triplet rates this ${verdict.label.toLowerCase()}.` : null,
+    verdict ? `Farelin rates this ${verdict.label.toLowerCase()}.` : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -192,11 +192,11 @@ export function PriceHistoryPanel({ trip }: { trip: TripOption }) {
       ) : null}
 
       <p className="mt-4 max-w-prose text-xs leading-relaxed text-mist-dim">
-        Based on {sampleCount} comparable fare{sampleCount === 1 ? "" : "s"} Triplet has recorded
-        {basis ? ` for ${basis}` : ""}. These are prices Triplet has seen, not a forecast — they say
+        Based on {sampleCount} comparable fare{sampleCount === 1 ? "" : "s"} Farelin has recorded
+        {basis ? ` for ${basis}` : ""}. These are prices Farelin has seen, not a forecast — they say
         what this route has cost, not what it will.
         {!verdict
-          ? " There are too few for Triplet to call this price unusual either way."
+          ? " There are too few for Farelin to call this price unusual either way."
           : ""}
       </p>
     </section>

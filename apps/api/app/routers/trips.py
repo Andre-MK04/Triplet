@@ -59,7 +59,7 @@ def search_trips(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Database is not ready. Start the Triplet PostgreSQL container, "
+                f"Database is not ready. Start the {settings.app_name} PostgreSQL container, "
                 "run migrations, and seed the database."
             ),
         ) from exc

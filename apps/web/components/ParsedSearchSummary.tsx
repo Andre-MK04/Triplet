@@ -32,7 +32,7 @@ export function ParsedSearchSummary({
         id="parsed-summary-heading"
         className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist"
       >
-        What Triplet understood
+        What Farelin understood
       </h2>
 
       <ul className="mt-3 flex flex-wrap gap-2">

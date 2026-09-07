@@ -8,10 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import routes as auth_routes
 from app.alerts.email import (
-    KNOWN_EMAIL_PROVIDERS,
     EmailProviderError,
     build_email_provider,
-    normalized_email_provider,
+    safe_email_status,
 )
 from app.config import settings
 from app.observability.context import set_request_id
@@ -43,9 +42,22 @@ from app.routers import (
     trips,
 )
 
-allowed_origins = ["http://localhost:3000", "http://localhost:3001"]
-if settings.frontend_url not in allowed_origins:
-    allowed_origins.append(settings.frontend_url)
+def configured_allowed_origins() -> list[str]:
+    origins = (
+        []
+        if settings.app_env.lower() in {"production", "prod"}
+        else ["http://localhost:3000", "http://localhost:3001"]
+    )
+    if settings.frontend_url not in origins:
+        origins.append(settings.frontend_url)
+    for configured_origin in settings.additional_allowed_origins.split(","):
+        configured_origin = configured_origin.strip().rstrip("/")
+        if configured_origin and configured_origin not in origins:
+            origins.append(configured_origin)
+    return origins
+
+
+allowed_origins = configured_allowed_origins()
 
 unsafe_methods = {"POST", "PUT", "PATCH", "DELETE"}
 insecure_dev_secret = "dev-secret-change-me"
@@ -70,7 +82,7 @@ def _resolved_provider_delivers() -> bool:
 
 
 def validate_security_settings() -> None:
-    if settings.app_env.lower() != "production":
+    if settings.app_env.lower() not in {"production", "prod"}:
         return
 
     errors = []
@@ -96,8 +108,16 @@ def validate_security_settings() -> None:
         errors.append("AUTH_COOKIE_SECURE=true is required in production.")
     if settings.auth_cookie_samesite.lower() == "none" and not settings.auth_cookie_secure:
         errors.append("AUTH_COOKIE_SAMESITE=none requires AUTH_COOKIE_SECURE=true.")
-    if "*" in allowed_origins:
+    production_origins = configured_allowed_origins()
+    if "*" in production_origins:
         errors.append("Wildcard CORS origins are not allowed with credentials in production.")
+    insecure_origins = [
+        origin
+        for origin in production_origins
+        if origin != "*" and not origin.startswith("https://")
+    ]
+    if insecure_origins:
+        errors.append("Every production browser origin must use HTTPS.")
     if settings.ai_enabled:
         # Validate the credential for the provider actually selected. This used
         # to demand OPENAI_API_KEY unconditionally, so an Anthropic deployment
@@ -185,6 +205,7 @@ async def lifespan(app: FastAPI):
     configure_logging()
     configure_sentry()
     validate_security_settings()
+    logger.info("email_readiness", extra={"event": "email.readiness", **safe_email_status()})
     yield
 
 
@@ -193,7 +214,7 @@ async def lifespan(app: FastAPI):
 _docs_enabled = settings.expose_api_docs or settings.app_env not in {"production", "prod"}
 
 app = FastAPI(
-    title="Triplet API",
+    title=f"{settings.app_name} API",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs" if _docs_enabled else None,

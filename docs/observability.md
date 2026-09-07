@@ -68,10 +68,10 @@ identifier.
 
 Entirely optional. Without `SENTRY_DSN` nothing is imported and nothing is
 sent. With it, the same redaction is applied through `before_send` rather than
-trusting a vendor's defaults to recognise Triplet's token shapes. Tracing is
+trusting a vendor's defaults to recognise Farelin's token shapes. Tracing is
 off; error grouping is the useful part on a free tier.
 
-If the DSN is set but `sentry-sdk` is not installed, Triplet logs a warning and
+If the DSN is set but `sentry-sdk` is not installed, Farelin logs a warning and
 starts anyway. Missing error reporting is not a reason to refuse traffic.
 
 ## Reading the logs

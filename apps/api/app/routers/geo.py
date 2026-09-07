@@ -23,6 +23,7 @@ from app.data.flight_places import (
     search_places,
 )
 from app.database import get_db
+from app.config import settings
 from app.db.models import AirportDirectoryDB, LocationDB
 
 router = APIRouter(tags=["geo"])
@@ -188,7 +189,7 @@ def search_airports(
     lon: float | None = Query(default=None, ge=-180, le=180),
     originsOnly: bool = Query(
         default=False,
-        description="Only airports Triplet can search departures from (Europe).",
+        description=f"Only airports {settings.app_name} can search departures from (Europe).",
     ),
     db: Session = Depends(get_db),
 ) -> list[AirportResult]:

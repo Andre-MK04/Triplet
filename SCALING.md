@@ -1,6 +1,6 @@
-# Triplet Scaling Runbook
+# Farelin Scaling Runbook
 
-How Triplet scales from today (~0 users) toward 50k and ~1M monthly users, and
+How Farelin scales from today (~0 users) toward 50k and ~1M monthly users, and
 the concrete thresholds that trigger each step. Principle: **build for today,
 keep the path to 1M open** — don't provision idle heavy infra.
 

@@ -83,7 +83,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // browser-internal wording, and a screen reader now reads it aloud. Status
     // 0 is the conventional "no response" marker and lets callers tell a
     // connection problem apart from a real HTTP status.
-    throw new ApiError(0, "We couldn't reach Triplet. Check your connection and try again.");
+    throw new ApiError(0, "We couldn't reach Farelin. Check your connection and try again.");
   }
   if (!response.ok) {
     throw new ApiError(response.status, await parseError(response));

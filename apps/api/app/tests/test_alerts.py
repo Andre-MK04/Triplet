@@ -9,6 +9,26 @@ from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB
 from app.main import app
 
 
+class DeliveringTestProvider:
+    provider_name = "test"
+    delivers = True
+
+    def send_email(self, to, subject, html_body, text_body):
+        return None
+
+
+class FailingTestProvider(DeliveringTestProvider):
+    def send_email(self, to, subject, html_body, text_body):
+        raise OSError("mail transport unavailable")
+
+
+def use_delivering_provider(monkeypatch):
+    monkeypatch.setattr(
+        "app.alerts.service.build_email_provider",
+        lambda: DeliveringTestProvider(),
+    )
+
+
 def override_db(db_session):
     def _override_get_db():
         yield db_session
@@ -118,7 +138,7 @@ def test_token_hash_verification_rejects_wrong_token():
 def test_alert_run_sends_first_notification_and_logs_rows(db_session, monkeypatch):
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    use_delivering_provider(monkeypatch)
     created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
 
@@ -137,7 +157,7 @@ def test_alert_run_sends_first_notification_and_logs_rows(db_session, monkeypatc
 def test_alert_run_skips_same_result_inside_cooldown(db_session, monkeypatch):
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    use_delivering_provider(monkeypatch)
     created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
 
@@ -152,7 +172,7 @@ def test_alert_run_skips_same_result_inside_cooldown(db_session, monkeypatch):
 def test_improved_price_sends_notification_after_cooldown(db_session, monkeypatch):
     app.dependency_overrides[get_db] = override_db(db_session)
     client = TestClient(app)
-    monkeypatch.setattr(settings, "email_provider", "console")
+    use_delivering_provider(monkeypatch)
     created = create_alert(client, db_session)
     token = token_from_url(created["manageUrl"])
     row = db_session.get(SavedSearchDB, created["id"])
@@ -165,6 +185,44 @@ def test_improved_price_sends_notification_after_cooldown(db_session, monkeypatc
 
     assert response.status_code == 200
     assert response.json()["notificationSent"] is True
+
+
+def test_non_delivering_provider_does_not_claim_watch_cooldown(db_session, monkeypatch):
+    app.dependency_overrides[get_db] = override_db(db_session)
+    client = TestClient(app)
+    monkeypatch.setattr(settings, "email_provider", "console")
+    created = create_alert(client, db_session)
+    token = token_from_url(created["manageUrl"])
+
+    response = client.post(f"/alerts/{created['id']}/run?token={token}")
+    row = db_session.get(SavedSearchDB, created["id"])
+    delivery_count = db_session.query(AlertDeliveryDB).count()
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["notificationSent"] is False
+    assert row.last_notified_at is None
+    assert delivery_count == 0
+
+
+def test_failed_smtp_attempt_is_not_reported_as_sent(db_session, monkeypatch):
+    app.dependency_overrides[get_db] = override_db(db_session)
+    client = TestClient(app)
+    monkeypatch.setattr(
+        "app.alerts.service.build_email_provider",
+        lambda: FailingTestProvider(),
+    )
+    created = create_alert(client, db_session)
+    token = token_from_url(created["manageUrl"])
+
+    response = client.post(f"/alerts/{created['id']}/run?token={token}")
+    delivery = db_session.query(AlertDeliveryDB).one()
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["notificationSent"] is False
+    assert delivery.status == "error"
+    assert "transport unavailable" in delivery.error_message
 
 
 def test_run_due_is_dev_only(db_session, monkeypatch):

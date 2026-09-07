@@ -29,12 +29,12 @@ export const WATCH_TRIGGERS: {
   {
     value: "route_deal",
     label: "It's unusually cheap for this route",
-    hint: "Measured against what Triplet has seen this search cost before, so a route that is always cheap does not keep announcing itself.",
+    hint: "Measured against what Farelin has seen this search cost before, so a route that is always cheap does not keep announcing itself.",
   },
   {
     value: "price_drop",
     label: "The price drops meaningfully",
-    hint: "Only on a real fall from the last price Triplet told you about — a euro off is not news.",
+    hint: "Only on a real fall from the last price Farelin told you about — a euro off is not news.",
   },
 ];
 

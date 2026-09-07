@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Farelin">
+  <rect width="32" height="32" rx="7" fill="#0b1117"/>
+  <circle cx="16" cy="16" r="12" fill="none" stroke="#7ddfc3" stroke-width="2"/>
+  <path d="M7 20c4-8 14-11 18-8" fill="none" stroke="#7ddfc3" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3"/>
+  <circle cx="8" cy="19" r="2.4" fill="#7ddfc3"/>
+  <circle cx="24" cy="12" r="2.4" fill="#ff9a78"/>
+</svg>

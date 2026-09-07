@@ -134,7 +134,7 @@ export function WatchConfirmClient() {
           </div>
           {state.nothingWasSetUp ? (
             <p className="mt-6 text-xs leading-relaxed text-mist-dim">
-              Nothing was set up, and Triplet will not email that address.
+              Nothing was set up, and Farelin will not email that address.
             </p>
           ) : null}
         </div>
@@ -150,11 +150,11 @@ export function WatchConfirmClient() {
           Watch confirmed
         </p>
         <h1 className="font-display text-3xl font-bold text-cloud">
-          Triplet is now watching this search.
+          Farelin is now watching this search.
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-mist">
           We&apos;ll email {watch.email} when a trip worth your attention turns up. Prices are
-          fares Triplet has observed, so check the live price before you book.
+          fares Farelin has observed, so check the live price before you book.
         </p>
 
         <dl className="mt-8 border-y border-line py-5 text-left">
@@ -221,7 +221,7 @@ function failureFor(error: unknown): State {
   }
   return {
     status: "failed",
-    title: "We couldn't reach Triplet.",
+    title: "We couldn't reach Farelin.",
     detail:
       "The confirmation didn't go through. Your link is still good — open it again in a moment.",
     canRetry: false,

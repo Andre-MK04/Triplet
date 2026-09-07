@@ -1,4 +1,4 @@
-# Triplet — iOS App Flow for Stitch
+# Farelin — iOS App Flow for Stitch
 
 Companion to [`design.md`](design.md). That file is the visual system
 (tokens, components, rules). This file is the **screen-by-screen map** and
@@ -10,7 +10,7 @@ freehand reinterpretation.
 give Stitch (a) the screen's purpose and content from this doc, and (b) a
 reminder to apply `design.md` in full (colors, type, radius rules, badge/
 button components) — don't restate the whole design system every time, just
-say "apply the Triplet Editorial Instrument system from design.md" and add
+say "apply the Farelin Editorial Instrument system from design.md" and add
 the screen-specific notes below. Generate screens roughly in flow order so
 Stitch can carry visual continuity (its own generated components) forward
 from one screen to the next instead of reinventing them.
@@ -87,7 +87,7 @@ Tab bar (signed in): Discover · My World · Dashboard · Account
 **Purpose:** brief brand moment while auth state resolves.
 
 - Full-bleed `ink` background with the grain texture already active.
-- Center: the Triplet wordmark (`font-display`, bold) with the small
+- Center: the Farelin wordmark (`font-display`, bold) with the small
   route-mark glyph from the web navbar (`TripletMark`), no spinner visible
   unless load exceeds ~800ms.
 - **Animation**: wordmark fades/scales in very subtly (opacity 0→1, scale
@@ -297,7 +297,7 @@ this is a lightweight, secondary action.
 **Content:**
 - Sheet handle bar (thin, `line` color, sharp — not the default rounded iOS
   pill if it can be styled; otherwise accept the system default here since
-  it's a system chrome element, not a Triplet-drawn one).
+  it's a system chrome element, not a Farelin-drawn one).
 - Title: "Save this search" (`font-display`).
 - Auto-filled name field for the alert (editable), showing the derived
   default name pattern from web (e.g. "VIE/ZAG/TRS under €600").
@@ -394,7 +394,7 @@ world / visited destinations.
 - Route-line dash animation as specified in `design.md` §7 (marching dashes,
   continuous loop, 2.4s).
 - Globe rotation/interaction: slow ambient auto-rotation when idle,
-  responsive to drag — standard for a 3D globe, no special Triplet-specific
+  responsive to drag — standard for a 3D globe, no special Farelin-specific
   easing needed here beyond "not too fast, feels like a real object."
 
 ---
@@ -474,7 +474,7 @@ should feel calm and instant, not choreographed.
   `EmptyState` pattern for empty, the thin-ring `Spinner` for loading, and
   the left-rule `Notice` (error tone) for errors, consistently.
 - **No native default styling left unstyled**: every input, toggle, radio,
-  slider, and button must be the Triplet-specific version from `design.md`,
+  slider, and button must be the Farelin-specific version from `design.md`,
   never the bare iOS system control — this is the single most important
   instruction for keeping the app from looking like a generic SwiftUI form
   once implemented.

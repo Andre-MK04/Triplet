@@ -468,7 +468,7 @@ export function TravelMapClient() {
     <AppShell wide>
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6">
         <header className="flex flex-wrap items-end justify-between gap-6">
-          <div><p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">My World</p><h1 className="mt-2 font-display text-5xl font-extrabold tracking-tight text-cloud sm:text-6xl">The places that shaped you.</h1><p className="mt-4 max-w-2xl text-lg leading-relaxed text-mist">Remember where you&apos;ve been, keep a quiet wishlist, and let Triplet find the next place worth going.</p></div>
+          <div><p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">My World</p><h1 className="mt-2 font-display text-5xl font-extrabold tracking-tight text-cloud sm:text-6xl">The places that shaped you.</h1><p className="mt-4 max-w-2xl text-lg leading-relaxed text-mist">Remember where you&apos;ve been, keep a quiet wishlist, and let Farelin find the next place worth going.</p></div>
           <Button onClick={() => setAddCountriesOpen(true)}>Add countries</Button>
         </header>
         {error ? <div className="mt-6"><Notice tone="error">{error}</Notice></div> : null}

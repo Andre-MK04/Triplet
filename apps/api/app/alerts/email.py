@@ -2,6 +2,7 @@ import logging
 import smtplib
 from dataclasses import dataclass
 from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 
 from app.config import settings
 
@@ -10,6 +11,31 @@ logger = logging.getLogger(__name__)
 
 class EmailProviderError(RuntimeError):
     pass
+
+
+def sender_address() -> str:
+    """Return one validated mailbox address from EMAIL_FROM.
+
+    The public display name comes from APP_NAME, never from an untrusted header
+    fragment in configuration. This prevents CR/LF header injection while still
+    allowing the SMTP envelope to use the verified Farelin domain.
+    """
+    value = (settings.email_from or "").strip()
+    if any(ch in value for ch in "\r\n"):
+        raise EmailProviderError("EMAIL_FROM contains a line break.")
+    _, address = parseaddr(value)
+    local, separator, domain = address.partition("@")
+    if value != address or not local or separator != "@" or not domain or "." not in domain:
+        raise EmailProviderError("EMAIL_FROM must contain one valid email address.")
+    return address
+
+
+def sender_header() -> str:
+    """The safe public From header, e.g. ``Farelin <alerts@farelin.com>``."""
+    display_name = (settings.app_name or "Farelin").strip()
+    if any(ch in display_name for ch in "\r\n"):
+        raise EmailProviderError("APP_NAME contains a line break.")
+    return formataddr((display_name, sender_address()))
 
 
 def reply_to_header() -> str | None:
@@ -69,10 +95,14 @@ class ConsoleEmailProvider(EmailProvider):
         # sees locally matches what a recipient would get. A console provider
         # that quietly differs from the real one is a poor rehearsal.
         reply_to = reply_to_header()
+        try:
+            from_header = sender_header()
+        except EmailProviderError:
+            from_header = "invalid EMAIL_FROM"
         logger.info(
             "console_email to=%s reply_to=%s subject=%s\n%s",
             to,
-            reply_to or settings.email_from,
+            reply_to or from_header,
             subject,
             text_body,
         )
@@ -107,10 +137,13 @@ class SMTPEmailProvider(EmailProvider):
             raise EmailProviderError(
                 f"EMAIL_PROVIDER=smtp needs {', '.join(missing)}."
             )
+        # Validate headers while resolving readiness, not after a watch has
+        # already spent its notification slot attempting delivery.
+        sender_header()
 
     def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
         message = EmailMessage()
-        message["From"] = settings.email_from
+        message["From"] = sender_header()
         message["To"] = to
         message["Subject"] = subject
         reply_to = reply_to_header()
@@ -184,3 +217,19 @@ def build_email_provider() -> EmailProvider:
         ", ".join(KNOWN_EMAIL_PROVIDERS),
     )
     return ConsoleEmailProvider()
+
+
+def safe_email_status() -> dict[str, object]:
+    """Operational readiness without credentials or mailbox-local parts."""
+    provider = build_email_provider()
+    try:
+        domain = sender_address().rsplit("@", 1)[1]
+    except EmailProviderError:
+        domain = None
+    return {
+        "provider": provider.provider_name,
+        "configured": provider.delivers,
+        "delivers": provider.delivers,
+        "fromDomain": domain,
+        "replyToConfigured": reply_to_header() is not None,
+    }

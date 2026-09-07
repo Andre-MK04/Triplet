@@ -76,7 +76,7 @@ export function FareCheckPrompt() {
     return (
       <section className="border-y border-line py-4" aria-live="polite">
         <p className="text-sm text-mist">
-          Thank you — that helps Triplet judge how far observed fares drift.
+          Thank you — that helps Farelin judge how far observed fares drift.
         </p>
       </section>
     );

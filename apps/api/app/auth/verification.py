@@ -89,7 +89,7 @@ def send_verification_email(db: Session, user: UserDB, *, commit: bool = True) -
     try:
         build_email_provider().send_email(
             user.email,
-            f"Confirm your {settings.app_name} email",
+            f"Verify your {settings.app_name} email",
             (
                 f"<p>Confirm this address so {settings.app_name} can send you fare alerts:</p>"
                 f'<p><a href="{link}">Confirm my email</a></p>'

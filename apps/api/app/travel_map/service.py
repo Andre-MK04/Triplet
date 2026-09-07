@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.config import settings
 from app.data.country_catalog import Country, country_catalog, get_country
 from app.db.models import CountryVisitDB, TripSuggestionDB, UserCountryDB, UserDB
 from app.travel_map.schemas import (
@@ -175,7 +176,7 @@ class TravelMapService:
     def _require_country(self, code: str) -> Country:
         country = get_country(code)
         if not country:
-            raise TravelMapValidationError("Unknown Triplet country code.")
+            raise TravelMapValidationError(f"Unknown {settings.app_name} country code.")
         return country
 
     def _require_visit(self, visit_id: str) -> CountryVisitDB:

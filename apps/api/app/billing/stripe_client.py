@@ -36,7 +36,7 @@ def create_or_get_customer(db: Session, user: UserDB) -> str:
     customer = stripe_api().Customer.create(
         email=user.email,
         name=user.display_name,
-        metadata={"user_id": user.id, "app": "Triplet"},
+        metadata={"user_id": user.id, "app": settings.app_name},
     )
     user.stripe_customer_id = customer["id"]
     db.commit()
@@ -58,8 +58,8 @@ def create_checkout_session(db: Session, user: UserDB, interval: str):
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=settings.billing_success_url,
         cancel_url=settings.billing_cancel_url,
-        metadata={"user_id": user.id, "app": "Triplet", "plan": "pro"},
-        subscription_data={"metadata": {"user_id": user.id, "app": "Triplet", "plan": "pro"}},
+        metadata={"user_id": user.id, "app": settings.app_name, "plan": "pro"},
+        subscription_data={"metadata": {"user_id": user.id, "app": settings.app_name, "plan": "pro"}},
     )
 
 

@@ -1,18 +1,22 @@
-# Triplet
+# Farelin
 
-Triplet helps Europe-based travelers find and plan cheap trips worldwide. Departure airports remain the supported European `AirportDB.is_user_origin_candidate` set; destinations can be airports, city/metro codes, countries, regions, continents, or anywhere. Triplet does not sell tickets: it ranks observed fares and hands complete return or open-jaw itineraries to Aviasales.
+Farelin helps Europe-based travelers find and plan cheap trips worldwide. Departure airports remain the supported European `AirportDB.is_user_origin_candidate` set; destinations can be airports, city/metro codes, countries, regions, continents, or anywhere. Farelin does not sell tickets: it ranks observed fares and hands complete return or open-jaw itineraries to Aviasales.
+
+> Farelin was formerly named Triplet. The repository name, historical migrations,
+> persisted identifiers, and `TRIPLET_*` environment variables retain the old
+> name for compatibility; all public product identity is Farelin.
 
 ## Worldwide Flight Discovery
 
 The worldwide architecture preserves a strict split between origins and destinations:
 
 - **Origins:** selected European departure airports stored in PostgreSQL and explicitly marked as user origin candidates. Plan limits still apply.
-- **Destinations:** a generated provider-independent catalogue of flightable Travelpayouts airports and cities, enriched with Triplet's canonical country/continent data.
+- **Destinations:** a generated provider-independent catalogue of flightable Travelpayouts airports and cities, enriched with Farelin's canonical country/continent data.
 - **Anywhere:** the scheduled refresher calls provider discovery once per origin, validates global destinations, and writes the shared `cached_round_trips` pool. Searches and alerts filter that pool by country, region, continent, budget, dates, and travel-map state; they never enumerate world routes.
 - **Explicit place:** a city/airport request uses bounded `prices_for_dates(..., one_way=false)` calls for only the requested origin, destination, and months. It does not depend on the place appearing in popular-direction discovery.
-- **Handoff:** Triplet creates indexed Aviasales segment links for both normal returns and open jaws. `TRAVELPAYOUTS_MARKER` is the only public affiliate identifier included.
+- **Handoff:** Farelin creates indexed Aviasales segment links for both normal returns and open jaws. `TRAVELPAYOUTS_MARKER` is the only public affiliate identifier included.
 
-Travelpayouts prices are cached/indicative, not live availability or an exhaustive view of every fare. The UI keeps the observed timestamp, confidence level, provider warning, and “Check price” terminology. Triplet does not process payment, issue tickets, or guarantee fares.
+Travelpayouts prices are cached/indicative, not live availability or an exhaustive view of every fare. The UI keeps the observed timestamp, confidence level, provider warning, and “Check price” terminology. Farelin does not process payment, issue tickets, or guarantee fares.
 
 Worldwide city/airport and anywhere watches reuse the shared deal cache and never call Travelpayouts per subscriber. Country/region watch persistence is intentionally not added without a schema migration; the API rejects those watch shapes instead of silently broadening them to “anywhere.” Country/region search itself is fully supported.
 
@@ -27,7 +31,7 @@ python scripts/sync_travelpayouts_places.py
 
 The sync keeps only `flightable=true`, `iata_type=airport` airport rows and cities with a flightable airport, so railway and bus-station entries are not exposed as airports. The output includes airport/city kind, city code, country, continent, coordinates, timezone, and a legacy `FRU -> BSZ` Bishkek alias. This external sync is intentionally separate from deterministic Alembic migrations; no database migration is required for worldwide destinations.
 
-Travelpayouts `/v1/city-directions` remains isolated behind `discover_round_trips`. It is a legacy discovery adapter and can be replaced later without changing services. The endpoint has no relied-upon pagination contract here; Triplet retains the cheapest `TRAVELPAYOUTS_DISCOVERY_LIMIT_PER_ORIGIN` mapped destinations (default 100) from each bounded one-request response.
+Travelpayouts `/v1/city-directions` remains isolated behind `discover_round_trips`. It is a legacy discovery adapter and can be replaced later without changing services. The endpoint has no relied-upon pagination contract here; Farelin retains the cheapest `TRAVELPAYOUTS_DISCOVERY_LIMIT_PER_ORIGIN` mapped destinations (default 100) from each bounded one-request response.
 
 ## Project Structure
 
@@ -94,7 +98,7 @@ docker compose up -d db
 Connection defaults:
 
 ```text
-APP_NAME=Triplet
+APP_NAME=Farelin
 APP_ENV=local
 DATABASE_URL=postgresql+psycopg://triplet:triplet@localhost:5433/triplet
 FLIGHT_PROVIDER=database
@@ -165,7 +169,7 @@ Country identity and totals come from one canonical catalog:
 - `apps/api/app/data/country_catalog.json` contains ISO alpha-2, alpha-3,
   numeric geometry ID, display name, aliases, continent, and whether the entry
   counts toward the world total.
-- Triplet currently defines the world as 193 UN members plus Vatican City and
+- Farelin currently defines the world as 193 UN members plus Vatican City and
   Palestine: 195 countries. The seven-continent classification and all totals
   are derived from this catalog, not duplicated in UI components.
 - Globe polygons are matched by Natural Earth numeric ISO ID, never by display
@@ -200,7 +204,7 @@ trip” actions hand the country to the existing `/discover` AI-search flow.
 
 ## Accounts And Authentication
 
-Triplet includes backend-managed email/password accounts. Passwords are hashed with Argon2id before storage, access and refresh tokens live in `httpOnly` cookies, and saved searches can belong to a logged-in user. Password signups start unverified and are emailed a single-use confirmation link; Google OAuth accounts whose email Google reports as verified are trusted without one.
+Farelin includes backend-managed email/password accounts. Passwords are hashed with Argon2id before storage, access and refresh tokens live in `httpOnly` cookies, and saved searches can belong to a logged-in user. Password signups start unverified and are emailed a single-use confirmation link; Google OAuth accounts whose email Google reports as verified are trusted without one.
 
 The database intentionally stores `users.password_hash`, not the user's raw password. If you inspect the database after signup you should see a value beginning with `$argon2id$...`. Accounts created before the migration to Argon2id still carry a `pbkdf2_sha256$...` hash; those verify normally and are re-hashed to Argon2id the next time that person logs in, so the estate migrates without anyone being asked to reset anything. You should never see or store the plain password.
 
@@ -285,6 +289,17 @@ Apple redirect URI:
 http://localhost:8001/auth/oauth/apple/callback
 ```
 
+Production OAuth returns through Farelin's same-origin Vercel proxy:
+
+```text
+AUTH_PUBLIC_BASE_URL=https://farelin.com/backend
+Google redirect URI: https://farelin.com/backend/auth/oauth/google/callback
+Apple return URL: https://farelin.com/backend/auth/oauth/apple/callback
+```
+
+The exact account-side migration checklist is in
+[`docs/operations/farelin-launch.md`](docs/operations/farelin-launch.md).
+
 OAuth accounts are linked through the `user_oauth_accounts` table. The app stores provider subject IDs and email metadata, not provider access tokens. OAuth-only users get an unusable password marker in `users.password_hash`; they can later set a manual password through the reset-password flow.
 
 Logged-in saved-search routes:
@@ -297,15 +312,15 @@ Logged-in saved-search routes:
 
 The original token-based alert routes under `/alerts` still work for logged-out email alerts. If a browser is logged in and posts to `/alerts`, the saved search is linked to that account while still returning the manage/unsubscribe links.
 
-A watch does not send anything until its address has confirmed it. That applies to signed-in users too: the account's own address counts as proven only once the account itself is verified, so signing up as someone else's address does not let you point Triplet's mail at them.
+A watch does not send anything until its address has confirmed it. That applies to signed-in users too: the account's own address counts as proven only once the account itself is verified, so signing up as someone else's address does not let you point Farelin's mail at them.
 
 ## Step 9 Billing + Subscriptions
 
-Triplet launches with a simple **Free + Pro** model plus a no-card **7-day Pro trial**. Billing is disabled by default in local development, so no Stripe calls are made unless `BILLING_ENABLED=true`.
+Farelin launches with a simple **Free + Pro** model plus a no-card **7-day Pro trial**. Billing is disabled by default in local development, so no Stripe calls are made unless `BILLING_ENABLED=true`.
 
 ### Plans
 
-**Free — €0** (for trying Triplet)
+**Free — €0** (for trying Farelin)
 
 - 3 AI searches / month
 - 1 saved watch
@@ -341,7 +356,7 @@ Billing routes:
 Stripe setup:
 
 1. Create a Stripe account and use test mode first.
-2. Create a product named `Triplet Pro`.
+2. Create a product named `Farelin Pro`.
 3. Create two recurring prices: one monthly and one yearly.
 4. Copy the price IDs into `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`.
 5. Add `STRIPE_SECRET_KEY`.
@@ -384,7 +399,7 @@ Local modes:
 
 ## Flight Provider Strategy
 
-Triplet is provider-agnostic. All flight data flows through the `FlightProvider` interface
+Farelin is provider-agnostic. All flight data flows through the `FlightProvider` interface
 (`search_one_way`, `search_return`, `search_flexible`, `get_provider_status`, `smoke_test`,
 `normalize_response_to_internal_flights`), and every fare carries a `confidenceLevel`
 (`live` / `cached` / `indicative` / `mock`) plus `observedAt`/`expiresAt` so the UI can always
@@ -414,7 +429,7 @@ clearly labeled as demo/cached fares.
 
 Notes:
 
-- **Travelpayouts/Aviasales** is Triplet's active worldwide discovery and affiliate provider: cached
+- **Travelpayouts/Aviasales** is Farelin's active worldwide discovery and affiliate provider: cached
   market prices (`confidenceLevel=indicative`, never shown as live) with attributable Aviasales links.
 - **Duffel** remains a dormant adapter and is not enabled or required by worldwide search.
 - **Skyscanner** stays dormant (`requires_approval`) until partner access exists. The adapter is
@@ -452,7 +467,7 @@ GET /providers/status
 GET /providers/smoke-test?provider=duffel&origin=VIE&destination=ALC&maxResults=3
 ```
 
-Triplet does not sell or book flights. It sends users to provider or partner pages through
+Farelin does not sell or book flights. It sends users to provider or partner pages through
 deep links or affiliate links, labeled "Check price" / "View deal" — never "Book now".
 
 ## Production Readiness
@@ -529,7 +544,7 @@ iOS note: this step implements web Stripe subscriptions only. A future iOS app m
 
 ## Step 10 Product Flow Polish
 
-Triplet now has a more complete early-product flow across search, onboarding, saved alerts, billing, and account settings.
+Farelin now has a more complete early-product flow across search, onboarding, saved alerts, billing, and account settings.
 
 Pages:
 
@@ -625,7 +640,7 @@ If the backend returns:
 role "triplet" does not exist
 ```
 
-then Alembic is probably reaching a different local PostgreSQL server. Triplet maps its Docker database to host port `5433` to avoid colliding with a local Postgres on `5432`. Recreate the local project database:
+then Alembic is probably reaching a different local PostgreSQL server. Farelin maps its Docker database to host port `5433` to avoid colliding with a local Postgres on `5432`. Recreate the local project database:
 
 ```bash
 docker compose down -v
@@ -757,7 +772,7 @@ Expected: smoke-test shows `apiOk=true` or a controlled API warning; `mappedFlig
 
 ## Internal Tools And AI Search
 
-Triplet now has an internal tools layer:
+Farelin now has an internal tools layer:
 
 ```text
 Frontend
@@ -917,7 +932,7 @@ When `AI_ENABLED=false`, `/ai/search` and `/ai/parse` use the rule-based parser 
 
 ## Step 7 Saved Searches And Alerts
 
-Triplet can save a trip search and check it later with the deterministic `search_trips` tool. Alerts do not depend on OpenAI.
+Farelin can save a trip search and check it later with the deterministic `search_trips` tool. Alerts do not depend on OpenAI.
 
 Environment variables:
 
@@ -930,7 +945,7 @@ ALERTS_MIN_HOURS_BETWEEN_NOTIFICATIONS=24
 ALERTS_PUBLIC_BASE_URL=http://localhost:3000
 
 EMAIL_PROVIDER=console
-EMAIL_FROM=alerts@triplet.local
+EMAIL_FROM=alerts@farelin.local
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
@@ -939,6 +954,13 @@ SMTP_USE_TLS=true
 ```
 
 By default, emails are printed/logged by the backend. Real SMTP sending only happens when `EMAIL_PROVIDER=smtp` and SMTP config is set.
+
+For production Resend configuration, sender/reply behavior, the two Railway
+services that need the shared variables, and DNS verification, see
+[docs/operations/email-production.md](docs/operations/email-production.md).
+For the Farelin domain, OAuth, Travelpayouts, Stripe, Search Console, and
+post-deploy checks, see
+[docs/operations/farelin-launch.md](docs/operations/farelin-launch.md).
 
 Alert emails are branded HTML (with a plain-text alternative): dark trip cards with route,
 dates, price, deal/fit scores, the why-it-works explanation, warnings, and a "Check price"
