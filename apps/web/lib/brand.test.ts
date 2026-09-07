@@ -51,9 +51,9 @@ describe("Farelin public identity", () => {
     expect(robots).toContain("siteUrl()");
   });
 
-  it("redirects only the exact old production and www hosts", () => {
+  it("redirects only the exact old production host", () => {
     expect(nextConfig).toContain('value: "triplet-web.vercel.app"');
-    expect(nextConfig).toContain('value: "www.farelin.com"');
+    expect(nextConfig).not.toContain('value: "www.farelin.com"');
     expect(nextConfig).not.toContain('value: "*.vercel.app"');
   });
 });

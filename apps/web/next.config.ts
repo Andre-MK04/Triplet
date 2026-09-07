@@ -50,12 +50,6 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: "www.farelin.com" }],
-        destination: "https://farelin.com/:path*",
-        permanent: true,
-      },
-      {
-        source: "/:path*",
         has: [{ type: "host", value: "triplet-web.vercel.app" }],
         destination: "https://farelin.com/:path*",
         permanent: true,

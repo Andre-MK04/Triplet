@@ -15,9 +15,16 @@ API_PROXY_TARGET=https://<Farelin API Railway hostname>
 ```
 
 Add `farelin.com` and `www.farelin.com` to the Vercel project. Make
-`farelin.com` primary. Application redirects cover only `www.farelin.com` and
-the exact old host `triplet-web.vercel.app`; preview `*.vercel.app` deployments
-are not redirected. Verify path and query preservation after deployment.
+`farelin.com` primary and configure `www.farelin.com` to redirect to it in
+Vercel. Apex/`www` canonicalization must have a single owner, so the application
+does not redirect between those hosts. The application redirects only the exact
+old host `triplet-web.vercel.app`; preview `*.vercel.app` deployments are not
+redirected. Verify path and query preservation after deployment.
+
+Do not configure `farelin.com` to redirect to `www.farelin.com` while also
+configuring `www.farelin.com` to redirect back to the apex. That creates an
+infinite redirect loop that browsers commonly report as being unable to open
+the page.
 
 ## Railway API
 
