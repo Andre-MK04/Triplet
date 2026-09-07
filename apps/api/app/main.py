@@ -58,11 +58,10 @@ def configured_allowed_origins() -> list[str]:
     # Both Farelin hostnames are attached to the same Vercel project. Vercel may
     # temporarily serve either one while the primary-domain setting is changed,
     # and browser POSTs carry the hostname that actually rendered the page.
-    # Allow the two exact owned origins (never a wildcard) whenever either was
-    # explicitly configured, whether through FRONTEND_URL or the migration-era
-    # ADDITIONAL_ALLOWED_ORIGINS setting.
+    # Production always allows these two exact owned origins (never a wildcard),
+    # so a stale migration-era FRONTEND_URL cannot disable every public POST.
     farelin_origins = {"https://farelin.com", "https://www.farelin.com"}
-    if farelin_origins.intersection(origins):
+    if settings.app_env.lower() in {"production", "prod"}:
         for origin in sorted(farelin_origins):
             if origin not in origins:
                 origins.append(origin)

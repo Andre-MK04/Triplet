@@ -32,10 +32,10 @@ def test_both_exact_farelin_origins_are_configured_without_a_wildcard(monkeypatc
     assert "*" not in origins
 
 
-def test_farelin_alias_pair_is_added_when_apex_is_an_additional_origin(monkeypatch):
+def test_farelin_origins_survive_a_stale_migration_frontend_url(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "frontend_url", "https://triplet-web.vercel.app")
-    monkeypatch.setattr(settings, "additional_allowed_origins", "https://farelin.com")
+    monkeypatch.setattr(settings, "additional_allowed_origins", "")
 
     origins = main_module.configured_allowed_origins()
 
