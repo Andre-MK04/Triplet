@@ -3,9 +3,9 @@ export function shouldSearchAutocomplete(
   query: string,
   committedValue: string,
   minChars: number,
-  controlled: boolean,
+  hasCommittedSelection: boolean,
 ): boolean {
   const term = query.trim();
   if (term.length < minChars) return false;
-  return !controlled || term !== committedValue.trim();
+  return !hasCommittedSelection || term !== committedValue.trim();
 }

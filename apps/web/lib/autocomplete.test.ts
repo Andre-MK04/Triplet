@@ -7,6 +7,10 @@ describe("autocomplete committed labels", () => {
     expect(shouldSearchAutocomplete("Copenhagen, Denmark", "Copenhagen, Denmark", 2, true)).toBe(false);
   });
 
+  it("does search typed text before a city has been selected", () => {
+    expect(shouldSearchAutocomplete("Copenhagen", "", 2, false)).toBe(true);
+  });
+
   it("searches again once the traveller edits the selected label", () => {
     expect(shouldSearchAutocomplete("Copen", "Copenhagen, Denmark", 2, true)).toBe(true);
   });

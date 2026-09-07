@@ -18,6 +18,8 @@ type AutocompleteProps<T> = {
   onQueryChange?: (query: string) => void;
   /** Text shown in the input after a selection (controlled by the parent). */
   value?: string;
+  /** False while `value` is only draft text and should still be searched. */
+  valueIsCommitted?: boolean;
 };
 
 /**
@@ -34,6 +36,7 @@ export function Autocomplete<T>({
   onSelect,
   onQueryChange,
   value,
+  valueIsCommitted = true,
 }: AutocompleteProps<T>) {
   const [query, setQuery] = useState(value ?? "");
   const [results, setResults] = useState<T[]>([]);
@@ -41,23 +44,30 @@ export function Autocomplete<T>({
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [highlight, setHighlight] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
-  const committedValue = useRef(value ?? "");
+  const committedValue = useRef(valueIsCommitted ? value ?? "" : "");
 
   useEffect(() => {
     if (value === undefined) return;
-    committedValue.current = value;
+    committedValue.current = valueIsCommitted ? value : "";
     setQuery(value);
     setResults([]);
     setStatus("idle");
     setOpen(false);
+    // Commitment changes are handled separately so editing a selected city
+    // does not reset the traveller's first keystroke back to the old label.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
+
+  useEffect(() => {
+    committedValue.current = valueIsCommitted ? value ?? "" : "";
+  }, [valueIsCommitted, value]);
 
   useEffect(() => {
     const term = query.trim();
     // A selected label is display state, not a new search. Previously choosing
     // "Copenhagen, Denmark" immediately queried that full label, opened the
     // menu again, and contradicted the successful selection with "No matches".
-    if (!shouldSearchAutocomplete(query, committedValue.current, minChars, value !== undefined)) {
+    if (!shouldSearchAutocomplete(query, committedValue.current, minChars, valueIsCommitted)) {
       setResults([]);
       setStatus("idle");
       setOpen(false);

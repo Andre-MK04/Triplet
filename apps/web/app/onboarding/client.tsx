@@ -312,12 +312,12 @@ export function OnboardingClient() {
             placeholder="e.g. Ljubljana, Paris, Maribor…"
             ariaLabel="Search for your base city or town"
             value={p.homeLocation ?? ""}
-            onQueryChange={(query) => {
-              if (query === p.homeLocation) return;
+            valueIsCommitted={Boolean(p.baseLocationId)}
+            onQueryChange={() => {
+              if (!p.baseLocationId) return;
               preselectedFor.current = null;
               setProfile({
                 ...p,
-                homeLocation: query,
                 baseLocationId: null,
                 baseLatitude: null,
                 baseLongitude: null,
@@ -348,7 +348,7 @@ export function OnboardingClient() {
           />
           {p.homeLocation && !p.baseLocationId ? (
             <p className="font-mono text-[10px] uppercase tracking-label text-gold">
-              Using “{p.homeLocation}” as a custom location — airport suggestions need a matched city.
+              Choose a matching city from the suggestions to continue.
             </p>
           ) : p.baseLocationId ? (
             <p className="font-mono text-[10px] uppercase tracking-label text-mint">Base set · {p.homeLocation}</p>
