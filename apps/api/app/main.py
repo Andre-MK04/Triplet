@@ -51,20 +51,21 @@ def configured_allowed_origins() -> list[str]:
     frontend_origin = settings.frontend_url.rstrip("/")
     if frontend_origin not in origins:
         origins.append(frontend_origin)
-    # Both Farelin hostnames are attached to the same Vercel project. Vercel may
-    # temporarily serve either one while the primary-domain setting is changed,
-    # and browser POSTs carry the hostname that actually rendered the page.
-    # Allow the two exact owned origins (never a wildcard) so a domain redirect
-    # cannot turn every search into a CSRF-origin rejection.
-    farelin_origins = {"https://farelin.com", "https://www.farelin.com"}
-    if frontend_origin in farelin_origins:
-        for origin in sorted(farelin_origins):
-            if origin not in origins:
-                origins.append(origin)
     for configured_origin in settings.additional_allowed_origins.split(","):
         configured_origin = configured_origin.strip().rstrip("/")
         if configured_origin and configured_origin not in origins:
             origins.append(configured_origin)
+    # Both Farelin hostnames are attached to the same Vercel project. Vercel may
+    # temporarily serve either one while the primary-domain setting is changed,
+    # and browser POSTs carry the hostname that actually rendered the page.
+    # Allow the two exact owned origins (never a wildcard) whenever either was
+    # explicitly configured, whether through FRONTEND_URL or the migration-era
+    # ADDITIONAL_ALLOWED_ORIGINS setting.
+    farelin_origins = {"https://farelin.com", "https://www.farelin.com"}
+    if farelin_origins.intersection(origins):
+        for origin in sorted(farelin_origins):
+            if origin not in origins:
+                origins.append(origin)
     return origins
 
 
