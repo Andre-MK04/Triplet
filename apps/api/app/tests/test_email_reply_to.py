@@ -126,6 +126,7 @@ def test_safe_status_exposes_no_smtp_credentials(email_config):
         "delivers": True,
         "fromDomain": "farelin.test",
         "replyToConfigured": True,
+        "contactRecipientConfigured": True,
     }
     assert "password" not in str(status).lower()
 

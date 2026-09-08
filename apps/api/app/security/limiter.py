@@ -52,6 +52,8 @@ class RateLimitCategory(str, Enum):
     AUTH = "auth"
     #: Creating or running price watches, which can send email.
     ALERTS = "alerts"
+    #: Public contact mail. Kept deliberately tight to prevent mail relay abuse.
+    CONTACT = "contact"
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,11 @@ def budget_for(category: RateLimitCategory) -> Budget:
         return Budget(settings.ai_search_rate_limit_max_attempts, window)
     if category is RateLimitCategory.ALERTS:
         return Budget(settings.rate_limit_alerts_per_window, window)
+    if category is RateLimitCategory.CONTACT:
+        return Budget(
+            settings.contact_rate_limit_max_attempts,
+            settings.contact_rate_limit_window_seconds,
+        )
     return Budget(settings.auth_rate_limit_max_attempts, settings.auth_rate_limit_window_seconds)
 
 

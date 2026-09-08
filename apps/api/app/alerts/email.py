@@ -71,6 +71,27 @@ def reply_to_header() -> str | None:
     return value
 
 
+def contact_recipient() -> str | None:
+    """Return the monitored support inbox without exposing it publicly.
+
+    CONTACT_EMAIL_TO wins. EMAIL_REPLY_TO is a useful fallback because it is
+    already required to be an inbox a person reads. EMAIL_FROM is deliberately
+    not a fallback: authenticated sender addresses often have no mailbox.
+    """
+    value = (settings.contact_email_to or "").strip()
+    if not value:
+        return reply_to_header()
+    if any(ch in value for ch in "\r\n"):
+        logger.error("contact_email_invalid: CONTACT_EMAIL_TO contains a line break.")
+        return None
+    _, address = parseaddr(value)
+    local, separator, domain = address.partition("@")
+    if value != address or not local or separator != "@" or not domain or "." not in domain:
+        logger.error("contact_email_invalid: CONTACT_EMAIL_TO is not one valid address.")
+        return None
+    return address
+
+
 @dataclass
 class EmailProvider:
     provider_name: str
@@ -232,4 +253,5 @@ def safe_email_status() -> dict[str, object]:
         "delivers": provider.delivers,
         "fromDomain": domain,
         "replyToConfigured": reply_to_header() is not None,
+        "contactRecipientConfigured": contact_recipient() is not None,
     }

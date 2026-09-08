@@ -1,11 +1,12 @@
 "use client";
 
 import { AppShell } from "../../components/AppShell";
+import { ButtonLink } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 
 const SECTIONS = [
   {
-    icon: "🔑",
+    number: "01",
     title: "Your account",
     points: [
       "Passwords are hashed with Argon2id. Accounts created before that use PBKDF2 and are upgraded automatically the next time you log in — no reset, nothing to do.",
@@ -17,7 +18,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: "🗂",
+    number: "02",
     title: "Your data",
     points: [
       "Your travel profile — airports, budget, preferences — personalizes Farelin's search, ranking and watch behavior.",
@@ -28,7 +29,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: "🤖",
+    number: "03",
     title: "The AI layer",
     points: [
       "The AI never sees your password or payment details. It receives your request and a compact summary of the preferences needed to search.",
@@ -38,7 +39,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: "💳",
+    number: "04",
     title: "Payments",
     points: [
       "When paid plans are enabled, subscriptions are processed by Stripe. Card numbers never touch Farelin's servers.",
@@ -46,7 +47,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: "🛡",
+    number: "05",
     title: "Engineering practices",
     points: [
       "Every endpoint validates its input, and rate limits are applied by cost: cheap lookups, searches, AI calls, authentication and alert creation each have their own ceiling.",
@@ -72,8 +73,11 @@ export function SecurityClient() {
         </header>
         {SECTIONS.map((section) => (
           <Card key={section.title}>
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-cloud">
-              <span aria-hidden>{section.icon}</span> {section.title}
+            <h2 className="flex items-center gap-3 font-display text-lg font-bold text-cloud">
+              <span className="font-mono text-[10px] font-semibold tracking-label text-mint" aria-hidden>
+                {section.number}
+              </span>
+              {section.title}
             </h2>
             <ul className="mt-3 space-y-2 text-sm text-mist">
               {section.points.map((point) => (
@@ -85,9 +89,12 @@ export function SecurityClient() {
             </ul>
           </Card>
         ))}
-        <p className="text-center text-xs text-mist-dim">
-          Found a security issue? Email us — responsible disclosure is always welcome.
-        </p>
+        <div className="flex flex-col items-center gap-3 border-t border-line pt-6 text-center">
+          <p className="text-xs text-mist-dim">
+            Found a security issue? Choose “Security report” on the contact form. Responsible disclosure is always welcome.
+          </p>
+          <ButtonLink href="/contact" variant="secondary" size="sm">Contact us</ButtonLink>
+        </div>
       </div>
     </AppShell>
   );

@@ -18,6 +18,7 @@ const SECTIONS: Array<{ title: string; body: React.ReactNode }> = [
         <li>• <strong className="text-cloud">Usage and plan</strong>: AI search counts, your plan, and trial status — to apply the limits your plan describes.</li>
         <li>• <strong className="text-cloud">Sessions and security logs</strong>: sign-in events, session records with the browser you used, and a one-way keyed hash of your IP address rather than the address itself.</li>
         <li>• <strong className="text-cloud">Billing</strong>: when paid plans are enabled, Stripe customer and subscription identifiers. Card numbers never reach Farelin.</li>
+        <li>• <strong className="text-cloud">Contact messages</strong>: the name, email address, topic and message you submit are sent to our support inbox. They are not stored in Farelin&apos;s application database and are kept in the support mailbox only as long as needed to handle the request.</li>
       </ul>
     ),
   },
@@ -166,6 +167,7 @@ export function PrivacyClient() {
         <div className="flex justify-center gap-3">
           <ButtonLink href="/account" variant="secondary">Manage your data</ButtonLink>
           <ButtonLink href="/security" variant="secondary">Security overview</ButtonLink>
+          <ButtonLink href="/contact" variant="secondary">Contact us</ButtonLink>
         </div>
       </div>
     </AppShell>

@@ -242,11 +242,21 @@ class Settings:
     #: address is monitored. People reply to fare alerts — to ask something, to
     #: complain, and eventually to make a GDPR request.
     email_reply_to: str = os.getenv("EMAIL_REPLY_TO", "")
+    # Inbox for public contact requests. Keep this separate from EMAIL_FROM:
+    # an authenticated sender address does not necessarily receive mail. When
+    # unset, the monitored EMAIL_REPLY_TO inbox is used as the safe fallback.
+    contact_email_to: str = os.getenv("CONTACT_EMAIL_TO", "")
     smtp_host: str | None = os.getenv("SMTP_HOST") or None
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
     smtp_username: str | None = os.getenv("SMTP_USERNAME") or None
     smtp_password: str | None = os.getenv("SMTP_PASSWORD") or None
     smtp_use_tls: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    contact_rate_limit_window_seconds: int = int(
+        os.getenv("CONTACT_RATE_LIMIT_WINDOW_SECONDS", "3600")
+    )
+    contact_rate_limit_max_attempts: int = int(
+        os.getenv("CONTACT_RATE_LIMIT_MAX_ATTEMPTS", "5")
+    )
 
 
 settings = Settings()

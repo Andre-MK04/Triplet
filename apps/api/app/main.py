@@ -32,6 +32,7 @@ from app.routers import (
     countries,
     fare_feedback,
     featured,
+    contact,
     geo,
     health,
     me,
@@ -308,6 +309,7 @@ app.include_router(providers.router)
 app.include_router(alerts.router)
 app.include_router(featured.router)
 app.include_router(fare_feedback.router)
+app.include_router(contact.router)
 app.include_router(auth_routes.router)
 app.include_router(me.router)
 app.include_router(travel_map.router)

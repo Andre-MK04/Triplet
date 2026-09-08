@@ -36,6 +36,7 @@ EMAIL_PROVIDER=smtp
 EMAIL_REQUIRE_REAL_PROVIDER=true
 EMAIL_FROM=alerts@farelin.com
 EMAIL_REPLY_TO=hello@farelin.com
+CONTACT_EMAIL_TO=hello@farelin.com
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USERNAME=resend
@@ -49,8 +50,11 @@ Keep `SMTP_PASSWORD` secret. Never put it in Vercel, `NEXT_PUBLIC_*`, logs, or
 the repository. The implementation uses `smtplib.SMTP`, then `STARTTLS`, so port
 587 is intentional. Port 465 would require a deliberate move to `SMTP_SSL`.
 
-The API needs these settings for account verification, password reset, and
-anonymous Watch confirmation. The alerts scheduler needs them for fare alerts.
+The API needs these settings for account verification, password reset,
+anonymous Watch confirmation, and the public contact form. The alerts scheduler
+needs them for fare alerts. Contact submissions are sent directly to
+`CONTACT_EMAIL_TO` and are not stored in the application database. If that
+variable is unset, Farelin uses the monitored `EMAIL_REPLY_TO` inbox.
 If the scheduler cannot resolve a delivering SMTP provider, it skips the alert
 pass rather than consuming Watch cooldowns. With strict email enabled this also
 marks the scheduled tick as failed so the deployment can alert on it.
@@ -67,6 +71,7 @@ marks the scheduled tick as failed so the deployment can alert on it.
 6. Create and confirm a Watch.
 7. Run or await a real eligible Watch alert.
 8. Reply to a message and confirm it reaches `hello@farelin.com`.
+9. Send one contact-form message and confirm it reaches `CONTACT_EMAIL_TO`.
 
 When testing an alternate address, the save response now distinguishes a watch
 that needs confirmation from a confirmation message accepted by SMTP. “Accepted”
