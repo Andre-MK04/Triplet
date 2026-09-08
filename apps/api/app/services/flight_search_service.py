@@ -230,7 +230,10 @@ class FlightSearchService:
             return {}
         self.deals_requests_attempted = provider.requests_attempted
         self.deals_provider_warnings.extend(provider.warnings)
-        self.deals_provider_succeeded = any(fares.values())
+        # A multi-origin search calls this once per origin. One thin origin must
+        # not erase a successful lookup from an earlier origin and make the UI
+        # claim the provider was unreachable while showing its returned fares.
+        self.deals_provider_succeeded = self.deals_provider_succeeded or any(fares.values())
         return fares
 
     def _targeted_round_trip_fares(self, provider, request: TripSearchRequest, scope: DestinationScope):

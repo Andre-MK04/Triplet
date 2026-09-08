@@ -6,7 +6,8 @@ from app.db.repositories.flights_repository import FlightsRepository
 from app.providers.database_flight_provider import DatabaseFlightProvider
 from app.providers.mock_flight_provider import MockFlightProvider
 from app.providers.errors import ProviderApiError
-from app.models import TripSearchRequest
+from app.models import ProviderMetadata, TripSearchRequest
+from app.providers.travelpayouts.mapper import OneWayFare
 from app.services.flight_search_service import (
     FlightSearchService,
     UnknownFlightProviderError,
@@ -107,3 +108,52 @@ def test_hybrid_mode_falls_back_to_database_when_live_provider_fails(db_session,
     assert result.metadata.providerUsed == "database"
     assert result.metadata.cachedResultsUsed is True
     assert result.metadata.providerWarnings
+
+
+def test_a_thin_later_origin_does_not_erase_an_earlier_provider_success():
+    class SequentialLegProvider:
+        name = "travelpayouts"
+        warnings: list[str] = []
+        requests_attempted = 1
+
+        def __init__(self):
+            self.calls = 0
+
+        def one_way_legs(self, legs, _window):
+            self.calls += 1
+            if self.calls == 1:
+                origin, destination = legs[0]
+                return {
+                    (origin, destination): [
+                        OneWayFare(
+                            origin=origin,
+                            destination=destination,
+                            departureDate="2026-10-10",
+                            price=120,
+                        )
+                    ]
+                }
+            return {leg: [] for leg in legs}
+
+    request = TripSearchRequest(
+        originAirports=["CPH", "MMA"],
+        startDate=date(2026, 9, 1),
+        endDate=date(2026, 12, 29),
+        minTripLengthDays=14,
+        maxTripLengthDays=21,
+        maxBudget=1500,
+        maxGroundTransferHours=4,
+        tripStyle="surprise me",
+        tripPlan="multi_city",
+        routeStops=["TYO", "SEL", "SHA"],
+    )
+    service = FlightSearchService(
+        provider_name="travelpayouts",
+        provider=SequentialLegProvider(),
+    )
+
+    service.one_way_fares_for(request, [("CPH", "TYO")])
+    service.one_way_fares_for(request, [("MMA", "TYO")])
+    metadata = service.apply_deal_metadata(ProviderMetadata())
+
+    assert metadata.liveProviderSucceeded is True
