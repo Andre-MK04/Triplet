@@ -1,7 +1,9 @@
 # Farelin production email
 
-Farelin sends through the existing SMTP adapter. Resend is the intended SMTP
-service; it is not a separate `EMAIL_PROVIDER` implementation.
+Farelin uses Resend's HTTPS API in production. Railway disables outbound SMTP
+on Free, Trial, and Hobby plans, so valid SMTP credentials can still time out
+there. The HTTPS adapter avoids that platform restriction and is also the route
+Railway recommends for transactional mail.
 
 ## 1. Verify the sending domain in Resend
 
@@ -21,7 +23,7 @@ values are account-specific. Resend's dashboard is the source of truth.
 
 ## 2. Provide a real reply inbox
 
-`alerts@farelin.com` only needs to be an authenticated sender. Resend SMTP does
+`alerts@farelin.com` only needs to be an authenticated sender. Resend does
 not create an inbox for it. `hello@farelin.com` must be a mailbox or forwarding
 route that somebody actually reads, including for support and privacy requests.
 
@@ -32,23 +34,19 @@ and the existing alerts scheduler service:
 
 ```text
 APP_NAME=Farelin
-EMAIL_PROVIDER=smtp
+EMAIL_PROVIDER=resend
 EMAIL_REQUIRE_REAL_PROVIDER=true
 EMAIL_FROM=alerts@farelin.com
 EMAIL_REPLY_TO=hello@farelin.com
 CONTACT_EMAIL_TO=hello@farelin.com
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USERNAME=resend
-SMTP_PASSWORD=<Resend API key>
-SMTP_USE_TLS=true
+RESEND_API_KEY=<Resend API key>
 FRONTEND_URL=https://farelin.com
 ALERTS_PUBLIC_BASE_URL=https://farelin.com
 ```
 
-Keep `SMTP_PASSWORD` secret. Never put it in Vercel, `NEXT_PUBLIC_*`, logs, or
-the repository. The implementation uses `smtplib.SMTP`, then `STARTTLS`, so port
-587 is intentional. Port 465 would require a deliberate move to `SMTP_SSL`.
+Keep `RESEND_API_KEY` secret. Never put it in Vercel, `NEXT_PUBLIC_*`, logs, or
+the repository. Farelin sends from the Railway backend to Resend over HTTPS;
+the key is never returned to the browser.
 
 The API needs these settings for account verification, password reset,
 anonymous Watch confirmation, and the public contact form. The alerts scheduler
@@ -63,7 +61,7 @@ marks the scheduled tick as failed so the deployment can alert on it.
 
 1. Redeploy the Farelin API.
 2. Confirm startup logs contain the reduced `email.readiness` event with
-   provider `smtp`, `configured=true`, `delivers=true`, and from-domain
+   provider `resend`, `configured=true`, `delivers=true`, and from-domain
    `farelin.com`. It never includes the password or SMTP username.
 3. Redeploy the alerts scheduler and confirm no no-delivery warning appears.
 4. Create a test account and receive its verification email.
@@ -73,10 +71,10 @@ marks the scheduled tick as failed so the deployment can alert on it.
 8. Reply to a message and confirm it reaches `hello@farelin.com`.
 9. Send one contact-form message and confirm it reaches `CONTACT_EMAIL_TO`.
 
-When testing an alternate address, the save response now distinguishes a watch
-that needs confirmation from a confirmation message accepted by SMTP. “Accepted”
-means the mail server took responsibility for it; inbox placement can still be
+When testing an alternate address, the save response distinguishes a watch that
+needs confirmation from a confirmation message accepted by Resend. “Accepted”
+means the provider took responsibility for it; inbox placement can still be
 affected by DNS, bounces, spam filtering, or the recipient mailbox. Check the
 Resend delivery log for the final delivery/bounce state.
 
-Automated tests use an in-process fake SMTP object and never send external mail.
+Automated tests replace both HTTP and SMTP transports and never send external mail.

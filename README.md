@@ -948,6 +948,7 @@ EMAIL_PROVIDER=console
 EMAIL_FROM=alerts@farelin.local
 EMAIL_REPLY_TO=
 CONTACT_EMAIL_TO=
+RESEND_API_KEY=
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
@@ -955,7 +956,7 @@ SMTP_PASSWORD=
 SMTP_USE_TLS=true
 ```
 
-By default, emails are printed/logged by the backend. Real SMTP sending only happens when `EMAIL_PROVIDER=smtp` and SMTP config is set. The public contact form refuses to claim success unless a delivering provider and a monitored `CONTACT_EMAIL_TO` (or `EMAIL_REPLY_TO` fallback) are configured; its messages are delivered directly and are not stored in the application database.
+By default, emails are printed/logged by the backend. Production should use `EMAIL_PROVIDER=resend` with `RESEND_API_KEY`; `EMAIL_PROVIDER=smtp` remains available for hosts and providers that permit outbound SMTP. The public contact form refuses to claim success unless a delivering provider and a monitored `CONTACT_EMAIL_TO` (or `EMAIL_REPLY_TO` fallback) are configured; its messages are delivered directly and are not stored in the application database.
 
 For production Resend configuration, sender/reply behavior, the two Railway
 services that need the shared variables, and DNS verification, see

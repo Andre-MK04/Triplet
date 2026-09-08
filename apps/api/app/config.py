@@ -231,6 +231,10 @@ class Settings:
     alerts_public_base_url: str = os.getenv("ALERTS_PUBLIC_BASE_URL", "http://localhost:3000")
     email_provider: str = os.getenv("EMAIL_PROVIDER", "console")
     email_from: str = os.getenv("EMAIL_FROM", "alerts@farelin.local")
+    # Preferred on hosts that block outbound SMTP. Resend's HTTPS API accepts
+    # the same re_* credential, but it must have its own explicit variable so
+    # provider selection and secret purpose stay auditable.
+    resend_api_key: str | None = os.getenv("RESEND_API_KEY") or None
     #: Where replies should go, when that is not the sending address.
     #:
     #: Sending from an address needs no mailbox — the domain's DKIM signature

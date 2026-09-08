@@ -4,8 +4,8 @@ EMAIL_PROVIDER is a free-form string from a hosting dashboard. It used to be
 compared literally: anything that was not exactly "smtp" fell through to the
 console, and the production guard only objected to the exact word "console".
 
-So EMAIL_PROVIDER=SMTP, or "smtp " with a trailing space, or a provider name
-Triplet does not implement, all delivered nothing while satisfying
+So EMAIL_PROVIDER=SMTP, or "smtp " with a trailing space, or an unknown provider
+name all delivered nothing while satisfying
 EMAIL_REQUIRE_REAL_PROVIDER=true — the flag whose entire purpose is to refuse
 that situation.
 
@@ -17,6 +17,7 @@ import pytest
 
 from app.alerts.email import (
     ConsoleEmailProvider,
+    ResendEmailProvider,
     SMTPEmailProvider,
     build_email_provider,
     normalized_email_provider,
@@ -66,7 +67,16 @@ def test_configured_smtp_reports_that_it_delivers(email_settings):
     assert build_email_provider().delivers is True
 
 
-@pytest.mark.parametrize("value", ["resend", "sendgrid", "postmark", "typo123"])
+def test_configured_resend_uses_the_https_provider(email_settings, monkeypatch):
+    email_settings("resend")
+    monkeypatch.setattr(settings, "resend_api_key", "re_test_key")
+
+    provider = build_email_provider()
+    assert isinstance(provider, ResendEmailProvider)
+    assert provider.delivers is True
+
+
+@pytest.mark.parametrize("value", ["sendgrid", "postmark", "mailgun", "typo123"])
 def test_a_provider_triplet_does_not_implement_delivers_nothing(email_settings, value):
     """The exact hole: these are not the word "console", and used to pass."""
     email_settings(value)
@@ -110,13 +120,18 @@ def test_no_configuration_makes_building_a_provider_raise(email_settings, value,
 def test_an_unknown_provider_is_reported_loudly(email_settings, caplog):
     import logging
 
-    email_settings("resend")
+    email_settings("mailgun")
     with caplog.at_level(logging.ERROR):
         build_email_provider()
 
     logged = " ".join(record.getMessage() for record in caplog.records)
-    assert "resend" in logged
+    assert "mailgun" in logged
     assert "smtp" in logged, "the message should name what is actually available"
+
+
+def test_resend_without_an_api_key_delivers_nothing(email_settings):
+    email_settings("resend")
+    assert build_email_provider().delivers is False
 
 
 def test_half_configured_smtp_names_what_is_missing(email_settings, caplog):

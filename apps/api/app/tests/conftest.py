@@ -37,6 +37,7 @@ def isolated_provider_settings(monkeypatch):
     monkeypatch.setattr(settings, "anthropic_api_key", None)
     monkeypatch.setattr(settings, "billing_enabled", False)
     monkeypatch.setattr(settings, "email_provider", "console")
+    monkeypatch.setattr(settings, "resend_api_key", None)
 
 
 @pytest.fixture(autouse=True)

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
 
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -181,8 +183,56 @@ class SMTPEmailProvider(EmailProvider):
             server.send_message(message)
 
 
+class ResendEmailProvider(EmailProvider):
+    """Deliver through Resend's HTTPS API.
+
+    Railway blocks outbound SMTP on several plans. HTTPS uses the same
+    transactional provider without depending on mail ports, and gives every
+    caller the same EmailProvider contract as SMTP.
+    """
+
+    endpoint = "https://api.resend.com/emails"
+
+    def __init__(self):
+        super().__init__(provider_name="resend")
+        if not settings.resend_api_key:
+            raise EmailProviderError("EMAIL_PROVIDER=resend needs RESEND_API_KEY.")
+        sender_header()
+
+    def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
+        payload: dict[str, object] = {
+            "from": sender_header(),
+            "to": [to],
+            "subject": subject,
+            "html": html_body,
+            "text": text_body,
+        }
+        reply_to = reply_to_header()
+        if reply_to:
+            payload["reply_to"] = reply_to
+
+        try:
+            response = httpx.post(
+                self.endpoint,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "User-Agent": "Farelin/1.0",
+                },
+                timeout=10.0,
+            )
+        except httpx.HTTPError as exc:
+            raise EmailProviderError("The Resend API could not be reached.") from exc
+        if response.status_code not in {200, 201}:
+            # Never include the response body: provider errors can echo an
+            # address or other message data into logs and public API responses.
+            raise EmailProviderError(
+                f"The Resend API rejected the message (HTTP {response.status_code})."
+            )
+
+
 #: Every value EMAIL_PROVIDER understands.
-KNOWN_EMAIL_PROVIDERS = ("console", "smtp")
+KNOWN_EMAIL_PROVIDERS = ("console", "resend", "smtp")
 
 
 def normalized_email_provider() -> str:
@@ -210,6 +260,12 @@ def build_email_provider() -> EmailProvider:
     """
     provider = normalized_email_provider()
 
+    if provider == "resend":
+        try:
+            return ResendEmailProvider()
+        except EmailProviderError as exc:
+            logger.error("email_provider_misconfigured: %s No email will be delivered.", exc)
+            return ConsoleEmailProvider()
     if provider == "smtp":
         try:
             return SMTPEmailProvider()
@@ -232,8 +288,8 @@ def build_email_provider() -> EmailProvider:
     # outage over a typo.
     logger.error(
         "email_provider_unknown: EMAIL_PROVIDER=%r is not implemented, so no email will be "
-        "delivered. Use one of: %s. Any SMTP service — Resend, Postmark, SES, Fastmail — is "
-        "reached with EMAIL_PROVIDER=smtp plus SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD.",
+        "delivered. Use one of: %s. Resend is reached over HTTPS with "
+        "EMAIL_PROVIDER=resend plus RESEND_API_KEY; other mail services can use SMTP.",
         settings.email_provider,
         ", ".join(KNOWN_EMAIL_PROVIDERS),
     )
