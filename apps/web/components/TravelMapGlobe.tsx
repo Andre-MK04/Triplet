@@ -132,7 +132,9 @@ function CountryLayer({
             : countryFeature.geometry.coordinates;
         return coordinateSets.map((coordinates, index) => ({ code, coordinates, index }));
       }),
-    [codeByNumeric],
+    // Features arrive asynchronously. Omitting them here cached the first
+    // render's empty array forever, so the base sphere rotated without a map.
+    [codeByNumeric, countryFeatures],
   );
 
   return (

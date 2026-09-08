@@ -27,9 +27,14 @@ export function ContactClient() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // React only guarantees currentTarget while the event handler is actively
+    // handling the event. Capture the form before awaiting the API; reading
+    // event.currentTarget afterwards can yield null and turn a successful
+    // delivery into the generic error state when reset() throws.
+    const formElement = event.currentTarget;
     setState("sending");
     setError("");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
 
     try {
       await apiPost<{ accepted: boolean }>("/contact", {
@@ -39,7 +44,7 @@ export function ContactClient() {
         message: form.get("message"),
         website: form.get("website"),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       setState("sent");
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "We could not send your message. Please try again.");

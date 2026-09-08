@@ -24,6 +24,12 @@ describe("contact and support surfaces", () => {
     expect(contact).toContain("We could not send your message");
   });
 
+  it("keeps the form reference across the asynchronous request", () => {
+    expect(contact).toContain("const formElement = event.currentTarget");
+    expect(contact).toContain("formElement.reset()");
+    expect(contact).not.toContain("event.currentTarget.reset()");
+  });
+
   it("uses restrained numbering rather than emoji on the security page", () => {
     expect(security).toContain('number: "01"');
     expect(security).toContain('number: "05"');
