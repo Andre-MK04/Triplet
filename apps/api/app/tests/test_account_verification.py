@@ -99,7 +99,7 @@ def test_verification_email_uses_farelin_brand_and_domain(client, monkeypatch):
     import app.auth.verification as verification
 
     class Capture:
-        def send_email(self, to, subject, html, text):
+        def send_email(self, to, subject, html, text, **kwargs):
             sent.append((to, subject, html, text))
 
     monkeypatch.setattr(settings, "app_name", "Farelin")
@@ -117,7 +117,7 @@ def test_the_token_is_never_stored_in_the_clear(client, db_session, monkeypatch)
     import app.auth.verification as verification
 
     class Capture:
-        def send_email(self, to, subject, html, text):
+        def send_email(self, to, subject, html, text, **kwargs):
             sent.append(text)
 
     monkeypatch.setattr(verification, "build_email_provider", lambda: Capture())
@@ -220,7 +220,7 @@ def test_a_valid_token_verifies_the_account(client, db_session, monkeypatch):
     import app.auth.verification as verification
 
     class Capture:
-        def send_email(self, to, subject, html, text):
+        def send_email(self, to, subject, html, text, **kwargs):
             sent.append(text)
 
     monkeypatch.setattr(verification, "build_email_provider", lambda: Capture())
@@ -380,7 +380,7 @@ def send_and_capture(db_session, user) -> str:
     captured: list[str] = []
 
     class Capture:
-        def send_email(self, to, subject, html, text):
+        def send_email(self, to, subject, html, text, **kwargs):
             captured.append(text)
 
     original = verification.build_email_provider

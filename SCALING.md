@@ -35,7 +35,7 @@ cheap. Redis, replicas, and pooling are added **only** when their tripwire fires
 so we don't pay for or operate idle 1M-scale infrastructure early.
 
 ## Non-negotiables at every scale
-- User data stays in the **EU/EEA**, encrypted at rest, private-networked.
+- User data stays in the **EU/EEA** and uses private service networking. Encryption-at-rest claims must only be published after the production database configuration and provider guarantees have been verified.
 - Prices stay **labelled indicative**, never presented as guaranteed/live.
 - Erasure and export (`DELETE /auth/me`, `GET /me/export`) must keep working and
   must cover every new user-linked table (see `app/privacy/service.py`).

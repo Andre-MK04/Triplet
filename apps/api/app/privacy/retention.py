@@ -11,12 +11,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete
 
 from app.database import SessionLocal
-from app.db.models import AuditEventDB, CachedRoundTripDB, TripSuggestionDB
+from app.db.models import AuditEventDB, CachedRoundTripDB, EmailEventDB, TripSuggestionDB
 
 logger = logging.getLogger(__name__)
 
 AUDIT_RETENTION_DAYS = 180  # security logs kept ~6 months, then dropped
 CACHED_DEALS_RETENTION_DAYS = 3  # deals cache is short-lived; refresher keeps it warm
+EMAIL_EVENT_RETENTION_DAYS = 90  # minimal delivery metadata; suppressions are separate
 
 
 def run_retention_cleanup() -> dict:
@@ -29,6 +30,7 @@ def cleanup(db, now: datetime | None = None) -> dict:
     now = now or datetime.utcnow()
     audit_cutoff = now - timedelta(days=AUDIT_RETENTION_DAYS)
     deals_cutoff = now - timedelta(days=CACHED_DEALS_RETENTION_DAYS)
+    email_event_cutoff = now - timedelta(days=EMAIL_EVENT_RETENTION_DAYS)
 
     audit_deleted = db.execute(
         delete(AuditEventDB).where(AuditEventDB.created_at < audit_cutoff)
@@ -43,16 +45,20 @@ def cleanup(db, now: datetime | None = None) -> dict:
             TripSuggestionDB.expires_at < now,
         )
     ).rowcount or 0
+    email_events_deleted = db.execute(
+        delete(EmailEventDB).where(EmailEventDB.received_at < email_event_cutoff)
+    ).rowcount or 0
     db.commit()
 
     summary = {
         "auditDeleted": audit_deleted,
         "cachedDealsDeleted": deals_deleted,
         "expiredSuggestionsDeleted": suggestions_deleted,
+        "emailEventsDeleted": email_events_deleted,
     }
     logger.info(
-        "retention_cleanup audit=%s deals=%s suggestions=%s",
-        audit_deleted, deals_deleted, suggestions_deleted,
+        "retention_cleanup audit=%s deals=%s suggestions=%s email_events=%s",
+        audit_deleted, deals_deleted, suggestions_deleted, email_events_deleted,
     )
     return summary
 
@@ -62,7 +68,8 @@ def main() -> None:
     print(
         f"Retention cleanup: {summary['auditDeleted']} audit, "
         f"{summary['cachedDealsDeleted']} cached deals, "
-        f"{summary['expiredSuggestionsDeleted']} expired suggestions removed."
+        f"{summary['expiredSuggestionsDeleted']} expired suggestions, "
+        f"{summary['emailEventsDeleted']} email events removed."
     )
 
 

@@ -46,7 +46,13 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bwhsec_[A-Za-z0-9_]{8,}"), REDACTED),
     # A query string carrying a token, which is how manage and unsubscribe
     # links are shaped.
-    (re.compile(r"([?&](?:token|reset_token|verification_token)=)[^&\s]+", re.I), r"\1" + REDACTED),
+    (
+        re.compile(
+            r"([?&](?:token|reset_token|verification_token|manage_token|code|state)=)[^&\s]+",
+            re.I,
+        ),
+        r"\1" + REDACTED,
+    ),
 )
 
 

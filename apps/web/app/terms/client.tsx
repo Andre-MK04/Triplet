@@ -6,8 +6,8 @@ import { AppShell } from "../../components/AppShell";
 import { AffiliateDisclosure } from "../../components/AffiliateDisclosure";
 import { Notice } from "../../components/ui/Misc";
 import { legalOperator, missingOperatorDetails } from "../../lib/legal";
+import { useLegalVersions } from "../../lib/legalVersions";
 
-const LAST_UPDATED = "1 September 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -20,7 +20,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function TermsClient() {
   const missing = missingOperatorDetails();
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const versions = useLegalVersions();
 
   return (
     <AppShell>
@@ -32,18 +32,17 @@ export function TermsClient() {
           Terms of service
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-mist">
-          Last updated {LAST_UPDATED}. These terms cover using Farelin to discover trips and
+          Published version {versions?.termsVersion ?? "loading…"}. These terms cover using Farelin to discover trips and
           monitor fares. Plain language, because terms nobody reads protect nobody.
         </p>
 
-        {/* Developer-facing only. Users should never be shown a nag about our
-            own configuration, but shipping a Terms page that cannot name its
-            operator is a gap someone has to notice. */}
-        {isDevelopment && missing.length > 0 ? (
+        {/* Missing operator identity is a real publication gap, not a cosmetic
+            development warning. Never replace it with invented details. */}
+        {missing.length > 0 ? (
           <div className="mt-6">
             <Notice tone="warning">
-              Configuration gap: {missing.join(", ")} not set. These sections are omitted rather
-              than filled with placeholder values. See docs/legal-configuration.md.
+              Farelin&apos;s published operator information is incomplete ({missing.join(", ")}).
+              This must be resolved before a commercial public launch; no placeholder identity is shown.
             </Notice>
           </div>
         ) : null}
@@ -216,9 +215,9 @@ export function TermsClient() {
 
         <Section title="Changes to these terms">
           <p>
-            These terms may change as Farelin changes. The date at the top shows when they were
-            last revised. Continuing to use Farelin after a change means accepting the revised
-            terms; if a change materially affects account holders, we will say so.
+            These terms may change as Farelin changes. The published version at the top identifies
+            the document shown during signup. Material changes are versioned and communicated as
+            applicable; typo and formatting fixes do not trigger a new acceptance record.
           </p>
         </Section>
 
@@ -249,8 +248,9 @@ export function TermsClient() {
             </>
           ) : (
             <p>
-              Operator details are not yet published. Farelin is currently operated as a personal
-              project rather than a registered company.
+              Farelin&apos;s legal operator identity and establishment address have not yet been
+              published. The brand name alone does not identify the controller. This must be
+              completed before commercial public launch after appropriate Slovenian legal advice.
             </p>
           )}
           <p>

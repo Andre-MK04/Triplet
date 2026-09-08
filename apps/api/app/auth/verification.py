@@ -27,6 +27,7 @@ from app.auth.security import create_email_verification_token, hash_token, new_u
 from app.config import settings
 from app.db.models import EmailVerificationTokenDB, UserDB
 from app.alerts.email import build_email_provider
+from app.email_delivery import is_suppressed
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class VerificationError(Exception):
     """The token could not be used. The message is safe to show a user."""
 
 
-def _issue_token(db: Session, user: UserDB) -> str:
+def _issue_token(db: Session, user: UserDB) -> tuple[str, str]:
     """Mint a token, retiring any earlier one for this account.
 
     Superseding matters: someone who requests a second link expects the second
@@ -59,15 +60,16 @@ def _issue_token(db: Session, user: UserDB) -> str:
         existing.used_at = now
 
     raw, token_hash, expires_at = create_email_verification_token()
+    record_id = new_uuid()
     db.add(
         EmailVerificationTokenDB(
-            id=new_uuid(),
+            id=record_id,
             user_id=user.id,
             token_hash=token_hash,
             expires_at=expires_at,
         )
     )
-    return raw
+    return raw, record_id
 
 
 def send_verification_email(db: Session, user: UserDB, *, commit: bool = True) -> bool:
@@ -81,7 +83,11 @@ def send_verification_email(db: Session, user: UserDB, *, commit: bool = True) -
     if user.is_verified:
         return False
 
-    raw = _issue_token(db, user)
+    if is_suppressed(db, user.email, "account"):
+        logger.warning("verification_email_suppressed_hard_bounce")
+        return False
+
+    raw, record_id = _issue_token(db, user)
     if commit:
         db.commit()
 
@@ -108,6 +114,7 @@ def send_verification_email(db: Session, user: UserDB, *, commit: bool = True) -
                 "The link works once and expires in 24 hours. If you did not create an "
                 "account, ignore this — nothing will be sent to you again."
             ),
+            idempotency_key=f"account-verification/{record_id}",
         )
         return True
     except Exception:  # noqa: BLE001 - never let mail delivery break signup

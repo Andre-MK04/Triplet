@@ -22,7 +22,7 @@ function NavLink({ href, label, active, onClick }: { href: string; label: string
       href={href}
       onClick={onClick}
       className={
-        "border-b-2 pb-1 font-mono text-[11px] font-semibold uppercase tracking-label transition-colors " +
+        "flex min-h-11 items-center border-b-2 font-mono text-[11px] font-semibold uppercase tracking-label transition-colors md:min-h-0 md:pb-1 " +
         (active ? "border-mint text-mint" : "border-transparent text-mist hover:text-cloud")
       }
     >
@@ -199,7 +199,7 @@ export function Footer() {
               {group.label}
             </span>
             {group.links.map((link) => (
-              <Link key={link.href} href={link.href} className="font-mono text-xs text-mist transition-colors hover:text-mint">
+              <Link key={link.href} href={link.href} className="flex min-h-11 items-center font-mono text-xs text-mist transition-colors hover:text-mint md:min-h-0">
                 {link.label}
               </Link>
             ))}

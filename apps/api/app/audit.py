@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db.models import AuditEventDB
+from app.security.client_ip import client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,7 @@ def record_audit_event(
 
 
 def hash_client_ip(request: Request | None) -> str | None:
-    if not request or not request.client or not request.client.host:
-        return None
-    return hash_ip(request.client.host)
+    return hash_ip(client_ip(request)) if request else None
 
 
 def hash_ip(address: str | None) -> str | None:

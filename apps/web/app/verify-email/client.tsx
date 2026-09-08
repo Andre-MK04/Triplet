@@ -45,6 +45,7 @@ export function VerifyEmailClient() {
       setState(MISSING_TOKEN);
       return;
     }
+    window.history.replaceState({}, "", "/verify-email");
 
     // No cancellation flag: the ref above already guarantees one request, and
     // cancelling on cleanup would discard the only response in flight.

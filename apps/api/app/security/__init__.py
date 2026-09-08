@@ -1,4 +1,5 @@
 from app.security.ai_budget import ai_calls_today, consume_ai_call, reset_ai_budget
+from app.security.client_ip import client_ip
 from app.security.limiter import (
     RateLimitCategory,
     RateLimitExceeded,
@@ -15,6 +16,7 @@ __all__ = [
     "ai_calls_today",
     "check_production_limits",
     "check_rate_limit",
+    "client_ip",
     "consume_ai_call",
     "limiter_backend_name",
     "reset_ai_budget",

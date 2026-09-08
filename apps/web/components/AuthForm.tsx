@@ -37,6 +37,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const oauthQuery =
+    mode === "signup" && legalVersions
+      ? `?intent=signup&termsVersion=${encodeURIComponent(legalVersions.termsVersion)}&privacyVersion=${encodeURIComponent(legalVersions.privacyVersion)}`
+      : "?intent=login";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -137,10 +141,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </div>
 
         <a
-          href={`${apiBaseUrl}/auth/oauth/google/start`}
+          href={mode === "signup" && !legalVersions ? undefined : `${apiBaseUrl}/auth/oauth/google/start${oauthQuery}`}
+          aria-disabled={mode === "signup" && !legalVersions}
           className="flex w-full items-center justify-center gap-2 border border-line px-5 py-3 font-mono text-[11px] font-semibold uppercase tracking-label text-cloud transition-colors hover:border-mint/60 hover:text-mint"
         >
-          Continue with Google
+          {mode === "signup" && !legalVersions ? "Preparing secure sign-up…" : "Continue with Google"}
         </a>
 
         <p className="mt-8 text-sm text-mist">

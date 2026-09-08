@@ -24,6 +24,7 @@ const SECTIONS = [
       "Your travel profile — airports, budget, preferences — personalizes Farelin's search, ranking and watch behavior.",
       "Farelin stores observed flight prices, not your browsing history.",
       "Alert emails include one-click manage and unsubscribe links; those tokens are stored only as hashes.",
+      "Resend delivery webhooks are signature-verified before processing. Permanent bounces and complaints create pseudonymous suppression records so Farelin does not keep sending unwanted or undeliverable mail.",
       "Farelin does not sell your data, and loads no advertising or affiliate-tracking scripts. Affiliate attribution is carried in the outbound booking link itself.",
       "Logs are redacted before they are written: credentials, tokens and anything credential-shaped are stripped, including inside stack traces.",
     ],
@@ -50,12 +51,12 @@ const SECTIONS = [
     number: "05",
     title: "Engineering practices",
     points: [
-      "Every endpoint validates its input, and rate limits are applied by cost: cheap lookups, searches, AI calls, authentication and alert creation each have their own ceiling.",
-      "Rate limiting is shared across instances through Redis. If Redis becomes unreachable it falls back to per-process limits rather than failing open, and retries.",
+      "Public inputs are schema-validated, and cost-sensitive routes such as searches, AI calls, authentication and contact delivery have dedicated rate-limit categories.",
+      "When Redis is configured, rate limits are shared across API instances. If it becomes unreachable, Farelin falls back to per-process limits rather than failing open; production can be configured to require the shared store.",
       "Provider API keys live only in backend environment variables, never in the browser.",
       "Production refuses to start with genuinely unsafe configuration — a development secret, insecure cookies, or a non-HTTPS URL.",
       "Errors return structured responses without stack traces in production.",
-      "Every push runs the test suite, a dependency vulnerability audit, and a scan for committed secrets or database files.",
+      "Pull requests and pushes to the main branch run automated tests and dependency checks. CI also scans repository history for committed secrets; GitHub repository protections still require separate administrator configuration.",
     ],
   },
 ];

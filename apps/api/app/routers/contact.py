@@ -109,7 +109,7 @@ def submit_contact(payload: ContactRequest, request: Request) -> ContactResponse
     )
 
     try:
-        provider.send_email(recipient, subject, html_body, text_body)
+        provider.send_email(recipient, subject, html_body, text_body, reply_to=payload.email)
     except (EmailProviderError, OSError) as exc:
         logger.warning(
             "contact_delivery_failed",

@@ -285,6 +285,7 @@ class AlertDeliveryDB(Base):
     subject: Mapped[str] = mapped_column(String(240))
     status: Mapped[str] = mapped_column(String(40))
     provider: Mapped[str] = mapped_column(String(40))
+    provider_message_id: Mapped[str | None] = mapped_column(String(140), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -469,6 +470,31 @@ class EmailVerificationTokenDB(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class EmailEventDB(Base):
+    """Minimal verified delivery metadata; never the webhook's full payload."""
+
+    __tablename__ = "email_events"
+
+    svix_id: Mapped[str] = mapped_column(String(140), primary_key=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(140), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(80), index=True)
+    recipient_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EmailSuppressionDB(Base):
+    """Pseudonymous recipients that must not receive optional mail."""
+
+    __tablename__ = "email_suppressions"
+
+    recipient_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reason: Mapped[str] = mapped_column(String(40))  # hard_bounce | complaint
+    source_event_id: Mapped[str | None] = mapped_column(String(140), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class BillingSubscriptionDB(Base):

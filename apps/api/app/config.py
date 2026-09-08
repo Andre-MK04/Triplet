@@ -30,7 +30,9 @@ class Settings:
     )
     flight_provider: str = os.getenv("FLIGHT_PROVIDER", "database")
     live_flight_provider: str = os.getenv("LIVE_FLIGHT_PROVIDER", "travelpayouts")
-    enable_dev_tool_endpoints: bool = os.getenv("ENABLE_DEV_TOOL_ENDPOINTS", "true").lower() == "true"
+    # Opt in locally. A missing production variable must fail closed rather
+    # than publish the internal tool runner and provider diagnostics.
+    enable_dev_tool_endpoints: bool = os.getenv("ENABLE_DEV_TOOL_ENDPOINTS", "false").lower() == "true"
     duffel_api_enabled: bool = os.getenv("DUFFEL_API_ENABLED", "false").lower() == "true"
     duffel_api_key: str | None = os.getenv("DUFFEL_API_KEY") or None
     duffel_base_url: str = os.getenv("DUFFEL_BASE_URL", "https://api.duffel.com")
@@ -131,9 +133,10 @@ class Settings:
     # Counters are shared across processes when this is set. Without it each
     # worker enforces its own budget, which production must not rely on.
     redis_url: str | None = os.getenv("REDIS_URL") or None
-    # Only trust X-Forwarded-For where a proxy actually sets it; otherwise a
-    # caller could choose their own rate-limit identity.
+    # Railway's edge documents X-Real-IP as the remote client address. Never
+    # use X-Forwarded-For here: a caller may control its left-most value.
     trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "true").lower() == "true"
+    trusted_client_ip_header: str = os.getenv("TRUSTED_CLIENT_IP_HEADER", "x-real-ip").strip().lower()
     # Refuse to start rather than run per-process limits. For multi-worker
     # deployments, where per-process counters really are ineffective. Off by
     # default: a missing variable must not crash-loop a running service.
@@ -235,6 +238,7 @@ class Settings:
     # the same re_* credential, but it must have its own explicit variable so
     # provider selection and secret purpose stay auditable.
     resend_api_key: str | None = os.getenv("RESEND_API_KEY") or None
+    resend_webhook_secret: str | None = os.getenv("RESEND_WEBHOOK_SECRET") or None
     #: Where replies should go, when that is not the sending address.
     #:
     #: Sending from an address needs no mailbox — the domain's DKIM signature

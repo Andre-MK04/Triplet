@@ -10,6 +10,6 @@ export function siteUrl(): string {
   // Farelin is the canonical identity even on a Vercel preview. Falling back
   // to VERCEL_PROJECT_PRODUCTION_URL would revive the old triplet-web hostname
   // whenever one environment variable was omitted.
-  if (process.env.NODE_ENV === "production") return "https://farelin.com";
+  if (process.env.NODE_ENV === "production") return "https://www.farelin.com";
   return "http://localhost:3001";
 }

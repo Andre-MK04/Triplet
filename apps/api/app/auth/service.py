@@ -13,7 +13,7 @@ from app.legal import (
     is_current_terms,
 )
 from app.auth.schemas import AuthUserResponse, SignupRequest, UpdateProfileRequest
-from app.auth.oauth import OAuthProfile
+from app.auth.oauth import OAuthProfile, OAuthState
 from app.auth.security import (
     create_access_token,
     create_refresh_token,
@@ -29,6 +29,7 @@ from app.auth.security import (
 )
 from app.config import settings
 from app.db.models import PasswordResetTokenDB, RefreshTokenSessionDB, UserDB, UserOAuthAccountDB
+from app.email_delivery import is_suppressed
 
 
 class AuthError(ValueError):
@@ -107,6 +108,7 @@ class AuthService:
         profile: OAuthProfile,
         user_agent: str | None = None,
         ip_address: str | None = None,
+        oauth_state: OAuthState | None = None,
     ):
         account = self.db.scalar(
             select(UserOAuthAccountDB).where(
@@ -123,6 +125,19 @@ class AuthService:
         else:
             user = self.db.scalar(select(UserDB).where(UserDB.email == profile.email))
             if not user:
+                if not oauth_state or oauth_state.intent != "signup":
+                    raise AuthError(
+                        "No Farelin account is linked to this provider. Create an account first."
+                    )
+                if not is_current_terms(oauth_state.terms_version) or not is_current_privacy(
+                    oauth_state.privacy_version
+                ):
+                    raise AuthError(
+                        "Please accept the current Terms of Service and Privacy Policy to continue."
+                    )
+                if not profile.email_verified:
+                    raise AuthError("The provider did not verify this email address.")
+                now = datetime.utcnow()
                 user = UserDB(
                     id=new_uuid(),
                     email=profile.email,
@@ -130,10 +145,17 @@ class AuthService:
                     display_name=profile.display_name,
                     is_active=True,
                     is_verified=profile.email_verified,
+                    terms_accepted_at=now,
+                    terms_version=CURRENT_TERMS_VERSION,
+                    privacy_version=CURRENT_PRIVACY_VERSION,
                 )
                 self.db.add(user)
                 self.db.flush()
-            elif profile.email_verified and not user.is_verified:
+            elif not profile.email_verified:
+                raise AuthError(
+                    "This provider did not verify the matching email address. Log in another way."
+                )
+            elif not user.is_verified:
                 user.is_verified = True
 
             account = UserOAuthAccountDB(
@@ -201,15 +223,18 @@ class AuthService:
         if not user:
             return
         raw, token_hash, expires_at = create_reset_token()
+        record_id = new_uuid()
         self.db.add(
             PasswordResetTokenDB(
-                id=new_uuid(),
+                id=record_id,
                 user_id=user.id,
                 token_hash=token_hash,
                 expires_at=expires_at,
             )
         )
         self.db.commit()
+        if is_suppressed(self.db, user.email, "account"):
+            return
         reset_link = f"{settings.frontend_url.rstrip('/')}/reset-password?token={raw}"
         provider = build_email_provider()
         provider.send_email(
@@ -217,6 +242,7 @@ class AuthService:
             f"Reset your {settings.app_name} password",
             f"<p>Reset your {settings.app_name} password: {reset_link}</p>",
             f"Reset your {settings.app_name} password: {reset_link}",
+            idempotency_key=f"password-reset/{record_id}",
         )
 
     def reset_password(self, raw_token: str, new_password: str) -> None:

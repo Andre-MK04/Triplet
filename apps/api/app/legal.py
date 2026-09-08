@@ -11,8 +11,8 @@ people to click through the notice that matters.
 """
 
 #: ISO dates, so ordering and meaning are both obvious at a glance.
-CURRENT_TERMS_VERSION = "2026-09-02"
-CURRENT_PRIVACY_VERSION = "2026-09-02"
+CURRENT_TERMS_VERSION = "2026-09-08"
+CURRENT_PRIVACY_VERSION = "2026-09-08"
 
 
 def is_current_terms(version: str | None) -> bool:

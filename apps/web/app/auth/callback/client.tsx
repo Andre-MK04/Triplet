@@ -11,6 +11,8 @@ import { Spinner } from "../../../components/ui/Misc";
 
 const FAILURE_MESSAGES: Record<string, string> = {
   oauth_failed: "Google sign-in didn't complete — no account was changed.",
+  oauth_signup_required:
+    "No Farelin account is linked to that Google identity. Create an account first so you can review the current Terms and Privacy Policy.",
   database_unavailable: "We couldn't reach the database to finish signing you in.",
 };
 
@@ -23,6 +25,7 @@ export function AuthCallbackClient() {
   const status = searchParams.get("auth") ?? "oauth_success";
 
   useEffect(() => {
+    window.history.replaceState({}, "", "/auth/callback");
     if (status !== "oauth_success") {
       setFailed(FAILURE_MESSAGES[status] ?? "Sign-in didn't complete.");
       return;

@@ -46,12 +46,14 @@ EMAIL_FROM=alerts@farelin.com
 EMAIL_REPLY_TO=hello@farelin.com
 CONTACT_EMAIL_TO=hello@farelin.com
 RESEND_API_KEY=<Resend API key>
-FRONTEND_URL=https://farelin.com
-ALERTS_PUBLIC_BASE_URL=https://farelin.com
+RESEND_WEBHOOK_SECRET=<Resend webhook signing secret>
+FRONTEND_URL=https://www.farelin.com
+ALERTS_PUBLIC_BASE_URL=https://www.farelin.com
 ```
 
 Keep `RESEND_API_KEY` secret. Never put it in Vercel, `NEXT_PUBLIC_*`, logs, or
-the repository. Farelin sends from the Railway backend to Resend over HTTPS;
+the repository. `RESEND_WEBHOOK_SECRET` is a different secret: copy it from the
+Resend webhook configuration and protect it the same way. Farelin sends from the Railway backend to Resend over HTTPS;
 the key is never returned to the browser.
 
 The API needs these settings for account verification, password reset,
@@ -71,11 +73,26 @@ marks the scheduled tick as failed so the deployment can alert on it.
    `farelin.com`. It never includes the password or SMTP username.
 3. Redeploy the alerts scheduler and confirm no no-delivery warning appears.
 4. Create a test account and receive its verification email.
-5. Request a password reset and verify its link begins with `https://farelin.com`.
+5. Request a password reset and verify its link begins with `https://www.farelin.com`.
 6. Create and confirm a Watch.
 7. Run or await a real eligible Watch alert.
 8. Reply to a message and confirm it reaches `hello@farelin.com`.
 9. Send one contact-form message and confirm it reaches `CONTACT_EMAIL_TO`.
+
+## 5. Configure verified delivery events
+
+1. In Resend, create a webhook for
+   `https://www.farelin.com/backend/webhooks/resend`.
+2. Subscribe to `email.delivered`, `email.delivery_delayed`, `email.failed`,
+   `email.bounced`, and `email.complained`.
+3. Copy its signing secret into `RESEND_WEBHOOK_SECRET` on the API service.
+   The alerts scheduler does not receive webhooks and does not need this value.
+4. Redeploy the API and confirm `email.readiness` reports
+   `deliveryWebhookConfigured=true` without exposing the secret.
+5. Use Resend's webhook test controls, then confirm invalid signatures receive
+   400 and duplicate event IDs do not create duplicate records.
+6. Confirm a permanent bounce prevents repeat account and watch mail, while a
+   complaint immediately suppresses optional watch mail.
 
 When testing an alternate address, the save response distinguishes a watch that
 needs confirmation from a confirmation message accepted by Resend. “Accepted”

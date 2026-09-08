@@ -12,9 +12,9 @@ class CapturingProvider(EmailProvider):
         super().__init__(provider_name="test", delivers=True)
         self.messages: list[dict[str, str]] = []
 
-    def send_email(self, to, subject, html_body, text_body):
+    def send_email(self, to, subject, html_body, text_body, **kwargs):
         self.messages.append(
-            {"to": to, "subject": subject, "html": html_body, "text": text_body}
+            {"to": to, "subject": subject, "html": html_body, "text": text_body, **kwargs}
         )
 
 
@@ -41,6 +41,7 @@ def test_contact_message_is_sent_to_configured_inbox(monkeypatch):
     assert provider.messages[0]["to"] == "support@farelin.test"
     assert provider.messages[0]["subject"] == "Farelin contact · Fare or trip issue"
     assert "ada@example.com" in provider.messages[0]["text"]
+    assert provider.messages[0]["reply_to"] == "ada@example.com"
 
 
 def test_contact_html_escapes_user_content(monkeypatch):

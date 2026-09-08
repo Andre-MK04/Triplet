@@ -15,11 +15,19 @@ const apiProxyTarget = process.env.API_PROXY_TARGET;
 // third-party behavioural JS on every page for nothing, with the power to
 // rewrite outbound links. It is gone, and so is its CSP origin.
 //
-// 'unsafe-inline' remains for the pre-paint theme script and for styles that
-// Tailwind and Framer Motion inject inline. 'unsafe-eval' is development-only:
-// Next.js needs it for dev tooling and React Refresh, and nothing in a
-// production build does.
+// Inline styles remain because React/Framer use them for calculated geometry.
+// The fixed pre-paint theme script is an external same-origin asset. Next.js
+// App Router still emits inline hydration bootstrap scripts in a static build,
+// however, and this deployment has no per-request nonce pipeline. Removing
+// script-src 'unsafe-inline' would block hydration. A nonce would require
+// dynamic rendering/middleware across the app, so keep the narrower working
+// policy and continue to prohibit third-party script hosts and unsafe-eval in
+// production.
 const isDev = process.env.NODE_ENV !== "production";
+// NODE_ENV is also "production" for a local `next start`. Vercel supplies
+// VERCEL_ENV at build and runtime, so key HSTS to the actual public production
+// environment rather than teaching localhost to remember an HTTPS policy.
+const isProductionDeployment = process.env.VERCEL_ENV === "production";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -42,6 +50,9 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  ...(isProductionDeployment
+    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000" }]
+    : []),
 ];
 
 const nextConfig: NextConfig = {
@@ -51,7 +62,7 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         has: [{ type: "host", value: "triplet-web.vercel.app" }],
-        destination: "https://farelin.com/:path*",
+        destination: "https://www.farelin.com/:path*",
         permanent: true,
       },
     ];

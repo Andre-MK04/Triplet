@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { AuthCallbackClient } from "./client";
 
-export const metadata: Metadata = { title: "Signing you in" };
+export const metadata: Metadata = { title: "Signing you in", robots: { index: false, follow: false } };
 
 export default function AuthCallbackPage() {
   return (

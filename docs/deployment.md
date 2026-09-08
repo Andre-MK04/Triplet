@@ -26,7 +26,7 @@ Set these before deploying with `APP_ENV=production`:
 ```text
 APP_ENV=production
 DATABASE_URL=postgresql+psycopg://...
-FRONTEND_URL=https://farelin.com
+FRONTEND_URL=https://www.farelin.com
 API_PUBLIC_BASE_URL=https://your-api-domain
 APP_SECRET=<long random secret>
 AUTH_COOKIE_SECURE=true
@@ -97,7 +97,8 @@ Smoke endpoint:
 GET /providers/smoke-test?origin=VIE&destination=ALC&departureDate=2026-08-15&maxResults=3
 ```
 
-Keep diagnostics disabled in production unless you explicitly need a temporary operational check.
+Production refuses to start while diagnostics are enabled. Run a temporary
+operational check in a local or access-controlled staging environment instead.
 
 ## Security Checklist
 

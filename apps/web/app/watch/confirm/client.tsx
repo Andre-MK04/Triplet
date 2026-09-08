@@ -91,6 +91,7 @@ export function WatchConfirmClient() {
       setState(MISSING_TOKEN);
       return;
     }
+    window.history.replaceState({}, "", "/watch/confirm");
 
     // Deliberately no cancellation flag here. The ref above already guarantees
     // exactly one request, and React re-runs effects in development: a cleanup

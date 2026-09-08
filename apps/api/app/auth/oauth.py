@@ -10,6 +10,7 @@ import jwt
 from app.config import settings
 
 OAuthProvider = Literal["google", "apple"]
+OAuthIntent = Literal["login", "signup"]
 OAUTH_STATE_COOKIE_NAME = "triplet_oauth_state"
 OAUTH_PROVIDERS = {"google", "apple"}
 
@@ -31,7 +32,18 @@ class OAuthProfile:
     display_name: str | None = None
 
 
-def generate_oauth_state() -> str:
+@dataclass(frozen=True)
+class OAuthState:
+    intent: OAuthIntent
+    terms_version: str | None = None
+    privacy_version: str | None = None
+
+
+def generate_oauth_state(
+    intent: OAuthIntent = "login",
+    terms_version: str | None = None,
+    privacy_version: str | None = None,
+) -> str:
     now = int(time.time())
     return jwt.encode(
         {
@@ -39,22 +51,31 @@ def generate_oauth_state() -> str:
             "iat": now,
             "exp": now + 10 * 60,
             "typ": "oauth_state",
+            "intent": intent,
+            "terms_version": terms_version if intent == "signup" else None,
+            "privacy_version": privacy_version if intent == "signup" else None,
         },
         settings.app_secret,
         algorithm="HS256",
     )
 
 
-def verify_oauth_state(state: str | None, cookie_state: str | None = None) -> bool:
-    if not state:
-        return False
-    if cookie_state and not secrets.compare_digest(state, cookie_state):
-        return False
+def verify_oauth_state(state: str | None, cookie_state: str | None = None) -> OAuthState | None:
+    if not state or not cookie_state:
+        return None
+    if not secrets.compare_digest(state, cookie_state):
+        return None
     try:
         payload = jwt.decode(state, settings.app_secret, algorithms=["HS256"])
     except jwt.PyJWTError:
-        return False
-    return payload.get("typ") == "oauth_state"
+        return None
+    if payload.get("typ") != "oauth_state" or payload.get("intent") not in {"login", "signup"}:
+        return None
+    return OAuthState(
+        intent=payload["intent"],
+        terms_version=payload.get("terms_version"),
+        privacy_version=payload.get("privacy_version"),
+    )
 
 
 def validate_provider(provider: str) -> OAuthProvider:

@@ -31,6 +31,7 @@ from app.routers import (
     alerts,
     countries,
     fare_feedback,
+    email_webhooks,
     featured,
     contact,
     geo,
@@ -56,19 +57,11 @@ def configured_allowed_origins() -> list[str]:
         configured_origin = configured_origin.strip().rstrip("/")
         if configured_origin and configured_origin not in origins:
             origins.append(configured_origin)
-    # Both Farelin hostnames are attached to the same Vercel project. Vercel may
-    # temporarily serve either one while the primary-domain setting is changed,
-    # and browser POSTs carry the hostname that actually rendered the page.
-    # Production always allows these exact owned origins (never a wildcard),
-    # so a stale migration-era FRONTEND_URL cannot disable every public POST.
-    farelin_origins = {
-        "https://farelin.com",
-        "https://www.farelin.com",
-        # Vercel's old project hostname redirects to www.farelin.com. Browser
-        # POST redirects preserve the page's original Origin header, so an old
-        # open tab can legitimately arrive with this exact owned origin.
-        "https://triplet-web.vercel.app",
-    }
+    # The deployed Vercel project currently serves the application on www and
+    # redirects the apex there. Keep that owned application origin available
+    # even if FRONTEND_URL still points at the redirecting apex, but do not keep
+    # the old vercel.app migration host trusted indefinitely.
+    farelin_origins = {"https://www.farelin.com"}
     if settings.app_env.lower() in {"production", "prod"}:
         for origin in sorted(farelin_origins):
             if origin not in origins:
@@ -79,6 +72,16 @@ def configured_allowed_origins() -> list[str]:
 allowed_origins = configured_allowed_origins()
 
 unsafe_methods = {"POST", "PUT", "PATCH", "DELETE"}
+SENSITIVE_RESPONSE_PREFIXES = (
+    "/auth",
+    "/me",
+    "/billing",
+    "/alerts",
+    "/contact",
+    "/ai",
+    "/trips/search",
+    "/trips/suggestions",
+)
 insecure_dev_secret = "dev-secret-change-me"
 logger = logging.getLogger(__name__)
 
@@ -171,6 +174,22 @@ def validate_security_settings() -> None:
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
+    if settings.trust_proxy_headers and settings.trusted_client_ip_header != "x-real-ip":
+        errors.append(
+            "Railway production must use TRUSTED_CLIENT_IP_HEADER=x-real-ip; "
+            "X-Forwarded-For is not accepted as a client identity."
+        )
+    if settings.enable_dev_tool_endpoints:
+        errors.append("ENABLE_DEV_TOOL_ENDPOINTS must be false in production.")
+    legacy_public_host = "triplet-web.vercel.app"
+    legacy_urls = {
+        "FRONTEND_URL": settings.frontend_url,
+        "AUTH_PUBLIC_BASE_URL": settings.auth_public_base_url,
+        "ALERTS_PUBLIC_BASE_URL": settings.alerts_public_base_url,
+    }
+    for name, value in legacy_urls.items():
+        if legacy_public_host in value.lower():
+            errors.append(f"{name} still uses the retired {legacy_public_host} hostname.")
 
 
     if errors:
@@ -197,6 +216,11 @@ def validate_security_settings() -> None:
         if settings.email_require_real_provider:
             raise RuntimeError("Production configuration is invalid: " + message)
         logger.warning("email_provider_sends_nothing: %s", message)
+    if settings.email_provider.strip().lower() == "resend" and not settings.resend_webhook_secret:
+        logger.warning(
+            "resend_webhook_unconfigured: accepted mail can be sent, but bounces, complaints "
+            "and final delivery state will not be synchronized."
+        )
 
     # Per-process limits are a real weakness beyond one worker, but not one worth
     # an outage over: warn on every boot, and fail only where the deployment has
@@ -258,8 +282,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"],
 )
 
 
@@ -292,16 +316,19 @@ async def security_headers_and_origin_check(request: Request, call_next):
 
     response = await call_next(request)
 
-    # Make sure a browser session always has a usable token in hand.
-    if csrf.CSRF_COOKIE_NAME not in request.cookies:
-        csrf.set_cookie(response, csrf.issue_token())
+    # Public reference/fare GETs retain their deliberate cache policy; account,
+    # auth and personalized responses must never be stored by a shared proxy or
+    # browser cache. /auth/csrf issues the CSRF cookie explicitly when needed.
+    if request.url.path.startswith(SENSITIVE_RESPONSE_PREFIXES):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
     response.headers.setdefault("X-Request-ID", request_id)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-    if settings.auth_cookie_secure:
-        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    if settings.app_env.lower() in {"production", "prod"}:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
     return response
 
 app.include_router(health.router)
@@ -316,6 +343,7 @@ app.include_router(providers.router)
 app.include_router(alerts.router)
 app.include_router(featured.router)
 app.include_router(fare_feedback.router)
+app.include_router(email_webhooks.router)
 app.include_router(contact.router)
 app.include_router(auth_routes.router)
 app.include_router(me.router)

@@ -15,7 +15,9 @@ export default function ResetPassword() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get("token") ?? "");
+    const urlToken = new URLSearchParams(window.location.search).get("token") ?? "";
+    setToken(urlToken);
+    if (urlToken) window.history.replaceState({}, "", "/reset-password");
   }, []);
 
   async function requestReset(event: FormEvent<HTMLFormElement>) {

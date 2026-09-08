@@ -21,6 +21,9 @@ def isolated_provider_settings(monkeypatch):
     Individual tests re-enable what they need via their own monkeypatch, which
     applies after this fixture and therefore wins.
     """
+    # Keep cryptographic warnings meaningful: tests use a non-secret key with
+    # production-equivalent length instead of inheriting a short local value.
+    monkeypatch.setattr(settings, "app_secret", "test-only-secret-material-which-is-long-enough-48")
     monkeypatch.setattr(settings, "flight_provider", "database")
     monkeypatch.setattr(settings, "live_flight_provider", "duffel")
     monkeypatch.setattr(settings, "duffel_api_enabled", False)
@@ -38,6 +41,7 @@ def isolated_provider_settings(monkeypatch):
     monkeypatch.setattr(settings, "billing_enabled", False)
     monkeypatch.setattr(settings, "email_provider", "console")
     monkeypatch.setattr(settings, "resend_api_key", None)
+    monkeypatch.setattr(settings, "resend_webhook_secret", None)
 
 
 @pytest.fixture(autouse=True)
@@ -107,10 +111,12 @@ def browser_like_csrf(request, monkeypatch):
     from app.security.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, issue_token
 
     original = TestClient.request
-    token = issue_token()
-
     def with_csrf(self, method, url, **kwargs):
         if str(method).upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+            # Mint lazily, after all autouse settings fixtures have applied.
+            # A module-scoped token can otherwise be signed with the developer
+            # secret and verified against the isolated test secret.
+            token = issue_token()
             headers = dict(kwargs.get("headers") or {})
             headers.setdefault(CSRF_HEADER_NAME, token)
             kwargs["headers"] = headers

@@ -101,6 +101,30 @@ def test_a_spoofed_forwarding_header_is_ignored_when_not_behind_a_proxy(monkeypa
         check_rate_limit(RateLimitCategory.AI, spoofed)
 
 
+def test_railway_real_ip_wins_and_spoofed_xff_cannot_rotate_identity(monkeypatch):
+    monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    monkeypatch.setattr(settings, "trusted_client_ip_header", "x-real-ip")
+    request = FakeRequest("10.0.0.8")
+    request.headers.update({"x-real-ip": "203.0.113.50", "x-forwarded-for": "1.2.3.4"})
+    exhaust(RateLimitCategory.AI, request)
+
+    spoofed = FakeRequest("10.0.0.9")
+    spoofed.headers.update({"x-real-ip": "203.0.113.50", "x-forwarded-for": "5.6.7.8"})
+    with pytest.raises(RateLimitExceeded):
+        check_rate_limit(RateLimitCategory.AI, spoofed)
+
+
+def test_invalid_trusted_ip_falls_back_to_socket_peer(monkeypatch):
+    from app.security.client_ip import client_ip
+
+    monkeypatch.setattr(settings, "trust_proxy_headers", True)
+    monkeypatch.setattr(settings, "trusted_client_ip_header", "x-real-ip")
+    request = FakeRequest("10.0.0.8")
+    request.headers["x-real-ip"] = "not-an-ip"
+
+    assert client_ip(request) == "10.0.0.8"
+
+
 def test_the_daily_model_ceiling_stops_runaway_spend(monkeypatch):
     monkeypatch.setattr(settings, "ai_daily_request_limit", 3)
 

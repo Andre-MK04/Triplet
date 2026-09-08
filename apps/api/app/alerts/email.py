@@ -105,7 +105,16 @@ class EmailProvider:
     #: value satisfy it while still delivering nothing.
     delivers: bool = True
 
-    def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
+    def send_email(
+        self,
+        to: str,
+        subject: str,
+        html_body: str,
+        text_body: str,
+        *,
+        idempotency_key: str | None = None,
+        reply_to: str | None = None,
+    ) -> str | None:
         raise NotImplementedError
 
 
@@ -113,7 +122,7 @@ class ConsoleEmailProvider(EmailProvider):
     def __init__(self):
         super().__init__(provider_name="console", delivers=False)
 
-    def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
+    def send_email(self, to: str, subject: str, html_body: str, text_body: str, **_kwargs) -> str | None:
         # Reports the same headers the SMTP provider would set, so what someone
         # sees locally matches what a recipient would get. A console provider
         # that quietly differs from the real one is a poor rehearsal.
@@ -142,6 +151,7 @@ class ConsoleEmailProvider(EmailProvider):
                 "body": text_body,
             },
         )
+        return None
 
 
 class SMTPEmailProvider(EmailProvider):
@@ -164,14 +174,23 @@ class SMTPEmailProvider(EmailProvider):
         # already spent its notification slot attempting delivery.
         sender_header()
 
-    def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
+    def send_email(
+        self,
+        to: str,
+        subject: str,
+        html_body: str,
+        text_body: str,
+        *,
+        idempotency_key: str | None = None,
+        reply_to: str | None = None,
+    ) -> str | None:
         message = EmailMessage()
         message["From"] = sender_header()
         message["To"] = to
         message["Subject"] = subject
-        reply_to = reply_to_header()
-        if reply_to:
-            message["Reply-To"] = reply_to
+        resolved_reply_to = _validated_optional_address(reply_to) or reply_to_header()
+        if resolved_reply_to:
+            message["Reply-To"] = resolved_reply_to
         message.set_content(text_body)
         message.add_alternative(html_body, subtype="html")
 
@@ -181,6 +200,7 @@ class SMTPEmailProvider(EmailProvider):
             if settings.smtp_username and settings.smtp_password:
                 server.login(settings.smtp_username, settings.smtp_password)
             server.send_message(message)
+        return None
 
 
 class ResendEmailProvider(EmailProvider):
@@ -200,7 +220,16 @@ class ResendEmailProvider(EmailProvider):
             raise EmailProviderError("EMAIL_PROVIDER=resend needs RESEND_API_KEY.")
         sender_header()
 
-    def send_email(self, to: str, subject: str, html_body: str, text_body: str) -> None:
+    def send_email(
+        self,
+        to: str,
+        subject: str,
+        html_body: str,
+        text_body: str,
+        *,
+        idempotency_key: str | None = None,
+        reply_to: str | None = None,
+    ) -> str | None:
         payload: dict[str, object] = {
             "from": sender_header(),
             "to": [to],
@@ -208,18 +237,24 @@ class ResendEmailProvider(EmailProvider):
             "html": html_body,
             "text": text_body,
         }
-        reply_to = reply_to_header()
-        if reply_to:
-            payload["reply_to"] = reply_to
+        resolved_reply_to = _validated_optional_address(reply_to) or reply_to_header()
+        if resolved_reply_to:
+            payload["reply_to"] = resolved_reply_to
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "User-Agent": "Farelin/1.0",
+        }
+        if idempotency_key:
+            if len(idempotency_key) > 256 or any(ch in idempotency_key for ch in "\r\n"):
+                raise EmailProviderError("Email idempotency key is invalid.")
+            headers["Idempotency-Key"] = idempotency_key
 
         try:
             response = httpx.post(
                 self.endpoint,
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "User-Agent": "Farelin/1.0",
-                },
+                headers=headers,
                 timeout=10.0,
             )
         except httpx.HTTPError as exc:
@@ -230,6 +265,24 @@ class ResendEmailProvider(EmailProvider):
             raise EmailProviderError(
                 f"The Resend API rejected the message (HTTP {response.status_code})."
             )
+        try:
+            provider_id = response.json().get("id")
+        except (ValueError, AttributeError):
+            provider_id = None
+        return provider_id if isinstance(provider_id, str) else None
+
+
+def _validated_optional_address(value: str | None) -> str | None:
+    if not value:
+        return None
+    value = value.strip().lower()
+    if any(ch in value for ch in "\r\n"):
+        raise EmailProviderError("Reply-To contains a line break.")
+    _, address = parseaddr(value)
+    local, separator, domain = address.partition("@")
+    if value != address or not local or separator != "@" or not domain or "." not in domain:
+        raise EmailProviderError("Reply-To must contain one valid email address.")
+    return address
 
 
 #: Every value EMAIL_PROVIDER understands.
@@ -329,4 +382,5 @@ def safe_email_status() -> dict[str, object]:
         "fromDomain": domain,
         "replyToConfigured": reply_to_header() is not None,
         "contactRecipientConfigured": contact_recipient() is not None,
+        "deliveryWebhookConfigured": bool(settings.resend_webhook_secret),
     }

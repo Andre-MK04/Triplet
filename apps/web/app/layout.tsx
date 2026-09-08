@@ -4,7 +4,6 @@ import "./globals.css";
 
 import { AuthProvider } from "../components/AuthContext";
 import { BRAND } from "../lib/brand";
-import { THEME_INIT_SCRIPT } from "../lib/theme";
 
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -64,8 +63,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${display.variable} ${sans.variable} ${mono.variable} font-sans`}>
-        {/* Set the theme before paint so there's no light/dark flash on load. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* Same-origin external script: runs before paint without weakening script-src. */}
+        <script src="/theme-init.js" />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

@@ -5,7 +5,8 @@ from fastapi.testclient import TestClient
 from app.alerts.token_utils import hash_token, verify_token
 from app.config import settings
 from app.database import get_db
-from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB
+from app.db.models import AlertDeliveryDB, AlertRunDB, EmailSuppressionDB, SavedSearchDB
+from app.email_delivery import recipient_hash
 from app.main import app
 
 
@@ -13,12 +14,12 @@ class DeliveringTestProvider:
     provider_name = "test"
     delivers = True
 
-    def send_email(self, to, subject, html_body, text_body):
+    def send_email(self, to, subject, html_body, text_body, **kwargs):
         return None
 
 
 class FailingTestProvider(DeliveringTestProvider):
-    def send_email(self, to, subject, html_body, text_body):
+    def send_email(self, to, subject, html_body, text_body, **kwargs):
         raise OSError("mail transport unavailable")
 
 
@@ -167,6 +168,38 @@ def test_alert_run_skips_same_result_inside_cooldown(db_session, monkeypatch):
 
     assert first.json()["notificationSent"] is True
     assert second.json()["notificationSent"] is False
+
+
+def test_suppressed_watch_recipient_is_not_repeatedly_emailed(db_session, monkeypatch):
+    app.dependency_overrides[get_db] = override_db(db_session)
+    client = TestClient(app)
+    use_delivering_provider(monkeypatch)
+    created = create_alert(client, db_session)
+    token = token_from_url(created["manageUrl"])
+
+    provider = DeliveringTestProvider()
+    provider.calls = 0
+
+    def fail_if_called(*args, **kwargs):
+        provider.calls += 1
+        raise AssertionError("suppressed mail reached the provider")
+
+    provider.send_email = fail_if_called
+    monkeypatch.setattr("app.alerts.service.build_email_provider", lambda: provider)
+    db_session.add(EmailSuppressionDB(
+        recipient_hash=recipient_hash("traveler@example.com"),
+        reason="complaint",
+    ))
+    db_session.commit()
+
+    response = client.post(f"/alerts/{created['id']}/run?token={token}")
+    delivery = db_session.query(AlertDeliveryDB).one()
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["notificationSent"] is False
+    assert provider.calls == 0
+    assert delivery.status == "suppressed"
 
 
 def test_improved_price_sends_notification_after_cooldown(db_session, monkeypatch):

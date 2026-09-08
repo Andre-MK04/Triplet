@@ -24,7 +24,13 @@ def test_resend_sends_over_https_without_exposing_the_key(resend_config, monkeyp
 
     monkeypatch.setattr(httpx, "post", fake_post)
 
-    ResendEmailProvider().send_email("traveller@example.com", "A fare", "<p>Deal</p>", "Deal")
+    provider_id = ResendEmailProvider().send_email(
+        "traveller@example.com",
+        "A fare",
+        "<p>Deal</p>",
+        "Deal",
+        idempotency_key="watch-notification/watch-1/run-1",
+    )
 
     assert captured["url"] == "https://api.resend.com/emails"
     assert captured["timeout"] == 10.0
@@ -37,7 +43,16 @@ def test_resend_sends_over_https_without_exposing_the_key(resend_config, monkeyp
         "reply_to": "hello@farelin.test",
     }
     assert captured["headers"]["Authorization"] == "Bearer re_secret_test_key"
+    assert captured["headers"]["Idempotency-Key"] == "watch-notification/watch-1/run-1"
     assert "re_secret_test_key" not in str(captured["json"])
+    assert provider_id == "email_123"
+
+
+def test_resend_rejects_unsafe_or_oversized_idempotency_keys(resend_config):
+    with pytest.raises(EmailProviderError, match="idempotency"):
+        ResendEmailProvider().send_email("a@example.com", "S", "H", "T", idempotency_key="x" * 257)
+    with pytest.raises(EmailProviderError, match="idempotency"):
+        ResendEmailProvider().send_email("a@example.com", "S", "H", "T", idempotency_key="bad\nkey")
 
 
 def test_resend_rejection_becomes_a_safe_provider_error(resend_config, monkeypatch):

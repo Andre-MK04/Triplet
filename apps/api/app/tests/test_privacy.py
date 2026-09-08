@@ -5,6 +5,8 @@ from app.database import get_db
 from app.db.models import (
     AuditEventDB,
     CountryVisitDB,
+    EmailEventDB,
+    EmailSuppressionDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
     UserDB,
@@ -13,6 +15,7 @@ from app.db.models import (
 )
 from app.main import app
 from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
+from app.email_delivery import recipient_hash
 
 
 def override_db(db_session):
@@ -92,6 +95,18 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
 
     user_id = db_session.scalar(select(UserDB.id).where(UserDB.email == "erase-me@example.com"))
     assert user_id
+    hashed_email = recipient_hash("erase-me@example.com")
+    db_session.add(
+        EmailEventDB(
+            svix_id="erase-delivery-event",
+            event_type="email.bounced",
+            recipient_hash=hashed_email,
+        )
+    )
+    db_session.add(
+        EmailSuppressionDB(recipient_hash=hashed_email, reason="hard_bounce")
+    )
+    db_session.commit()
 
     response = client.delete("/auth/me")
     assert response.status_code == 200
@@ -122,13 +137,17 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
 
     # Session is gone.
     assert client.get("/auth/me").status_code == 401
+    assert db_session.get(EmailEventDB, "erase-delivery-event") is None
+    # This pseudonymous record prevents another signup/watch from repeatedly
+    # mailing a known dead address; it is deliberately not account-linked.
+    assert db_session.get(EmailSuppressionDB, hashed_email) is not None
     app.dependency_overrides.clear()
 
 
 def test_retention_cleanup_prunes_only_old_data(db_session):
     from datetime import datetime, timedelta
     from sqlalchemy import func, select
-    from app.db.models import AuditEventDB, CachedRoundTripDB
+    from app.db.models import AuditEventDB, CachedRoundTripDB, EmailEventDB
     from app.privacy.retention import cleanup
 
     now = datetime.utcnow()
@@ -138,13 +157,19 @@ def test_retention_cleanup_prunes_only_old_data(db_session):
                                      price=100, observed_at=now - timedelta(days=10)))
     db_session.add(CachedRoundTripDB(origin_code="VIE", destination_code="ARN", departure_date=now.date(),
                                      price=120, observed_at=now))
+    db_session.add(EmailEventDB(svix_id="old-email-event", event_type="email.delivered",
+                                received_at=now - timedelta(days=100)))
+    db_session.add(EmailEventDB(svix_id="new-email-event", event_type="email.delivered",
+                                received_at=now - timedelta(days=10)))
     db_session.commit()
 
     summary = cleanup(db_session, now=now)
     assert summary["auditDeleted"] == 1
     assert summary["cachedDealsDeleted"] == 1
+    assert summary["emailEventsDeleted"] == 1
     assert db_session.scalar(select(func.count()).select_from(AuditEventDB)) == 1
     assert db_session.scalar(select(func.count()).select_from(CachedRoundTripDB)) == 1
+    assert db_session.scalar(select(func.count()).select_from(EmailEventDB)) == 1
 
 
 def test_session_rows_never_keep_a_raw_ip(db_session):

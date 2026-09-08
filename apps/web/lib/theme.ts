@@ -2,9 +2,6 @@ export type ThemePreference = "light" | "dark" | "system";
 
 export const THEME_STORAGE_KEY = "triplet-theme";
 
-/** Inline script run before hydration to set data-theme with no flash. */
-export const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}')||'dark';var m=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;document.documentElement.dataset.theme=m;}catch(e){document.documentElement.dataset.theme='dark';}})();`;
-
 export function resolveTheme(pref: ThemePreference): "light" | "dark" {
   if (pref === "system") {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";

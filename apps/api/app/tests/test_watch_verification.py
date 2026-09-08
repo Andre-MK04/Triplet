@@ -206,7 +206,7 @@ def _capture_verification_token(client, db_session, monkeypatch) -> str:
     class Recorder:
         provider_name = "test"
 
-        def send_email(self, to, subject, html, text):
+        def send_email(self, to, subject, html, text, **kwargs):
             _SENT.append((subject, text))
 
     monkeypatch.setattr("app.alerts.service.build_email_provider", lambda: Recorder())

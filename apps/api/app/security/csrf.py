@@ -47,6 +47,7 @@ EXEMPT_PREFIXES: tuple[str, ...] = (
     # Stripe signs its webhooks. Requiring a browser token here would simply
     # break them, and the signature is the stronger check.
     "/billing/webhook",
+    "/webhooks/resend",
 )
 
 

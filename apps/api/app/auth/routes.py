@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -35,6 +35,8 @@ from app.auth.service import AuthError, AuthService, DuplicateEmailError, auth_u
 from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
+from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
+from app.security.client_ip import client_ip
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,7 +53,7 @@ def signup(
         user, access_token, refresh_token = AuthService(db).signup(
             request_data,
             user_agent=request.headers.get("user-agent"),
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
         )
     except DuplicateEmailError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -78,7 +80,7 @@ def login(
             request_data.email,
             request_data.password,
             user_agent=request.headers.get("user-agent"),
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
         )
     except AuthError as exc:
         record_audit_event(db, "auth.login_failed", request=request, commit=True)
@@ -89,16 +91,29 @@ def login(
 
 
 @router.get("/oauth/{provider}/start")
-def oauth_start(provider: str, response: Response, _: None = Depends(auth_rate_limit("oauth_start"))):
+def oauth_start(
+    provider: str,
+    intent: str = Query(default="login", pattern="^(login|signup)$"),
+    terms_version: str | None = Query(default=None, alias="termsVersion", max_length=32),
+    privacy_version: str | None = Query(default=None, alias="privacyVersion", max_length=32),
+    _: None = Depends(auth_rate_limit("oauth_start")),
+):
+    if intent == "signup" and (
+        terms_version != CURRENT_TERMS_VERSION or privacy_version != CURRENT_PRIVACY_VERSION
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Please accept the current Terms of Service and Privacy Policy to continue.",
+        )
     try:
         normalized_provider = validate_provider(provider)
-        state = generate_oauth_state()
+        state = generate_oauth_state(intent, terms_version, privacy_version)  # type: ignore[arg-type]
         response = RedirectResponse(authorization_url(normalized_provider, state), status_code=302)
         response.set_cookie(
             OAUTH_STATE_COOKIE_NAME,
             state,
             max_age=10 * 60,
-            **cookie_settings(),
+            **oauth_state_cookie_settings(normalized_provider),
         )
         return response
     except OAuthConfigError as exc:
@@ -116,16 +131,19 @@ async def oauth_callback(
     try:
         normalized_provider = validate_provider(provider)
         code, state = await _oauth_callback_params(request)
-        if not code or not verify_oauth_state(state, request.cookies.get(OAUTH_STATE_COOKIE_NAME)):
+        oauth_state = verify_oauth_state(state, request.cookies.get(OAUTH_STATE_COOKIE_NAME))
+        if not code or not oauth_state:
             raise OAuthProviderError("OAuth state could not be verified.")
         profile = await exchange_code_for_profile(normalized_provider, code)
         user, access_token, refresh_token = AuthService(db).login_with_oauth(
             profile,
             user_agent=request.headers.get("user-agent"),
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
+            oauth_state=oauth_state,
         )
-    except (OAuthConfigError, OAuthProviderError, AuthError):
-        response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}/auth/callback?auth=oauth_failed", status_code=302)
+    except (OAuthConfigError, OAuthProviderError, AuthError) as exc:
+        error_code = "oauth_signup_required" if "Create an account first" in str(exc) else "oauth_failed"
+        response = RedirectResponse(f"{settings.frontend_url.rstrip('/')}/auth/callback?auth={error_code}", status_code=302)
         response.delete_cookie(OAUTH_STATE_COOKIE_NAME, path="/", domain=cookie_settings().get("domain"))
         return response
     except SQLAlchemyError:
@@ -158,7 +176,7 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         user, access_token, refresh_token = AuthService(db).refresh(
             raw_refresh,
             user_agent=request.headers.get("user-agent"),
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
         )
     except AuthError as exc:
         clear_auth_cookies(response)
@@ -271,6 +289,20 @@ def cookie_settings() -> dict:
     }
     if settings.auth_cookie_domain:
         args["domain"] = settings.auth_cookie_domain
+    return args
+
+
+def oauth_state_cookie_settings(provider: str) -> dict:
+    """Bind OAuth state to the initiating browser for both callback modes.
+
+    Google returns with a top-level GET, where Lax is sufficient. Apple uses a
+    cross-site form POST, so production needs SameSite=None for this short-lived
+    state cookie only. Session cookies keep their stricter configured policy.
+    """
+
+    args = cookie_settings()
+    if provider == "apple" and settings.auth_cookie_secure:
+        args["samesite"] = "none"
     return args
 
 

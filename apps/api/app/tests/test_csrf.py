@@ -52,11 +52,17 @@ def test_a_token_this_deployment_never_issued_is_rejected():
     assert token_is_valid(None) is False
 
 
-def test_a_token_is_handed_out_to_a_fresh_browser(client):
-    response = client.get("/health")
+def test_a_token_is_handed_out_by_the_dedicated_endpoint(client):
+    response = client.get("/auth/csrf")
 
     assert CSRF_COOKIE_NAME in response.cookies
     assert token_is_valid(response.cookies[CSRF_COOKIE_NAME])
+
+
+def test_public_health_check_does_not_set_a_csrf_cookie(client):
+    response = client.get("/health")
+
+    assert CSRF_COOKIE_NAME not in response.cookies
 
 
 # --- Enforcement ------------------------------------------------------------

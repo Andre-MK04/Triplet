@@ -1,8 +1,10 @@
 from fastapi.testclient import TestClient
 
-from app.auth.oauth import OAUTH_STATE_COOKIE_NAME, OAuthProfile, generate_oauth_state
+import pytest
+
+from app.auth.oauth import OAUTH_STATE_COOKIE_NAME, OAuthProfile, OAuthState, generate_oauth_state
 from app.auth.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
-from app.auth.service import AuthService
+from app.auth.service import AuthError, AuthService
 from app.config import settings
 from app.database import get_db
 from app.db.models import PasswordResetTokenDB, SavedSearchDB, UserDB, UserOAuthAccountDB, UserTravelProfileDB
@@ -139,7 +141,7 @@ def test_forgot_and_reset_password(db_session, monkeypatch):
     class FakeProvider:
         provider_name = "fake"
 
-        def send_email(self, to_email: str, subject: str, html_body: str, text_body: str) -> None:
+        def send_email(self, to_email: str, subject: str, html_body: str, text_body: str, **kwargs) -> None:
             sent.append((to_email, subject, html_body, text_body))
 
     monkeypatch.setattr("app.auth.service.build_email_provider", lambda: FakeProvider())
@@ -283,7 +285,14 @@ def test_oauth_login_creates_user_with_unusable_password_and_provider_link(db_se
         display_name="OAuth Traveler",
     )
 
-    user, access_token, refresh_token = AuthService(db_session).login_with_oauth(profile)
+    user, access_token, refresh_token = AuthService(db_session).login_with_oauth(
+        profile,
+        oauth_state=OAuthState(
+            intent="signup",
+            terms_version=CURRENT_TERMS_VERSION,
+            privacy_version=CURRENT_PRIVACY_VERSION,
+        ),
+    )
     account = db_session.query(UserOAuthAccountDB).one()
 
     assert user.email == "oauth@example.com"
@@ -298,7 +307,7 @@ def test_oauth_login_creates_user_with_unusable_password_and_provider_link(db_se
 
 def test_oauth_callback_sets_auth_cookies(db_session, monkeypatch):
     client = make_client(db_session)
-    state = generate_oauth_state()
+    state = generate_oauth_state("signup", CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION)
 
     async def fake_exchange(provider, code):
         return OAuthProfile(
@@ -319,6 +328,161 @@ def test_oauth_callback_sets_auth_cookies(db_session, monkeypatch):
     set_cookie = response.headers.get("set-cookie", "")
     assert ACCESS_COOKIE_NAME in set_cookie
     assert REFRESH_COOKIE_NAME in set_cookie
+
+
+@pytest.mark.parametrize("provider", ["google", "apple"])
+def test_verified_oauth_email_may_link_a_matching_existing_account(db_session, provider):
+    existing, _, _ = AuthService(db_session).signup(
+        type("Signup", (), {
+            "email": f"{provider}@example.com",
+            "password": "Strong-pass-123!",
+            "displayName": "Existing",
+            "acceptedTermsVersion": CURRENT_TERMS_VERSION,
+            "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
+        })()
+    )
+    profile = OAuthProfile(
+        provider=provider,
+        provider_user_id=f"{provider}-verified-sub",
+        email=existing.email,
+        email_verified=True,
+    )
+
+    linked, _, _ = AuthService(db_session).login_with_oauth(profile)
+
+    assert linked.id == existing.id
+    assert db_session.query(UserOAuthAccountDB).filter_by(user_id=existing.id).count() == 1
+
+
+def test_unverified_oauth_email_cannot_link_or_open_a_session_for_existing_user(db_session):
+    from app.auth.security import hash_password
+
+    existing = UserDB(
+        id="existing-user",
+        email="victim@example.com",
+        password_hash=hash_password("Strong-pass-123!"),
+        is_active=True,
+        is_verified=True,
+    )
+    db_session.add(existing)
+    db_session.commit()
+    profile = OAuthProfile(
+        provider="google",
+        provider_user_id="attacker-sub",
+        email="victim@example.com",
+        email_verified=False,
+    )
+
+    with pytest.raises(AuthError):
+        AuthService(db_session).login_with_oauth(profile)
+
+    assert db_session.query(UserOAuthAccountDB).count() == 0
+    assert len(existing.refresh_sessions) == 0
+
+
+def test_existing_provider_subject_can_log_in_even_if_email_claim_is_not_repeated_as_verified(db_session):
+    from app.auth.security import unusable_password_hash
+
+    user = UserDB(
+        id="provider-user",
+        email="provider@example.com",
+        password_hash=unusable_password_hash(),
+        is_active=True,
+        is_verified=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(UserOAuthAccountDB(
+        id="provider-link",
+        user_id=user.id,
+        provider="google",
+        provider_user_id="known-sub",
+        email=user.email,
+    ))
+    db_session.commit()
+
+    logged_in, access, refresh = AuthService(db_session).login_with_oauth(OAuthProfile(
+        provider="google",
+        provider_user_id="known-sub",
+        email=user.email,
+        email_verified=False,
+    ))
+
+    assert logged_in.id == user.id
+    assert access and refresh
+
+
+def test_oauth_login_does_not_silently_create_a_new_account(db_session, monkeypatch):
+    client = make_client(db_session)
+    state = generate_oauth_state("login")
+
+    async def fake_exchange(provider, code):
+        return OAuthProfile(provider=provider, provider_user_id="new-sub", email="new@example.com", email_verified=True)
+
+    monkeypatch.setattr("app.auth.routes.exchange_code_for_profile", fake_exchange)
+    client.cookies.set(OAUTH_STATE_COOKIE_NAME, state)
+    response = client.get(f"/auth/oauth/google/callback?code=x&state={state}", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "oauth_signup_required" in response.headers["location"]
+    assert db_session.query(UserDB).filter_by(email="new@example.com").count() == 0
+    assert ACCESS_COOKIE_NAME not in response.headers.get("set-cookie", "")
+
+
+def test_oauth_callback_requires_the_browser_state_cookie(db_session, monkeypatch):
+    client = make_client(db_session)
+    state = generate_oauth_state("login")
+
+    async def should_not_exchange(provider, code):
+        raise AssertionError("provider exchange must not run without the state cookie")
+
+    monkeypatch.setattr("app.auth.routes.exchange_code_for_profile", should_not_exchange)
+    response = client.get(f"/auth/oauth/google/callback?code=x&state={state}", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert "oauth_failed" in response.headers["location"]
+
+
+def test_apple_oauth_state_cookie_supports_cross_site_form_post(monkeypatch):
+    client = TestClient(app)
+    monkeypatch.setattr(settings, "auth_cookie_secure", True)
+    monkeypatch.setattr(settings, "apple_oauth_client_id", "com.example.farelin")
+
+    response = client.get("/auth/oauth/apple/start?intent=login", follow_redirects=False)
+
+    assert response.status_code == 302
+    cookie = response.headers["set-cookie"].lower()
+    assert "triplet_oauth_state=" in cookie
+    assert "samesite=none" in cookie
+    assert "secure" in cookie
+
+
+def test_oauth_signup_rejects_noncanonical_legal_versions():
+    response = TestClient(app).get(
+        "/auth/oauth/google/start?intent=signup&termsVersion=old&privacyVersion=old",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert "current Terms" in response.json()["detail"]
+
+
+def test_oauth_signup_records_current_legal_acceptance(db_session, monkeypatch):
+    client = make_client(db_session)
+    state = generate_oauth_state("signup", CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION)
+
+    async def fake_exchange(provider, code):
+        return OAuthProfile(provider=provider, provider_user_id="legal-sub", email="legal-oauth@example.com", email_verified=True)
+
+    monkeypatch.setattr("app.auth.routes.exchange_code_for_profile", fake_exchange)
+    client.cookies.set(OAUTH_STATE_COOKIE_NAME, state)
+    response = client.get(f"/auth/oauth/google/callback?code=x&state={state}", follow_redirects=False)
+    user = db_session.query(UserDB).filter_by(email="legal-oauth@example.com").one()
+
+    assert response.status_code == 302
+    assert user.terms_version == CURRENT_TERMS_VERSION
+    assert user.privacy_version == CURRENT_PRIVACY_VERSION
+    assert user.terms_accepted_at is not None
 
 
 # --- How an account actually signs in --------------------------------------

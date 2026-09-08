@@ -6,7 +6,7 @@
    [data-theme="light"]. Alpha-capable tokens are stored as space-separated RGB
    channels so Tailwind's `/opacity` modifiers keep working in both themes;
    baked-alpha tokens (line, *-soft) are stored as full rgba(). The theme is set
-   pre-hydration by an inline script in layout.tsx, so there's no flash. */
+   pre-hydration by the same-origin /theme-init.js script, so there's no flash. */
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;

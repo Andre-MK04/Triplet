@@ -22,6 +22,8 @@ from app.db.models import (
     AuditEventDB,
     BillingSubscriptionDB,
     CountryVisitDB,
+    EmailEventDB,
+    EmailSuppressionDB,
     EmailVerificationTokenDB,
     PasswordResetTokenDB,
     RefreshTokenSessionDB,
@@ -33,6 +35,7 @@ from app.db.models import (
     UserOAuthAccountDB,
     UserTravelProfileDB,
 )
+from app.email_delivery import recipient_hash
 
 
 def export_user_data(db: Session, user: UserDB) -> dict:
@@ -47,6 +50,7 @@ def export_user_data(db: Session, user: UserDB) -> dict:
     country_visits = db.scalars(
         select(CountryVisitDB).where(CountryVisitDB.user_id == user.id)
     ).all()
+    suppression = db.get(EmailSuppressionDB, recipient_hash(user.email))
 
     return {
         "exportedAt": _now_iso(),
@@ -111,6 +115,15 @@ def export_user_data(db: Session, user: UserDB) -> dict:
             {"feature": u.feature, "periodStart": _iso(u.period_start), "count": u.count}
             for u in usage
         ],
+        "emailSuppression": (
+            {
+                "reason": suppression.reason,
+                "createdAt": _iso(suppression.created_at),
+                "updatedAt": _iso(suppression.updated_at),
+            }
+            if suppression
+            else None
+        ),
         "note": (
             f"This is all personal data linked to your {settings.app_name} account. It excludes "
             "security material we never expose (password and token hashes)."
@@ -120,6 +133,7 @@ def export_user_data(db: Session, user: UserDB) -> dict:
 
 def erase_user(db: Session, user: UserDB, request=None) -> None:
     user_id = user.id
+    email_hash = recipient_hash(user.email)
     # Alerts hang off saved searches (FK), so clear them before the searches.
     saved_ids = list(
         db.scalars(select(SavedSearchDB.id).where(SavedSearchDB.user_id == user_id)).all()
@@ -145,6 +159,10 @@ def erase_user(db: Session, user: UserDB, request=None) -> None:
 
     # Anonymise the security audit trail rather than delete it.
     db.execute(update(AuditEventDB).where(AuditEventDB.user_id == user_id).values(user_id=None))
+    # Delivery events are operational evidence rather than a suppression rule;
+    # remove those tied to this address. A keyed suppression hash is retained
+    # where needed to prevent repeat mail after a hard bounce or complaint.
+    db.execute(delete(EmailEventDB).where(EmailEventDB.recipient_hash == email_hash))
 
     db.delete(user)
     db.commit()

@@ -13,8 +13,16 @@ from app.main import app, validate_security_settings
 from app.security import reset_rate_limits as clear_rate_limits
 
 
+@pytest.fixture(autouse=True)
+def canonical_public_urls(monkeypatch):
+    """Keep local developer env values from leaking into production-policy tests."""
+    monkeypatch.setattr(settings, "auth_public_base_url", "https://www.farelin.com/backend")
+    monkeypatch.setattr(settings, "alerts_public_base_url", "https://www.farelin.com")
+
+
 def test_production_validation_rejects_insecure_defaults(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", False)
     monkeypatch.setattr(settings, "app_secret", "dev-secret-change-me")
     monkeypatch.setattr(settings, "frontend_url", "http://localhost:3000")
     monkeypatch.setattr(settings, "api_public_base_url", "http://localhost:8001")
@@ -34,6 +42,7 @@ def test_production_validation_rejects_insecure_defaults(monkeypatch):
 
 def test_production_validation_accepts_secure_minimum(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", False)
     monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://farelin.com")
@@ -55,6 +64,7 @@ def test_missing_redis_warns_but_still_boots(monkeypatch):
     Per-process limits are a real weakness beyond one worker, but a total outage
     is a worse outcome than a conditional one, so this warns and starts."""
     monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", False)
     monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://farelin.com")
@@ -77,6 +87,7 @@ def test_a_deployment_may_declare_that_it_requires_shared_counters(monkeypatch):
     """Multi-worker deployments, where per-process limits really are useless,
     opt in to the hard failure."""
     monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", False)
     monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://farelin.com")
@@ -163,6 +174,7 @@ def test_interactive_docs_are_closed_in_production(monkeypatch):
 
 def _production_base(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", False)
     monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
     monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
     monkeypatch.setattr(settings, "frontend_url", "https://farelin.com")
@@ -174,6 +186,28 @@ def _production_base(monkeypatch):
     monkeypatch.setattr(settings, "email_provider", "resend")
     monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
     monkeypatch.setattr(settings, "ai_enabled", True)
+
+
+def test_production_refuses_to_publish_development_tool_endpoints(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", True)
+
+    with pytest.raises(RuntimeError, match="ENABLE_DEV_TOOL_ENDPOINTS must be false"):
+        validate_security_settings()
+
+
+def test_production_refuses_the_retired_oauth_callback_host(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(
+        settings,
+        "auth_public_base_url",
+        "https://triplet-web.vercel.app/backend",
+    )
+
+    with pytest.raises(RuntimeError, match="AUTH_PUBLIC_BASE_URL still uses the retired"):
+        validate_security_settings()
 
 
 def test_anthropic_only_production_starts(monkeypatch):

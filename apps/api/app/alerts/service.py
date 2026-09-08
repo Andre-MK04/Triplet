@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.alerts.email import EmailProvider, EmailProviderError, build_email_provider
+from app.email_delivery import is_suppressed
 from app.alerts.templates import build_alert_html, build_alert_subject, build_alert_text
 from app.alerts.schemas import (
     AlertPreviewResponse,
@@ -159,6 +160,9 @@ class SavedSearchService:
             "If it wasn't you, ignore this email — nothing was set up and we won't email you again.</p>"
         )
         try:
+            if is_suppressed(self.db, row.email, "watch"):
+                logger.warning("watch_verification_email_suppressed saved_search_id=%s", row.id)
+                return False
             provider = build_email_provider()
             if not getattr(provider, "delivers", True):
                 logger.error(
@@ -167,7 +171,13 @@ class SavedSearchService:
                     provider.provider_name,
                 )
                 return False
-            provider.send_email(row.email, subject, html_body, text_body)
+            provider.send_email(
+                row.email,
+                subject,
+                html_body,
+                text_body,
+                idempotency_key=f"watch-verification/{row.id}/{(row.verification_token_hash or '')[:16]}",
+            )
             row.verification_sent_at = datetime.utcnow()
             self.db.commit()
             self.db.refresh(row)
@@ -530,9 +540,20 @@ class SavedSearchService:
             status="sent",
             provider=settings.email_provider,
         )
+        if is_suppressed(self.db, row.email, "watch"):
+            delivery.status = "suppressed"
+            delivery.error_message = "Recipient suppressed after bounce or complaint."
+            self.db.add(delivery)
+            return False
         try:
             delivery.provider = provider.provider_name
-            provider.send_email(row.email, subject, html_body, text_body)
+            delivery.provider_message_id = provider.send_email(
+                row.email,
+                subject,
+                html_body,
+                text_body,
+                idempotency_key=f"watch-notification/{row.id}/{run.id}",
+            )
         except (EmailProviderError, OSError, smtplib.SMTPException) as exc:
             delivery.status = "error"
             delivery.error_message = str(exc)

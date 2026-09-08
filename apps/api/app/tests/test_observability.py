@@ -87,6 +87,24 @@ def test_a_token_in_a_manage_link_is_redacted():
     assert "x=1" in out
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.farelin.com/verify-email?token=verification-secret",
+        "https://www.farelin.com/reset-password?reset_token=reset-secret",
+        "https://www.farelin.com/backend/auth/oauth/google/callback?code=oauth-code&state=signed-state",
+        "https://www.farelin.com/watch/confirm?manage_token=manage-secret",
+    ],
+)
+def test_single_use_and_oauth_credentials_are_redacted_from_urls(url):
+    out = redact_text(url)
+
+    assert "secret" not in out
+    assert "oauth-code" not in out
+    assert "signed-state" not in out
+    assert REDACTED in out
+
+
 def test_ordinary_values_survive():
     out = formatted(tripCount=12, provider="travelpayouts", durationMs=340)
 

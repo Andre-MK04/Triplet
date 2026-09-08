@@ -581,7 +581,7 @@ export function DiscoverClient() {
                   onClick={() => setAiExplained((open) => !open)}
                   aria-expanded={aiExplained}
                   aria-controls="ai-explainer"
-                  className="font-mono text-[11px] uppercase tracking-label text-mist underline transition-colors hover:text-mint"
+                  className="min-h-11 font-mono text-[11px] uppercase tracking-label text-mist underline transition-colors hover:text-mint md:min-h-0"
                 >
                   How this works
                 </button>
@@ -640,7 +640,7 @@ export function DiscoverClient() {
                 type="button"
                 onClick={() => setRefineOpen((open) => !open)}
                 aria-expanded={refineOpen}
-                className="font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
+                className="min-h-11 font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
               >
                 {refineOpen ? "Hide details −" : "Dates, budget, destination +"}
               </button>

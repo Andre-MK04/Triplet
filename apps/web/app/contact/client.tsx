@@ -6,6 +6,7 @@ import { AppShell } from "../../components/AppShell";
 import { Button, ButtonLink } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Misc";
 import { ApiError, apiPost } from "../../lib/api";
+import { legalOperator, missingOperatorDetails } from "../../lib/legal";
 
 const TOPICS = [
   { value: "general", label: "General question" },
@@ -22,6 +23,7 @@ const fieldClass =
   "mt-2 w-full rounded-none border border-line bg-ink-raised px-3 py-3 text-sm text-cloud outline-none transition placeholder:text-mist-dim focus:border-mint focus:ring-1 focus:ring-mint";
 
 export function ContactClient() {
+  const missingOperator = missingOperatorDetails();
   const [state, setState] = useState<ContactState>("idle");
   const [error, setError] = useState("");
 
@@ -67,6 +69,22 @@ export function ContactClient() {
               Ask about your account, report a fare that looks wrong, or raise a privacy or security concern.
               A person reads every message.
             </p>
+            {missingOperator.length > 0 ? (
+              <div className="mt-6 border-l-2 border-gold/50 pl-4 text-sm leading-relaxed text-mist">
+                Farelin&apos;s legal operator details are not yet fully published. The form still
+                reaches support, but this must be resolved before public commercial launch.
+              </div>
+            ) : (
+              <address className="mt-6 text-sm not-italic leading-relaxed text-mist">
+                Operated by <strong className="text-cloud">{legalOperator.name}</strong>
+                <br />
+                {legalOperator.address}
+                <br />
+                <a className="underline underline-offset-2 hover:text-mint" href={`mailto:${legalOperator.supportEmail}`}>
+                  {legalOperator.supportEmail}
+                </a>
+              </address>
+            )}
             <div className="mt-10 border-t border-line pt-6">
               <p className="font-mono text-[10px] uppercase tracking-label text-mist-dim">Before you send</p>
               <p className="mt-3 text-sm leading-relaxed text-mist">

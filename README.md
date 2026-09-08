@@ -292,9 +292,9 @@ http://localhost:8001/auth/oauth/apple/callback
 Production OAuth returns through Farelin's same-origin Vercel proxy:
 
 ```text
-AUTH_PUBLIC_BASE_URL=https://farelin.com/backend
-Google redirect URI: https://farelin.com/backend/auth/oauth/google/callback
-Apple return URL: https://farelin.com/backend/auth/oauth/apple/callback
+AUTH_PUBLIC_BASE_URL=https://www.farelin.com/backend
+Google redirect URI: https://www.farelin.com/backend/auth/oauth/google/callback
+Apple return URL: https://www.farelin.com/backend/auth/oauth/apple/callback
 ```
 
 The exact account-side migration checklist is in
@@ -487,7 +487,9 @@ AUTH_COOKIE_SAMESITE=none
 ENABLE_DEV_TOOL_ENDPOINTS=false
 ```
 
-The API refuses to start in production if the development secret, insecure auth cookies, or non-HTTPS public URLs are configured.
+The API refuses to start in production if the development secret, insecure auth
+cookies, non-HTTPS public URLs, retired migration host, or development tool
+endpoints are configured.
 
 Sensitive actions are recorded in the `audit_events` table: signup, login (including failed
 attempts), logout, OAuth login, password change/reset, travel-profile updates, and saved-watch

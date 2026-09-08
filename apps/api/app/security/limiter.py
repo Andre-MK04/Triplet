@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from app.config import settings
+from app.security.client_ip import client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -211,12 +212,7 @@ def identity_for(request, user_id: str | None) -> str:
     """
     if user_id:
         return f"user:{user_id}"
-    if settings.trust_proxy_headers:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return f"ip:{forwarded.split(',')[0].strip()}"
-    client = getattr(request, "client", None)
-    return f"ip:{client.host if client else 'unknown'}"
+    return f"ip:{client_ip(request) or 'unknown'}"
 
 
 def check_rate_limit(
