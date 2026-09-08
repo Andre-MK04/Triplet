@@ -193,9 +193,10 @@ class ResendEmailProvider(EmailProvider):
 
     endpoint = "https://api.resend.com/emails"
 
-    def __init__(self):
+    def __init__(self, api_key: str | None = None):
         super().__init__(provider_name="resend")
-        if not settings.resend_api_key:
+        self._api_key = api_key or settings.resend_api_key
+        if not self._api_key:
             raise EmailProviderError("EMAIL_PROVIDER=resend needs RESEND_API_KEY.")
         sender_header()
 
@@ -216,7 +217,7 @@ class ResendEmailProvider(EmailProvider):
                 self.endpoint,
                 json=payload,
                 headers={
-                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Authorization": f"Bearer {self._api_key}",
                     "User-Agent": "Farelin/1.0",
                 },
                 timeout=10.0,
@@ -267,6 +268,24 @@ def build_email_provider() -> EmailProvider:
             logger.error("email_provider_misconfigured: %s No email will be delivered.", exc)
             return ConsoleEmailProvider()
     if provider == "smtp":
+        # Migration bridge for existing Railway deployments. Railway blocks
+        # SMTP on several plans, while Resend's SMTP password is the same API
+        # key accepted by its HTTPS endpoint. Detect only the exact Resend
+        # configuration; all other SMTP services retain literal SMTP behavior.
+        if (
+            (settings.smtp_host or "").strip().lower() == "smtp.resend.com"
+            and (settings.smtp_username or "").strip().lower() == "resend"
+            and settings.smtp_password
+        ):
+            logger.warning(
+                "resend_smtp_migrated_to_https: set EMAIL_PROVIDER=resend and RESEND_API_KEY "
+                "when convenient; delivery is using HTTPS now."
+            )
+            try:
+                return ResendEmailProvider(api_key=settings.smtp_password)
+            except EmailProviderError as exc:
+                logger.error("email_provider_misconfigured: %s No email will be delivered.", exc)
+                return ConsoleEmailProvider()
         try:
             return SMTPEmailProvider()
         except EmailProviderError as exc:

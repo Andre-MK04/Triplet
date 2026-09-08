@@ -5,6 +5,12 @@ on Free, Trial, and Hobby plans, so valid SMTP credentials can still time out
 there. The HTTPS adapter avoids that platform restriction and is also the route
 Railway recommends for transactional mail.
 
+Existing deployments configured with `EMAIL_PROVIDER=smtp`,
+`SMTP_HOST=smtp.resend.com`, `SMTP_USERNAME=resend`, and a Resend API key in
+`SMTP_PASSWORD` are detected and routed over HTTPS automatically. This bridge
+restores delivery without a flag day; move to the explicit variables below so
+the dashboard describes the transport Farelin is actually using.
+
 ## 1. Verify the sending domain in Resend
 
 1. Add `farelin.com` in the Resend dashboard.

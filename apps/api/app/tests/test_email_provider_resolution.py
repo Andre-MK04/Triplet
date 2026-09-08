@@ -76,6 +76,19 @@ def test_configured_resend_uses_the_https_provider(email_settings, monkeypatch):
     assert provider.delivers is True
 
 
+def test_existing_resend_smtp_configuration_migrates_to_https(email_settings):
+    email_settings(
+        "smtp",
+        host="smtp.resend.com",
+        username="resend",
+        password="re_existing_key",
+    )
+
+    provider = build_email_provider()
+    assert isinstance(provider, ResendEmailProvider)
+    assert provider.delivers is True
+
+
 @pytest.mark.parametrize("value", ["sendgrid", "postmark", "mailgun", "typo123"])
 def test_a_provider_triplet_does_not_implement_delivers_nothing(email_settings, value):
     """The exact hole: these are not the word "console", and used to pass."""
