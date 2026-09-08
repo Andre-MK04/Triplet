@@ -143,7 +143,7 @@ class FlightSearchService:
                 if deals_repo and fares:
                     self._cache_deals(deals_repo, fares)
                 self._record_round_trip_observations(fares)
-                self.deals_provider_succeeded = bool(fares)
+                self.deals_provider_succeeded = self.deals_provider_succeeded or bool(fares)
                 if deals_repo:
                     # A targeted scope can also be satisfied by deals we already
                     # hold, so fold the cache in rather than throwing it away.
@@ -166,7 +166,7 @@ class FlightSearchService:
             if deals_repo and fares:
                 self._cache_deals(deals_repo, fares)
             self._record_round_trip_observations(fares)
-            self.deals_provider_succeeded = bool(fares)
+            self.deals_provider_succeeded = self.deals_provider_succeeded or bool(fares)
             return cached + self._filter_round_trip_fares(fares, request)
         except ProviderError:
             return []

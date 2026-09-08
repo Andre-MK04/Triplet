@@ -135,6 +135,9 @@ def test_a_thin_later_origin_does_not_erase_an_earlier_provider_success():
                 }
             return {leg: [] for leg in legs}
 
+        def round_trips_for(self, *_args, **_kwargs):
+            return []
+
     request = TripSearchRequest(
         originAirports=["CPH", "MMA"],
         startDate=date(2026, 9, 1),
@@ -154,6 +157,9 @@ def test_a_thin_later_origin_does_not_erase_an_earlier_provider_success():
 
     service.one_way_fares_for(request, [("CPH", "TYO")])
     service.one_way_fares_for(request, [("MMA", "TYO")])
+    # Country discovery for the next thin origin runs between chained lookups
+    # in production and must not reset the success either.
+    service.discover_round_trip_fares(request)
     metadata = service.apply_deal_metadata(ProviderMetadata())
 
     assert metadata.liveProviderSucceeded is True
