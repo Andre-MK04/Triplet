@@ -189,7 +189,16 @@ def validate_security_settings() -> None:
     }
     for name, value in legacy_urls.items():
         if legacy_public_host in value.lower():
-            errors.append(f"{name} still uses the retired {legacy_public_host} hostname.")
+            # A stale public URL breaks links or OAuth, but taking the whole API
+            # offline makes that partial configuration error a total outage.
+            # Keep truly dangerous settings fatal above; make migration drift
+            # loud and actionable while health, search and account access stay up.
+            logger.error(
+                "retired_public_host_configured: %s still uses %s; update it to "
+                "https://www.farelin.com (AUTH_PUBLIC_BASE_URL needs /backend).",
+                name,
+                legacy_public_host,
+            )
 
 
     if errors:

@@ -197,7 +197,7 @@ def test_production_refuses_to_publish_development_tool_endpoints(monkeypatch):
         validate_security_settings()
 
 
-def test_production_refuses_the_retired_oauth_callback_host(monkeypatch):
+def test_production_reports_retired_oauth_host_without_taking_api_down(monkeypatch, caplog):
     _production_base(monkeypatch)
     monkeypatch.setattr(settings, "ai_enabled", False)
     monkeypatch.setattr(
@@ -206,8 +206,10 @@ def test_production_refuses_the_retired_oauth_callback_host(monkeypatch):
         "https://triplet-web.vercel.app/backend",
     )
 
-    with pytest.raises(RuntimeError, match="AUTH_PUBLIC_BASE_URL still uses the retired"):
+    with caplog.at_level(logging.ERROR):
         validate_security_settings()
+
+    assert "AUTH_PUBLIC_BASE_URL still uses triplet-web.vercel.app" in caplog.text
 
 
 def test_anthropic_only_production_starts(monkeypatch):
