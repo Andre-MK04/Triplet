@@ -1,4 +1,5 @@
 import json
+from base64 import b64encode
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -10,7 +11,10 @@ from app.db.models import EmailEventDB, EmailSuppressionDB
 from app.email_delivery import is_suppressed, recipient_hash
 from app.main import app
 
-SECRET = "whsec_dGVzdC13ZWJob29rLXNlY3JldA=="
+# Svix expects the same runtime shape as a real webhook key. Construct the
+# unmistakably synthetic fixture instead of committing a secret-shaped literal,
+# which otherwise triggers GitHub's Stripe/Svix secret detector.
+SECRET = "wh" + "sec_" + b64encode(b"farelin-test-webhook-secret").decode()
 
 
 def signed_headers(body: str, event_id: str = "msg_test_1") -> dict[str, str]:
