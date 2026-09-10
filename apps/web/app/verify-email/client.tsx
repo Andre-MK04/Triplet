@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
@@ -12,12 +12,14 @@ import { apiPost } from "../../lib/api";
  * Where an emailed confirmation link becomes a verified account.
  *
  * A POST, not a GET, for the same reason the watch confirmation page is:
- * corporate mail scanners and link previewers follow URLs in incoming mail,
- * and the token is single-use — so a link that verified on arrival could be
- * spent by a scanner before the person ever clicked it.
+ * corporate mail scanners and link previewers follow URLs in incoming mail.
+ * The GET only presents a confirmation screen; a deliberate button press is
+ * required before the single-use token is sent to the API.
  */
 
 type State =
+  | { status: "loading" }
+  | { status: "ready"; token: string }
   | { status: "verifying" }
   | { status: "verified" }
   | { status: "failed"; detail: string };
@@ -30,27 +32,27 @@ const MISSING_TOKEN: State = {
 
 export function VerifyEmailClient() {
   const { user, refresh } = useAuth();
-  const [state, setState] = useState<State>({ status: "verifying" });
+  const [state, setState] = useState<State>({ status: "loading" });
   const [resent, setResent] = useState(false);
-  // The token is single-use and React runs effects twice in development; a
-  // second POST would spend nothing and report a working link as broken.
-  const attempted = useRef(false);
 
   useEffect(() => {
-    if (attempted.current) return;
-    attempted.current = true;
-
     const token = new URLSearchParams(window.location.search).get("token");
     if (!token) {
       setState(MISSING_TOKEN);
       return;
     }
-    window.history.replaceState({}, "", "/verify-email");
 
-    // No cancellation flag: the ref above already guarantees one request, and
-    // cancelling on cleanup would discard the only response in flight.
+    // Do not spend the single-use token on page load. Mail security scanners
+    // commonly open links before the recipient does; requiring a deliberate
+    // button press keeps those previews from confirming the account.
+    setState({ status: "ready", token });
+  }, []);
+
+  function verify(token: string) {
+    setState({ status: "verifying" });
     apiPost("/auth/verify-email", { token })
       .then(() => {
+        window.history.replaceState({}, "", "/verify-email");
         setState({ status: "verified" });
         // Pull the session again so the rest of the app stops showing the
         // "not confirmed" notice without needing a reload.
@@ -63,7 +65,7 @@ export function VerifyEmailClient() {
             : "This confirmation link is no longer valid.";
         setState({ status: "failed", detail });
       });
-  }, [refresh]);
+  }
 
   async function resend() {
     try {
@@ -75,14 +77,40 @@ export function VerifyEmailClient() {
     setResent(true);
   }
 
-  if (state.status === "verifying") {
+  if (state.status === "loading" || state.status === "verifying") {
     return (
       <AppShell>
         <div className="flex flex-col items-center gap-4 py-32">
-          <Spinner label="Confirming your email…" />
+          <Spinner
+            label={state.status === "loading" ? "Checking your link…" : "Confirming your email…"}
+          />
           <p className="font-mono text-[11px] uppercase tracking-label text-mist-dim">
-            Checking your link
+            {state.status === "loading" ? "Preparing confirmation" : "One moment"}
           </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (state.status === "ready") {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-md py-24 text-center">
+          <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+            Confirm your address
+          </p>
+          <h1 className="font-display text-3xl font-bold text-cloud">
+            One last step.
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-mist">
+            Confirm that this email belongs to you so Farelin can send your fare alerts.
+          </p>
+          <div className="mt-8 flex justify-center gap-4">
+            <Button onClick={() => verify(state.token)}>Confirm my email</Button>
+            <ButtonLink href="/account" variant="secondary">
+              Not now
+            </ButtonLink>
+          </div>
         </div>
       </AppShell>
     );
@@ -102,11 +130,21 @@ export function VerifyEmailClient() {
             Farelin can now send fare alerts to it, and watches you set on this account
             will not need confirming separately.
           </p>
+          {!user ? (
+            <p className="mt-3 text-sm leading-relaxed text-mist-dim">
+              Your mail app opened this outside your Farelin session. Your address is
+              confirmed; log in to continue.
+            </p>
+          ) : null}
           <div className="mt-8 flex justify-center gap-4">
-            <ButtonLink href="/discover">Find trips</ButtonLink>
-            <ButtonLink href="/account" variant="secondary">
-              Your account
+            <ButtonLink href={user ? "/discover" : "/login"}>
+              {user ? "Find trips" : "Log in"}
             </ButtonLink>
+            {user ? (
+              <ButtonLink href="/account" variant="secondary">
+                Your account
+              </ButtonLink>
+            ) : null}
           </div>
         </div>
       </AppShell>
