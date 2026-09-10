@@ -43,7 +43,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-line bg-ink/90">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold text-cloud">
-          <TripletMark />
+          <FarelinMark />
           {BRAND.name}
         </Link>
 
@@ -137,14 +137,22 @@ export function Navbar() {
   );
 }
 
-export function TripletMark({ size = 26 }: { size?: number }) {
+export function FarelinMark({ size = 26 }: { size?: number }) {
+  const width = Math.round(size * (737.933 / 634));
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
-      <circle cx="16" cy="16" r="14" stroke="#7ddfc3" strokeWidth="2" />
-      <path d="M7 20c4-8 14-11 18-8" stroke="#7ddfc3" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
-      <circle cx="8" cy="19" r="2.4" fill="#7ddfc3" />
-      <circle cx="24" cy="12" r="2.4" fill="#ff9a78" />
-    </svg>
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center"
+      style={{ width, height: size }}
+    >
+      <img
+        src="/farelin-icon.svg"
+        alt=""
+        width={width}
+        height={size}
+        className="block size-full"
+      />
+    </span>
   );
 }
 
@@ -182,7 +190,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[minmax(0,5fr)_repeat(3,minmax(0,2fr))]">
         <div className="max-w-xs">
           <p className="flex items-center gap-2 font-display text-base font-bold text-cloud">
-            <TripletMark size={20} /> {BRAND.name}
+            <FarelinMark size={20} /> {BRAND.name}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-mist">
             Find cheap trips, not just cheap flights. Prices are observed at check time and can change —
