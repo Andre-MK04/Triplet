@@ -19,6 +19,13 @@ describe("email verification page", () => {
 
   it("explains an isolated mail browser and offers login", () => {
     expect(source).toContain("Your mail app opened this outside your Farelin session");
-    expect(source).toContain('{user ? "Find trips" : "Log in"}');
+    expect(source).toContain('{user ? "Create travel profile" : "Log in"}');
+  });
+
+  it("supports the post-signup check-your-inbox state", () => {
+    expect(source).toContain('status: "pending"');
+    expect(source).toContain("Check your inbox.");
+    expect(source).toContain("some email providers can take two or three minutes");
+    expect(source).toContain('href={user ? "/onboarding" : "/login"}');
   });
 });

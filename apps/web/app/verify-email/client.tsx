@@ -19,6 +19,7 @@ import { apiPost } from "../../lib/api";
 
 type State =
   | { status: "loading" }
+  | { status: "pending" }
   | { status: "ready"; token: string }
   | { status: "verifying" }
   | { status: "verified" }
@@ -31,22 +32,43 @@ const MISSING_TOKEN: State = {
 };
 
 export function VerifyEmailClient() {
-  const { user, refresh } = useAuth();
+  const { user, isLoading, refresh } = useAuth();
   const [state, setState] = useState<State>({ status: "loading" });
-  const [resent, setResent] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
+  const [resendSeconds, setResendSeconds] = useState(0);
 
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("token");
-    if (!token) {
-      setState(MISSING_TOKEN);
+    if (token) {
+      // Do not spend the single-use token on page load. Mail security scanners
+      // commonly open links before the recipient does; requiring a deliberate
+      // button press keeps those previews from confirming the account.
+      setState({ status: "ready", token });
       return;
     }
 
-    // Do not spend the single-use token on page load. Mail security scanners
-    // commonly open links before the recipient does; requiring a deliberate
-    // button press keeps those previews from confirming the account.
-    setState({ status: "ready", token });
-  }, []);
+    if (isLoading) return;
+    if (user && !user.isVerified) {
+      setState({ status: "pending" });
+      if (new URLSearchParams(window.location.search).get("sent") === "1") {
+        setResendSeconds((current) => current || 60);
+      }
+      return;
+    }
+    if (user?.isVerified) {
+      setState({ status: "verified" });
+      return;
+    }
+    setState(MISSING_TOKEN);
+  }, [isLoading, user]);
+
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendSeconds((current) => Math.max(0, current - 1));
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [resendSeconds]);
 
   function verify(token: string) {
     setState({ status: "verifying" });
@@ -68,13 +90,24 @@ export function VerifyEmailClient() {
   }
 
   async function resend() {
+    setResendMessage("");
     try {
-      await apiPost("/auth/verify-email/resend");
-    } catch {
-      // The endpoint answers the same way whatever happens; a network failure
-      // here should not contradict that with a different story.
+      const result = await apiPost<{ deliveryConfigured: boolean; deliveryAccepted: boolean }>(
+        "/auth/verify-email/resend",
+      );
+      if (!result.deliveryConfigured) {
+        setResendMessage("Email delivery is temporarily unavailable. Please try again later.");
+      } else if (!result.deliveryAccepted) {
+        setResendMessage("Another link could not be sent yet. Please wait a minute and try again.");
+      } else {
+        setResendMessage("A new confirmation link was sent. It may take a couple of minutes to appear.");
+        setResendSeconds(60);
+      }
+    } catch (error) {
+      setResendMessage(
+        error instanceof Error ? error.message : "We could not request another link. Please try again.",
+      );
     }
-    setResent(true);
   }
 
   if (state.status === "loading" || state.status === "verifying") {
@@ -116,6 +149,41 @@ export function VerifyEmailClient() {
     );
   }
 
+  if (state.status === "pending") {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-md py-24 text-center">
+          <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-label text-mint">
+            Confirm your address
+          </p>
+          <h1 className="font-display text-3xl font-bold text-cloud">Check your inbox.</h1>
+          <p className="mt-3 text-sm leading-relaxed text-mist">
+            We sent a confirmation link to <span className="font-medium text-cloud">{user?.email}</span>.
+            Open it to confirm your address before creating your travel profile.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-mist-dim">
+            Delivery is usually quick, but some email providers can take two or three minutes. Check
+            spam or junk if it does not appear.
+          </p>
+
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <Button onClick={resend} disabled={resendSeconds > 0} variant="secondary">
+              {resendSeconds > 0 ? `Send another link in ${resendSeconds}s` : "Send another link"}
+            </Button>
+            {resendMessage ? (
+              <p className="text-sm leading-relaxed text-mist" role="status">
+                {resendMessage}
+              </p>
+            ) : null}
+            <ButtonLink href="/account" variant="secondary">
+              Check account status
+            </ButtonLink>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (state.status === "verified") {
     return (
       <AppShell>
@@ -137,8 +205,8 @@ export function VerifyEmailClient() {
             </p>
           ) : null}
           <div className="mt-8 flex justify-center gap-4">
-            <ButtonLink href={user ? "/discover" : "/login"}>
-              {user ? "Find trips" : "Log in"}
+            <ButtonLink href={user ? "/onboarding" : "/login"}>
+              {user ? "Create travel profile" : "Log in"}
             </ButtonLink>
             {user ? (
               <ButtonLink href="/account" variant="secondary">
@@ -168,13 +236,16 @@ export function VerifyEmailClient() {
 
         <div className="mt-8 flex flex-col items-center gap-4">
           {user ? (
-            resent ? (
-              <p className="text-sm text-mint" role="status">
-                If that address still needs confirming, a new link is on its way.
-              </p>
-            ) : (
-              <Button onClick={resend}>Send another link</Button>
-            )
+            <>
+              <Button onClick={resend} disabled={resendSeconds > 0}>
+                {resendSeconds > 0 ? `Send another link in ${resendSeconds}s` : "Send another link"}
+              </Button>
+              {resendMessage ? (
+                <p className="text-sm text-mist" role="status">
+                  {resendMessage}
+                </p>
+              ) : null}
+            </>
           ) : (
             <p className="text-sm leading-relaxed text-mist-dim">
               Log in and Farelin can send you a fresh link.

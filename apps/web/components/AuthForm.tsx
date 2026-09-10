@@ -48,8 +48,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setIsSubmitting(true);
     try {
       if (mode === "signup") {
-        await signup(email, password, displayName, legalVersions);
-        router.push("/onboarding");
+        const newUser = await signup(email, password, displayName, legalVersions);
+        router.push(newUser.isVerified ? "/onboarding" : "/verify-email?sent=1");
       } else {
         await login(email, password);
         router.push("/discover");
