@@ -49,6 +49,26 @@ export const metadata: Metadata = {
     description:
       "Flexible trip discovery from the airports you choose, with every fare shown as what it is: recently observed, never guaranteed.",
   },
+  // Keep the filename content-versioned. Safari maintains its own persistent
+  // site-icon cache and can ignore changed bytes at a familiar /icon.png URL.
+  // Explicit declarations also cover pinned/shortcut and Apple surfaces.
+  icons: {
+    icon: [
+      {
+        url: "/farelin-app-icon-7f83cc1f.png",
+        type: "image/png",
+        sizes: "1000x1000",
+      },
+    ],
+    shortcut: ["/farelin-app-icon-7f83cc1f.png"],
+    apple: [
+      {
+        url: "/farelin-app-icon-7f83cc1f.png",
+        type: "image/png",
+        sizes: "1000x1000",
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {

@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0b1117",
     icons: [
       {
-        src: "/icon.png",
+        src: "/farelin-app-icon-7f83cc1f.png",
         sizes: "1000x1000",
         type: "image/png",
       },
