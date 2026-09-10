@@ -14,7 +14,7 @@ from app.billing.webhooks import process_stripe_event
 from app.config import settings
 from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 from app.database import Base, get_db
-from app.db.models import BillingEventDB, UsageCounterDB, UserDB
+from app.db.models import BillingEventDB, BillingSubscriptionDB, UsageCounterDB, UserDB
 from app.main import app
 
 
@@ -55,6 +55,13 @@ def signup(client, email="billing@example.com"):
             "acknowledgedPrivacyVersion": CURRENT_PRIVACY_VERSION,
         },
     )
+
+
+def verify_user(db_session, email="billing@example.com") -> UserDB:
+    user = db_session.scalar(select(UserDB).where(UserDB.email == email))
+    user.is_verified = True
+    db_session.commit()
+    return user
 
 
 def saved_search_payload(**overrides):
@@ -107,6 +114,7 @@ def test_checkout_disabled_returns_clean_error(db_session, monkeypatch):
 def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, monkeypatch):
     client = make_client(db_session)
     signup(client)
+    verify_user(db_session)
     calls = {}
 
     class FakeCustomer:
@@ -140,7 +148,37 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
     assert response.status_code == 200
     assert response.json()["checkoutUrl"] == "https://checkout.stripe.test/session"
     assert calls["checkout"]["line_items"][0]["price"] == "price_monthly"
+    assert calls["checkout"]["client_reference_id"]
+    assert calls["checkout"]["automatic_tax"] == {"enabled": False}
     assert "sk_test_secret" not in response.text
+
+
+def test_checkout_requires_verified_email(db_session, monkeypatch):
+    client = make_client(db_session)
+    signup(client)
+    monkeypatch.setattr(settings, "billing_enabled", True)
+
+    response = client.post("/billing/create-checkout-session", json={"interval": "monthly"})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "Verify your email" in response.text
+
+
+def test_checkout_refuses_second_subscription_for_pro_user(db_session, monkeypatch):
+    client = make_client(db_session)
+    signup(client)
+    user = verify_user(db_session)
+    user.plan = "pro"
+    user.subscription_status = "active"
+    db_session.commit()
+    monkeypatch.setattr(settings, "billing_enabled", True)
+
+    response = client.post("/billing/create-checkout-session", json={"interval": "monthly"})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "already active" in response.text
 
 
 def test_entitlements_free_pro_and_canceled(db_session):
@@ -264,6 +302,68 @@ def test_stripe_webhook_updates_user_plan_and_is_idempotent(db_session):
     assert refreshed.subscription_status == "active"
 
 
+def test_checkout_webhook_does_not_provision_an_unpaid_session(db_session):
+    user = make_user(db_session, id="checkout-user", email="checkout@example.com")
+    event = {
+        "id": "evt_checkout_unpaid",
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "customer": "cus_checkout",
+                "subscription": "sub_checkout",
+                "payment_status": "unpaid",
+                "metadata": {"user_id": user.id},
+            }
+        },
+    }
+
+    assert process_stripe_event(db_session, event) == "success"
+    db_session.refresh(user)
+    subscription = db_session.scalar(
+        select(BillingSubscriptionDB).where(BillingSubscriptionDB.stripe_subscription_id == "sub_checkout")
+    )
+    assert user.plan == "free"
+    assert subscription.status == "incomplete"
+
+
+def test_failed_webhook_can_be_retried(db_session, monkeypatch):
+    from app.billing import webhooks as billing_webhooks
+
+    user = make_user(
+        db_session,
+        id="retry-user",
+        email="retry@example.com",
+        stripe_customer_id="cus_retry",
+    )
+    event = {
+        "id": "evt_retry",
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "id": "sub_retry",
+                "customer": "cus_retry",
+                "status": "active",
+                "items": {"data": [{"price": {"id": "price_monthly"}}]},
+            }
+        },
+    }
+
+    def fail_once(*_args, **_kwargs):
+        raise RuntimeError("temporary database failure")
+
+    original_handler = billing_webhooks.update_subscription_from_stripe_object
+    monkeypatch.setattr(billing_webhooks, "update_subscription_from_stripe_object", fail_once)
+    assert process_stripe_event(db_session, event) == "error"
+    failed = db_session.scalar(select(BillingEventDB).where(BillingEventDB.stripe_event_id == "evt_retry"))
+    assert failed.processing_status == "error"
+
+    monkeypatch.setattr(billing_webhooks, "update_subscription_from_stripe_object", original_handler)
+    assert process_stripe_event(db_session, event) == "success"
+    db_session.refresh(user)
+    assert user.plan == "pro"
+    assert user.subscription_status == "active"
+
+
 def test_webhook_rejects_missing_signature(db_session, monkeypatch):
     monkeypatch.setattr(settings, "billing_enabled", True)
     monkeypatch.setattr(settings, "stripe_webhook_secret", "whsec_test")
@@ -273,6 +373,24 @@ def test_webhook_rejects_missing_signature(db_session, monkeypatch):
     app.dependency_overrides.clear()
 
     assert response.status_code == 400
+
+
+def test_webhook_processing_failure_requests_a_stripe_retry(db_session, monkeypatch):
+    from app.billing import routes as billing_routes
+
+    monkeypatch.setattr(billing_routes, "verify_webhook_signature", lambda *_args: {"id": "evt_failure"})
+    monkeypatch.setattr(billing_routes, "process_stripe_event", lambda *_args: "error")
+    client = make_client(db_session)
+
+    response = client.post(
+        "/billing/webhook",
+        content=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert "could not be processed yet" in response.text
 
 
 # --- Free / Trial / Pro entitlements -----------------------------------------

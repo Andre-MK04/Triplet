@@ -62,6 +62,7 @@ export function PricingClient() {
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [interval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [status, setStatus] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<"checkout" | "portal" | "trial" | null>(null);
   // Whether checkout can actually complete. Assume it cannot until the API
   // says otherwise, so a slow response never shows a buy button that fails.
   const [billingEnabled, setBillingEnabled] = useState(false);
@@ -95,26 +96,33 @@ export function PricingClient() {
       return;
     }
     setStatus(null);
+    setPendingAction("checkout");
     try {
       const data = await apiPost<{ checkoutUrl: string }>("/billing/create-checkout-session", { interval });
       window.location.href = data.checkoutUrl;
-    } catch {
-      setStatus({ tone: "info", text: "Billing isn't enabled in this environment yet." });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Could not open Stripe Checkout. Please try again.";
+      setStatus({ tone: "error", text: message });
+      setPendingAction(null);
     }
   }
 
   async function manageBilling() {
     setStatus(null);
+    setPendingAction("portal");
     try {
       const data = await apiPost<{ portalUrl: string }>("/billing/create-portal-session");
       window.location.href = data.portalUrl;
-    } catch {
-      setStatus({ tone: "error", text: "Could not open the billing portal." });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Could not open the billing portal.";
+      setStatus({ tone: "error", text: message });
+      setPendingAction(null);
     }
   }
 
   async function startTrial() {
     setStatus(null);
+    setPendingAction("trial");
     try {
       await apiPost("/billing/start-trial");
       await refresh();
@@ -124,6 +132,8 @@ export function PricingClient() {
       const message =
         error instanceof ApiError ? error.message : "Could not start your trial. Please try again.";
       setStatus({ tone: "error", text: message });
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -187,16 +197,16 @@ export function PricingClient() {
       Log in to upgrade
     </ButtonLink>
   ) : billing?.plan === "pro" ? (
-    <Button variant="secondary" className="mt-8 w-full" onClick={() => void manageBilling()}>
-      Manage billing
+    <Button variant="secondary" className="mt-8 w-full" disabled={pendingAction !== null} onClick={() => void manageBilling()}>
+      {pendingAction === "portal" ? "Opening Stripe…" : "Manage billing"}
     </Button>
   ) : billing?.plan === "trial" ? (
-    <Button className="mt-8 w-full" onClick={() => void upgrade()}>
-      Upgrade before trial ends
+    <Button className="mt-8 w-full" disabled={pendingAction !== null} onClick={() => void upgrade()}>
+      {pendingAction === "checkout" ? "Opening Stripe…" : "Upgrade before trial ends"}
     </Button>
   ) : (
-    <Button className="mt-8 w-full" onClick={() => void upgrade()}>
-      Upgrade to Pro
+    <Button className="mt-8 w-full" disabled={pendingAction !== null} onClick={() => void upgrade()}>
+      {pendingAction === "checkout" ? "Opening Stripe…" : "Upgrade to Pro"}
     </Button>
   );
 
@@ -223,7 +233,11 @@ export function PricingClient() {
     }
     // The trial needs no card and no Stripe, so it stays available even when
     // paid checkout does not.
-    return <Button onClick={() => void startTrial()}>Start {trialDays}-day trial</Button>;
+    return (
+      <Button disabled={pendingAction !== null} onClick={() => void startTrial()}>
+        {pendingAction === "trial" ? "Starting trial…" : `Start ${trialDays}-day trial`}
+      </Button>
+    );
   };
 
   return (

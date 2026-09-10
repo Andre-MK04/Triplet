@@ -92,6 +92,11 @@ product name to `Farelin Pro`. Set Checkout success/cancel and Customer Portal
 return URLs to the Farelin domain. Do not replace price IDs or subscriptions
 merely for the rename.
 
+For the complete product, prices, portal, signed-webhook, Railway, test-mode,
+and live-cutover procedure, follow
+[stripe-production.md](stripe-production.md). Keep Stripe secrets on the API
+service only; the alerts cron and Vercel frontend do not need them.
+
 ## Search and indexing
 
 1. Add a Google Search Console Domain Property for `farelin.com` and verify it

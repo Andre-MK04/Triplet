@@ -1,12 +1,17 @@
 import stripe
 from sqlalchemy.orm import Session
 
+from app.billing.entitlements import get_user_plan
 from app.config import settings
 from app.db.models import UserDB
 
 
 class BillingConfigError(ValueError):
     pass
+
+
+class BillingStateError(ValueError):
+    """The Stripe configuration works, but this account may not start Checkout."""
 
 
 def require_billing_enabled() -> None:
@@ -37,6 +42,9 @@ def create_or_get_customer(db: Session, user: UserDB) -> str:
         email=user.email,
         name=user.display_name,
         metadata={"user_id": user.id, "app": settings.app_name},
+        # If Stripe accepted the customer but our database commit was retried,
+        # the same user still gets the same Customer instead of a duplicate.
+        idempotency_key=f"farelin-customer-{user.id}",
     )
     user.stripe_customer_id = customer["id"]
     db.commit()
@@ -46,6 +54,10 @@ def create_or_get_customer(db: Session, user: UserDB) -> str:
 
 def create_checkout_session(db: Session, user: UserDB, interval: str):
     require_billing_enabled()
+    if not user.is_verified:
+        raise BillingStateError("Verify your email before starting a paid subscription.")
+    if get_user_plan(user) in {"pro", "owner"}:
+        raise BillingStateError("Farelin Pro is already active. Use Manage billing instead.")
     if interval not in {"monthly", "yearly"}:
         raise BillingConfigError("Invalid billing interval.")
     price_attr = "stripe_price_pro_monthly" if interval == "monthly" else "stripe_price_pro_yearly"
@@ -55,9 +67,20 @@ def create_checkout_session(db: Session, user: UserDB, interval: str):
     return stripe_api().checkout.Session.create(
         mode="subscription",
         customer=customer_id,
+        client_reference_id=user.id,
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=settings.billing_success_url,
         cancel_url=settings.billing_cancel_url,
+        billing_address_collection="auto",
+        automatic_tax={"enabled": settings.stripe_automatic_tax_enabled},
+        **(
+            {
+                "customer_update": {"address": "auto", "name": "auto"},
+                "tax_id_collection": {"enabled": True},
+            }
+            if settings.stripe_automatic_tax_enabled
+            else {}
+        ),
         metadata={"user_id": user.id, "app": settings.app_name, "plan": "pro"},
         subscription_data={"metadata": {"user_id": user.id, "app": settings.app_name, "plan": "pro"}},
     )

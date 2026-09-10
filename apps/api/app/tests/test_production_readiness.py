@@ -58,6 +58,35 @@ def test_production_validation_accepts_secure_minimum(monkeypatch):
     validate_security_settings()
 
 
+def test_production_billing_requires_both_prices_and_https_returns(monkeypatch):
+    monkeypatch.setattr(settings, "app_env", "production")
+    monkeypatch.setattr(settings, "enable_dev_tool_endpoints", False)
+    monkeypatch.setattr(settings, "app_secret", PRODUCTION_SECRET)
+    monkeypatch.setattr(settings, "database_url", "postgresql+psycopg://user:pass@db/triplet")
+    monkeypatch.setattr(settings, "frontend_url", "https://www.farelin.com")
+    monkeypatch.setattr(settings, "api_public_base_url", "https://api.farelin.com")
+    monkeypatch.setattr(settings, "auth_cookie_secure", True)
+    monkeypatch.setattr(settings, "auth_cookie_samesite", "lax")
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "flight_provider", "database")
+    monkeypatch.setattr(settings, "email_provider", "resend")
+    monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_placeholder")
+    monkeypatch.setattr(settings, "stripe_webhook_secret", "whsec_placeholder")
+    monkeypatch.setattr(settings, "stripe_price_pro_monthly", "price_monthly")
+    monkeypatch.setattr(settings, "stripe_price_pro_yearly", None)
+    monkeypatch.setattr(settings, "billing_success_url", "http://www.farelin.com/billing/success")
+    monkeypatch.setattr(settings, "billing_cancel_url", "https://www.farelin.com/pricing")
+    monkeypatch.setattr(settings, "billing_portal_return_url", "https://www.farelin.com/dashboard")
+
+    with pytest.raises(RuntimeError) as error:
+        validate_security_settings()
+
+    assert "STRIPE_PRICE_PRO_YEARLY" in str(error.value)
+    assert "BILLING_SUCCESS_URL" in str(error.value)
+
+
 def test_missing_redis_warns_but_still_boots(monkeypatch):
     """A missing variable must never crash-loop a running service.
 

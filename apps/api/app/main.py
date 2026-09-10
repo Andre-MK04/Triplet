@@ -169,11 +169,22 @@ def validate_security_settings() -> None:
                 "STRIPE_SECRET_KEY": settings.stripe_secret_key,
                 "STRIPE_WEBHOOK_SECRET": settings.stripe_webhook_secret,
                 "STRIPE_PRICE_PRO_MONTHLY": settings.stripe_price_pro_monthly,
+                "STRIPE_PRICE_PRO_YEARLY": settings.stripe_price_pro_yearly,
             }.items()
             if not value
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
+        billing_urls = {
+            "BILLING_SUCCESS_URL": settings.billing_success_url,
+            "BILLING_CANCEL_URL": settings.billing_cancel_url,
+            "BILLING_PORTAL_RETURN_URL": settings.billing_portal_return_url,
+        }
+        insecure_billing_urls = [name for name, value in billing_urls.items() if not value.startswith("https://")]
+        if insecure_billing_urls:
+            errors.append(
+                "Production billing URLs must use HTTPS: " + ", ".join(insecure_billing_urls) + "."
+            )
     if settings.trust_proxy_headers and settings.trusted_client_ip_header != "x-real-ip":
         errors.append(
             "Railway production must use TRUSTED_CLIENT_IP_HEADER=x-real-ip; "

@@ -8,7 +8,6 @@ export default function BillingCancelPage() {
   return (
     <AppShell>
       <EmptyState
-        icon="🧾"
         title="Checkout canceled"
         action={<ButtonLink href="/pricing" variant="secondary">Back to pricing</ButtonLink>}
       >

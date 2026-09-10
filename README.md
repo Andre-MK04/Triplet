@@ -355,14 +355,12 @@ Billing routes:
 
 Stripe setup:
 
-1. Create a Stripe account and use test mode first.
-2. Create a product named `Farelin Pro`.
-3. Create two recurring prices: one monthly and one yearly.
-4. Copy the price IDs into `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`.
-5. Add `STRIPE_SECRET_KEY`.
-6. Add `STRIPE_PUBLISHABLE_KEY` if a future frontend flow needs it.
-7. Add a webhook endpoint pointing to `/billing/webhook`.
-8. Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
+Follow the full test-to-live checklist in
+[docs/operations/stripe-production.md](docs/operations/stripe-production.md).
+Use test mode first, create one `Farelin Pro` product with monthly and yearly
+EUR prices, configure the Customer Portal, and register the signed Railway
+webhook before setting `BILLING_ENABLED=true`. The current hosted Checkout flow
+does not need a publishable key in the browser.
 
 Billing environment:
 
@@ -374,6 +372,7 @@ STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_PRO_MONTHLY=
 STRIPE_PRICE_PRO_YEARLY=
+STRIPE_AUTOMATIC_TAX_ENABLED=false
 BILLING_SUCCESS_URL=http://localhost:3000/billing/success
 BILLING_CANCEL_URL=http://localhost:3000/pricing
 BILLING_PORTAL_RETURN_URL=http://localhost:3000/dashboard

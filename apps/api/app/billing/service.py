@@ -212,7 +212,6 @@ def update_subscription_from_stripe_object(db: Session, subscription_obj: dict, 
     row.raw_last_event_type = event_type
     row.updated_at = datetime.utcnow()
     apply_user_plan(user, row.status)
-    db.commit()
     return row
 
 

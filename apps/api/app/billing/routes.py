@@ -21,6 +21,7 @@ from app.billing.service import (
 )
 from app.billing.stripe_client import (
     BillingConfigError,
+    BillingStateError,
     create_billing_portal_session,
     create_checkout_session,
     verify_webhook_signature,
@@ -77,13 +78,24 @@ def start_pro_trial(
 
 @router.post("/create-checkout-session", response_model=CreateCheckoutSessionResponse)
 def create_checkout(
+    request: Request,
     request_data: CreateCheckoutSessionRequest,
     db: Session = Depends(get_db),
     user: UserDB = Depends(get_current_user_required),
 ) -> CreateCheckoutSessionResponse:
     try:
         session = create_checkout_session(db, user, request_data.interval)
+        record_audit_event(
+            db,
+            "billing.checkout_created",
+            user_id=user.id,
+            request=request,
+            commit=True,
+            interval=request_data.interval,
+        )
         return CreateCheckoutSessionResponse(checkoutUrl=session["url"])
+    except BillingStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except BillingConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
@@ -93,10 +105,13 @@ def create_checkout(
 
 @router.post("/create-portal-session", response_model=CreateBillingPortalSessionResponse)
 def create_portal(
+    request: Request,
+    db: Session = Depends(get_db),
     user: UserDB = Depends(get_current_user_required),
 ) -> CreateBillingPortalSessionResponse:
     try:
         session = create_billing_portal_session(user)
+        record_audit_event(db, "billing.portal_created", user_id=user.id, request=request, commit=True)
         return CreateBillingPortalSessionResponse(portalUrl=session["url"])
     except BillingConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -111,7 +126,11 @@ async def stripe_webhook(
     raw_body = await request.body()
     try:
         event = verify_webhook_signature(raw_body, stripe_signature)
-        process_stripe_event(db, dict(event))
+        processing_status = process_stripe_event(db, dict(event))
     except BillingConfigError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if processing_status == "error":
+        # Stripe retries non-2xx deliveries. Returning 200 here used to make a
+        # transient database failure permanent while the customer had paid.
+        raise HTTPException(status_code=503, detail="Billing event could not be processed yet.")
     return WebhookResponse(received=True)

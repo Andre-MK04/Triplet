@@ -185,6 +185,10 @@ class Settings:
     stripe_webhook_secret: str | None = os.getenv("STRIPE_WEBHOOK_SECRET") or None
     stripe_price_pro_monthly: str | None = os.getenv("STRIPE_PRICE_PRO_MONTHLY") or None
     stripe_price_pro_yearly: str | None = os.getenv("STRIPE_PRICE_PRO_YEARLY") or None
+    # Stripe Tax must only be enabled after the business has configured its tax
+    # registrations in Stripe. Keeping this explicit avoids silently collecting
+    # the wrong amount while still making the production path one setting away.
+    stripe_automatic_tax_enabled: bool = os.getenv("STRIPE_AUTOMATIC_TAX_ENABLED", "false").lower() == "true"
     billing_success_url: str = os.getenv("BILLING_SUCCESS_URL", "http://localhost:3000/billing/success")
     billing_cancel_url: str = os.getenv("BILLING_CANCEL_URL", "http://localhost:3000/pricing")
     billing_portal_return_url: str = os.getenv("BILLING_PORTAL_RETURN_URL", "http://localhost:3000/dashboard")

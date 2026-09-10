@@ -9,11 +9,14 @@ from app.db.models import BillingEventDB, BillingSubscriptionDB, UserDB
 
 HANDLED_EVENTS = {
     "checkout.session.completed",
+    "checkout.session.async_payment_succeeded",
+    "checkout.session.async_payment_failed",
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
     "invoice.payment_succeeded",
     "invoice.payment_failed",
+    "invoice.paid",
 }
 
 
@@ -23,33 +26,44 @@ def process_stripe_event(db: Session, event: dict) -> str:
     if not event_id:
         return "ignored"
     existing = db.scalar(select(BillingEventDB).where(BillingEventDB.stripe_event_id == event_id))
-    if existing:
+    # Successful and intentionally ignored events are idempotent. Failed
+    # events are retried because Stripe redelivers them after a non-2xx reply.
+    if existing and existing.processing_status != "error":
         return existing.processing_status
 
-    event_row = BillingEventDB(
-        id=str(uuid4()),
-        stripe_event_id=event_id,
-        event_type=event_type,
-        processed_at=datetime.utcnow(),
-        processing_status="success" if event_type in HANDLED_EVENTS else "ignored",
-    )
+    event_row = existing or BillingEventDB(id=str(uuid4()), stripe_event_id=event_id)
+    event_row.event_type = event_type
+    event_row.processed_at = datetime.utcnow()
+    event_row.processing_status = "processing"
+    event_row.error_message = None
     db.add(event_row)
     try:
+        db.flush()
         obj = (event.get("data") or {}).get("object") or {}
-        if event_type == "checkout.session.completed":
+        if event_type in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
             _handle_checkout_session_completed(db, obj)
         elif event_type.startswith("customer.subscription."):
             update_subscription_from_stripe_object(db, obj, event_type)
         elif event_type == "invoice.payment_failed":
             _handle_invoice_payment_failed(db, obj)
-        elif event_type == "invoice.payment_succeeded":
+        elif event_type in {"invoice.payment_succeeded", "invoice.paid"}:
             _handle_invoice_payment_succeeded(db, obj)
+        event_row.processing_status = "success" if event_type in HANDLED_EVENTS else "ignored"
         db.commit()
     except Exception as exc:  # noqa: BLE001 - webhook processing must persist failure rows.
         db.rollback()
-        event_row.processing_status = "error"
-        event_row.error_message = str(exc)
-        db.add(event_row)
+        failed_row = db.scalar(select(BillingEventDB).where(BillingEventDB.stripe_event_id == event_id))
+        failed_row = failed_row or BillingEventDB(
+            id=str(uuid4()),
+            stripe_event_id=event_id,
+            event_type=event_type,
+            processed_at=datetime.utcnow(),
+            processing_status="error",
+        )
+        failed_row.processing_status = "error"
+        # Keep the diagnostic server-side; the webhook response never exposes it.
+        failed_row.error_message = str(exc)[:2000]
+        db.add(failed_row)
         db.commit()
         return "error"
     return event_row.processing_status
@@ -65,6 +79,7 @@ def _handle_checkout_session_completed(db: Session, session: dict) -> None:
     user.stripe_customer_id = session.get("customer") or user.stripe_customer_id
     if session.get("subscription"):
         subscription_id = session.get("subscription")
+        paid = session.get("payment_status") in {"paid", "no_payment_required"}
         row = db.scalar(
             select(BillingSubscriptionDB).where(BillingSubscriptionDB.stripe_subscription_id == subscription_id)
         )
@@ -76,14 +91,18 @@ def _handle_checkout_session_completed(db: Session, session: dict) -> None:
                 stripe_subscription_id=subscription_id,
                 stripe_price_id=None,
                 plan="pro",
-                status="active",
+                status="active" if paid else "incomplete",
                 cancel_at_period_end=False,
                 raw_last_event_type="checkout.session.completed",
             )
             db.add(row)
-        user.subscription_status = "active"
-        user.plan = "pro"
-        user.updated_at = datetime.utcnow()
+        # Delayed payment methods can complete Checkout before funds settle.
+        # Provision only when Checkout says paid; subscription webhooks remain
+        # the long-term source of truth for renewals and cancellations.
+        if paid:
+            user.subscription_status = "active"
+            user.plan = "pro"
+            user.updated_at = datetime.utcnow()
 
 
 def _handle_invoice_payment_failed(db: Session, invoice: dict) -> None:
