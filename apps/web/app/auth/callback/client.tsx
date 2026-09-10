@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "../../../components/AppShell";
-import { useAuth } from "../../../components/AuthContext";
+import { announceAuthChange, useAuth } from "../../../components/AuthContext";
 import { ButtonLink } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Misc";
 
@@ -33,8 +33,14 @@ export function AuthCallbackClient() {
     let cancelled = false;
     // Cookies are already set by the callback redirect; confirm the session,
     // then land the user somewhere useful.
-    void refresh().then(() => {
-      if (!cancelled) router.replace("/dashboard");
+    void refresh().then((authenticatedUser) => {
+      if (cancelled) return;
+      if (!authenticatedUser) {
+        setFailed("The sign-in completed, but Farelin could not restore the browser session.");
+        return;
+      }
+      announceAuthChange();
+      router.replace("/dashboard");
     });
     return () => {
       cancelled = true;
