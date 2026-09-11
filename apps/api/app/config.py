@@ -188,6 +188,12 @@ class Settings:
     # Managed Payments requires 2025-03-31.basil or newer. Pin the version so
     # Checkout does not silently inherit an older account or SDK default.
     stripe_api_version: str = os.getenv("STRIPE_API_VERSION", "2025-03-31.basil")
+    # Farelin sells a consumer digital subscription and uses Stripe as merchant
+    # of record. Keep this explicit: account-level defaults must not silently
+    # change the legal/payment flow of a Checkout Session.
+    stripe_managed_payments_enabled: bool = (
+        os.getenv("STRIPE_MANAGED_PAYMENTS_ENABLED", "true").lower() == "true"
+    )
     # Stripe Tax must only be enabled after the business has configured its tax
     # registrations in Stripe. Keeping this explicit avoids silently collecting
     # the wrong amount while still making the production path one setting away.

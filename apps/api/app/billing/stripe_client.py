@@ -113,28 +113,35 @@ def create_checkout_session(db: Session, user: UserDB, interval: str):
     variable_name = "STRIPE_PRICE_PRO_MONTHLY" if interval == "monthly" else "STRIPE_PRICE_PRO_YEARLY"
     price_id = require_stripe_price_id(getattr(settings, price_attr), variable_name)
     customer_id = create_or_get_customer(db, user)
-    return _call_stripe(
-        "checkout.session.create",
-        lambda: stripe_api().checkout.Session.create(
-            mode="subscription",
-            customer=customer_id,
-            client_reference_id=user.id,
-            line_items=[{"price": price_id, "quantity": 1}],
-            success_url=settings.billing_success_url,
-            cancel_url=settings.billing_cancel_url,
-            billing_address_collection="auto",
-            automatic_tax={"enabled": settings.stripe_automatic_tax_enabled},
-            **(
+    checkout_options: dict = {
+        "mode": "subscription",
+        "customer": customer_id,
+        "client_reference_id": user.id,
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": settings.billing_success_url,
+        "cancel_url": settings.billing_cancel_url,
+        "billing_address_collection": "auto",
+        "managed_payments": {"enabled": settings.stripe_managed_payments_enabled},
+        "metadata": {"user_id": user.id, "app": settings.app_name, "plan": "pro"},
+        "subscription_data": {
+            "metadata": {"user_id": user.id, "app": settings.app_name, "plan": "pro"}
+        },
+    }
+    if not settings.stripe_managed_payments_enabled:
+        # Managed Payments owns tax calculation and customer updates. These
+        # options belong only to standard Stripe Checkout and are rejected by
+        # Managed Payments when enabled.
+        checkout_options["automatic_tax"] = {"enabled": settings.stripe_automatic_tax_enabled}
+        if settings.stripe_automatic_tax_enabled:
+            checkout_options.update(
                 {
                     "customer_update": {"address": "auto", "name": "auto"},
                     "tax_id_collection": {"enabled": True},
                 }
-                if settings.stripe_automatic_tax_enabled
-                else {}
-            ),
-            metadata={"user_id": user.id, "app": settings.app_name, "plan": "pro"},
-            subscription_data={"metadata": {"user_id": user.id, "app": settings.app_name, "plan": "pro"}},
-        ),
+            )
+    return _call_stripe(
+        "checkout.session.create",
+        lambda: stripe_api().checkout.Session.create(**checkout_options),
     )
 
 

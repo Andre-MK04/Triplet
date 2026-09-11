@@ -140,6 +140,7 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
         api_version = None
 
     monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_managed_payments_enabled", False)
     synthetic_secret = "stripe-test-secret"
     monkeypatch.setattr(settings, "stripe_secret_key", synthetic_secret)
     monkeypatch.setattr(settings, "stripe_price_pro_monthly", "price_monthly")
@@ -153,6 +154,7 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
     assert calls["checkout"]["line_items"][0]["price"] == "price_monthly"
     assert calls["checkout"]["client_reference_id"]
     assert calls["checkout"]["automatic_tax"] == {"enabled": False}
+    assert calls["checkout"]["managed_payments"] == {"enabled": False}
     assert FakeStripe.api_version == "2025-03-31.basil"
     assert synthetic_secret not in response.text
 
@@ -195,6 +197,49 @@ def test_checkout_returns_safe_json_when_stripe_rejects_request(db_session, monk
     }
     assert "Managed Payments" not in response.text
     assert FakeStripe.api_version == "2025-03-31.basil"
+
+
+def test_managed_payments_checkout_omits_stripe_tax_parameters(db_session, monkeypatch):
+    client = make_client(db_session)
+    signup(client)
+    verify_user(db_session)
+    calls = {}
+
+    class FakeCustomer:
+        @staticmethod
+        def create(**_kwargs):
+            return {"id": "cus_managed"}
+
+    class FakeCheckoutSession:
+        @staticmethod
+        def create(**kwargs):
+            calls["checkout"] = kwargs
+            return {"url": "https://checkout.stripe.test/managed"}
+
+    class FakeCheckout:
+        Session = FakeCheckoutSession
+
+    class FakeStripe:
+        Customer = FakeCustomer
+        checkout = FakeCheckout
+        api_key = None
+        api_version = None
+
+    monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_secret_key", "stripe-test-secret")
+    monkeypatch.setattr(settings, "stripe_price_pro_monthly", "price_monthly")
+    monkeypatch.setattr(settings, "stripe_managed_payments_enabled", True)
+    monkeypatch.setattr(settings, "stripe_automatic_tax_enabled", True)
+    monkeypatch.setattr("app.billing.stripe_client.stripe", FakeStripe)
+
+    response = client.post("/billing/create-checkout-session", json={"interval": "monthly"})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert calls["checkout"]["managed_payments"] == {"enabled": True}
+    assert "automatic_tax" not in calls["checkout"]
+    assert "tax_id_collection" not in calls["checkout"]
+    assert "customer_update" not in calls["checkout"]
 
 
 def test_checkout_requires_verified_email(db_session, monkeypatch):

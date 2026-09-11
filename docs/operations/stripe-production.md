@@ -98,6 +98,8 @@ STRIPE_WEBHOOK_SECRET=<test endpoint whsec_...>
 STRIPE_PRICE_PRO_MONTHLY=<test monthly price_...>
 STRIPE_PRICE_PRO_YEARLY=<test yearly price_...>
 STRIPE_API_VERSION=2025-03-31.basil
+# Set false only if Farelin deliberately stops using Stripe as merchant of record.
+STRIPE_MANAGED_PAYMENTS_ENABLED=true
 STRIPE_AUTOMATIC_TAX_ENABLED=false
 BILLING_SUCCESS_URL=https://www.farelin.com/billing/success
 BILLING_CANCEL_URL=https://www.farelin.com/pricing
