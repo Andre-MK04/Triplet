@@ -159,6 +159,49 @@ def create_billing_portal_session(user: UserDB):
     )
 
 
+def cancel_customer_subscriptions_before_erasure(user: UserDB) -> int:
+    """Cancel every non-terminal Stripe subscription before deleting an account.
+
+    Stripe, not the local mirror, is the billing source of truth. Querying Stripe
+    by customer catches subscriptions whose webhook has not reached our database
+    yet. If Stripe cannot confirm cancellation, the account must remain available
+    so the customer can still reach the billing portal and we can retry safely.
+    """
+    if not user.stripe_customer_id:
+        return 0
+
+    require_billing_enabled()
+    require_stripe_config("stripe_secret_key")
+    subscriptions = _call_stripe(
+        "subscription.list_for_erasure",
+        lambda: stripe_api().Subscription.list(
+            customer=user.stripe_customer_id,
+            status="all",
+            limit=100,
+        ),
+    )
+    rows = (
+        subscriptions.auto_paging_iter()
+        if hasattr(subscriptions, "auto_paging_iter")
+        else subscriptions.get("data", [])
+    )
+    terminal_statuses = {"canceled", "incomplete_expired", "unpaid"}
+    canceled = 0
+    for subscription in rows:
+        subscription_id = subscription.get("id")
+        status = subscription.get("status")
+        if not subscription_id or status in terminal_statuses:
+            continue
+        _call_stripe(
+            "subscription.cancel_for_erasure",
+            lambda subscription_id=subscription_id: stripe_api().Subscription.cancel(
+                subscription_id
+            ),
+        )
+        canceled += 1
+    return canceled
+
+
 def verify_webhook_signature(raw_body: bytes, signature_header: str | None):
     require_billing_enabled()
     require_stripe_config("stripe_webhook_secret")

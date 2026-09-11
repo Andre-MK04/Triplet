@@ -266,8 +266,8 @@ export default function AccountPage() {
           <span className={sectionLabel}>Your data</span>
           <p className="max-w-lg text-sm leading-relaxed text-mist">
             Your data belongs to you. Download everything we hold about you as a
-            single file, or permanently erase your account and all its data — no questions, no retention
-            tricks. Details in the{" "}
+            single file, or erase your account-linked Farelin data. An active Stripe subscription is
+            cancelled first; Stripe may retain invoices or other records where the law requires it. Details in the{" "}
             <a href="/privacy" className="text-mint underline hover:text-cloud">privacy policy</a>.
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-6">
@@ -315,6 +315,11 @@ export default function AccountPage() {
           <li>— your saved watches and their history</li>
           <li>— every trip suggestion Farelin has generated for you</li>
         </ul>
+        {billing?.plan === "pro" ? (
+          <p className="text-gold">
+            Your active Pro subscription will be cancelled immediately before the account is erased.
+          </p>
+        ) : null}
         <p className="text-cloud">
           This cannot be undone, and Farelin cannot recover any of it afterwards.
         </p>

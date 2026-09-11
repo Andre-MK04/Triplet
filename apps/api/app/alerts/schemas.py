@@ -131,6 +131,10 @@ class SavedSearchResponse(BaseModel):
     verificationResendPath: str | None = None
 
 
+class AlertTokenRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=256)
+
+
 class AlertPreviewResponse(BaseModel):
     savedSearch: SavedSearchResponse
     matchingTrips: list[TripOption]

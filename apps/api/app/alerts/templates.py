@@ -61,6 +61,7 @@ def build_alert_html(
     output: SearchTripsOutput,
     city_names: dict[str, str],
     manage_note: str,
+    unsubscribe_url: str,
 ) -> str:
     cards = "".join(
         render_trip_card_html(trip, city_names)
@@ -73,6 +74,7 @@ def build_alert_html(
         if row.user_id
         else escape(manage_note)
     )
+    unsubscribe_link = escape(unsubscribe_url, quote=True)
     return f"""\
 <!DOCTYPE html>
 <html lang="en">
@@ -88,6 +90,7 @@ def build_alert_html(
     <p style="margin:0;font-size:12px;color:{MIST};">{account_line}</p>
     <p style="margin:12px 0 0;font-size:11px;color:{MIST};">
       You are receiving this because you created a {escape(settings.app_name)} Watch.
+      <a href="{unsubscribe_link}" style="color:{MINT};">Unsubscribe this watch</a>.
     </p>
   </div>
 </body>
@@ -153,6 +156,7 @@ def build_alert_text(
     output: SearchTripsOutput,
     city_names: dict[str, str],
     manage_note: str,
+    unsubscribe_url: str,
 ) -> str:
     lines = [
         f"{settings.app_name} alert: {row.name or 'Saved search'}",
@@ -178,6 +182,7 @@ def build_alert_text(
             f"{settings.app_name} does not sell or book flights. Prices and availability can change "
             "after you open the provider site.",
             manage_note,
+            f"Unsubscribe this watch: {unsubscribe_url}",
             f"You are receiving this because you created a {settings.app_name} Watch.",
         ]
     )

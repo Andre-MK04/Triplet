@@ -11,6 +11,7 @@ from app.db.repositories.airports_repository import AirportsRepository
 from app.db.repositories.flights_repository import FlightsRepository
 from app.db.repositories.transfers_repository import TransfersRepository
 from app.db.seed import seed_session
+from app.security import reset_ai_budget as clear_ai_budget
 from app.security import reset_rate_limits as clear_rate_limits
 
 
@@ -49,8 +50,10 @@ def reset_rate_limits():
     """Rate-limit counters are process-global, so one test's signups would
     otherwise 429 a later test that happens to share the client IP."""
     clear_rate_limits()
+    clear_ai_budget()
     yield
     clear_rate_limits()
+    clear_ai_budget()
 
 
 @pytest.fixture(autouse=True)

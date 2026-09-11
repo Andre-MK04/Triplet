@@ -9,7 +9,11 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.billing.entitlements import get_entitlements, get_user_plan
-from app.billing.service import start_trial
+from app.billing.service import TrialError, start_trial
+from app.billing.stripe_client import (
+    BillingProviderError,
+    cancel_customer_subscriptions_before_erasure,
+)
 from app.billing.usage import assert_ai_search_allowed, record_ai_search
 from app.billing.webhooks import process_stripe_event
 from app.config import settings
@@ -582,6 +586,17 @@ def test_start_trial_sets_window_and_status(db_session):
     assert user.trial_ends_at is not None
 
 
+def test_unverified_user_cannot_start_trial(db_session):
+    user = make_user(db_session, is_verified=False)
+
+    try:
+        start_trial(db_session, user)
+    except TrialError as exc:
+        assert "verify your email" in str(exc).lower()
+    else:
+        raise AssertionError("Expected an unverified account to be rejected")
+
+
 def test_cannot_start_second_trial(db_session):
     user = make_user(db_session)
     start_trial(db_session, user)
@@ -641,13 +656,78 @@ def test_structured_search_not_counted_against_ai_usage(db_session):
 def test_start_trial_endpoint(db_session):
     client = make_client(db_session)
     signup(client, email="trialer@example.com")
+    unverified = client.post("/billing/start-trial")
+    verify_user(db_session, "trialer@example.com")
     res = client.post("/billing/start-trial")
     app.dependency_overrides.clear()
+    assert unverified.status_code == 409
+    assert "Verify your email" in unverified.text
     assert res.status_code == 200
     body = res.json()
     assert body["plan"] == "trial"
     assert body["trialDaysRemaining"] == 7
     assert body["canStartTrial"] is False
+
+
+def test_account_erasure_cancels_every_active_stripe_subscription(db_session, monkeypatch):
+    user = make_user(db_session, stripe_customer_id="customer_erasure")
+    calls = {"list": None, "cancel": []}
+
+    class FakeSubscription:
+        @staticmethod
+        def list(**kwargs):
+            calls["list"] = kwargs
+            return {
+                "data": [
+                    {"id": "subscription_active", "status": "active"},
+                    {"id": "subscription_past_due", "status": "past_due"},
+                    {"id": "subscription_done", "status": "canceled"},
+                ]
+            }
+
+        @staticmethod
+        def cancel(subscription_id):
+            calls["cancel"].append(subscription_id)
+            return {"id": subscription_id, "status": "canceled"}
+
+    class FakeStripe:
+        Subscription = FakeSubscription
+        api_key = None
+        api_version = None
+
+    monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_secret_key", "stripe-test-secret")
+    monkeypatch.setattr("app.billing.stripe_client.stripe", FakeStripe)
+
+    canceled = cancel_customer_subscriptions_before_erasure(user)
+
+    assert canceled == 2
+    assert calls["list"] == {"customer": "customer_erasure", "status": "all", "limit": 100}
+    assert calls["cancel"] == ["subscription_active", "subscription_past_due"]
+
+
+def test_account_erasure_fails_closed_when_stripe_cannot_cancel(db_session, monkeypatch):
+    client = make_client(db_session)
+    signup(client, email="preserve-account@example.com")
+    user = verify_user(db_session, "preserve-account@example.com")
+    user.stripe_customer_id = "customer_preserve"
+    db_session.commit()
+
+    def fail_cancellation(_user):
+        raise BillingProviderError("provider unavailable")
+
+    monkeypatch.setattr(
+        "app.auth.routes.cancel_customer_subscriptions_before_erasure",
+        fail_cancellation,
+    )
+
+    response = client.delete("/auth/me")
+    still_present = db_session.get(UserDB, user.id)
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert still_present is not None
+    assert "not deleted" in response.json()["detail"].lower()
 
 
 def test_origin_airport_limit_enforced_free(db_session, monkeypatch):

@@ -32,6 +32,11 @@ from app.auth.schemas import (
 from app.auth.security import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
 from app.alerts.email import build_email_provider
 from app.auth.service import AuthError, AuthService, DuplicateEmailError, auth_user_response
+from app.billing.stripe_client import (
+    BillingConfigError,
+    BillingProviderError,
+    cancel_customer_subscriptions_before_erasure,
+)
 from app.config import settings
 from app.database import get_db
 from app.db.models import UserDB
@@ -211,7 +216,21 @@ def delete_me(
     from app.privacy.service import erase_user
 
     try:
+        # Deleting the local billing row does not tell Stripe to stop charging.
+        # Cancellation is deliberately first and fail-closed: if Stripe is down,
+        # preserve the account and its portal access rather than strand a paying
+        # customer with a subscription they can no longer manage.
+        cancel_customer_subscriptions_before_erasure(user)
         erase_user(db, user, request=request)
+    except (BillingConfigError, BillingProviderError) as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "We could not safely cancel your billing subscription. "
+                "Your account was not deleted; please try again shortly."
+            ),
+        ) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=503, detail="Could not delete account right now.") from exc

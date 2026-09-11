@@ -19,7 +19,7 @@ from app.alerts.schemas import (
     WatchInsightsResponse,
     WatchPricePoint,
 )
-from app.alerts.token_utils import generate_token, hash_token, verify_token
+from app.alerts.token_utils import generate_token, hash_token, stable_action_token, verify_token
 from app.config import settings
 from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB, UserTravelProfileDB
 from app.observability import events
@@ -66,12 +66,13 @@ class SavedSearchService:
         if not email_is_proven:
             self._guard_unverified_flood(request.email)
 
+        watch_id = str(uuid4())
         manage_token = generate_token()
-        unsubscribe_token = generate_token()
+        unsubscribe_token = stable_action_token(watch_id, "unsubscribe")
         verification_token = None if email_is_proven else generate_token()
         now = datetime.utcnow()
         row = SavedSearchDB(
-            id=str(uuid4()),
+            id=watch_id,
             user_id=user.id if user else None,
             email=request.email,
             name=request.name,
@@ -526,11 +527,18 @@ class SavedSearchService:
         manage_note = (
             f"Manage this watch on your {settings.app_name} dashboard."
             if row.user_id
-            else "Use your manage/unsubscribe links from the alert creation response."
+            else "You can manage this watch using the private link shown when it was created."
+        )
+        unsubscribe_token = stable_action_token(row.id, "unsubscribe")
+        row.unsubscribe_token_hash = hash_token(unsubscribe_token)
+        self.db.commit()
+        unsubscribe_url = (
+            f"{settings.alerts_public_base_url.rstrip('/')}/watch/unsubscribe"
+            f"#watch={row.id}&token={unsubscribe_token}"
         )
         subject = build_alert_subject(row, output, city_names)
-        text_body = build_alert_text(row, output, city_names, manage_note)
-        html_body = build_alert_html(row, output, city_names, manage_note)
+        text_body = build_alert_text(row, output, city_names, manage_note, unsubscribe_url)
+        html_body = build_alert_html(row, output, city_names, manage_note, unsubscribe_url)
         delivery = AlertDeliveryDB(
             id=str(uuid4()),
             saved_search_id=row.id,
@@ -773,7 +781,11 @@ def saved_search_to_response(
         lastBestPrice=row.last_best_price,
         lastBestTripId=row.last_best_trip_id,
         manageUrl=f"{base_url}/alerts/{row.id}?token={manage_token}" if manage_token else None,
-        unsubscribeUrl=f"{base_url}/alerts/{row.id}/unsubscribe?token={unsubscribe_token}" if unsubscribe_token else None,
+        unsubscribeUrl=(
+            f"{base_url}/watch/unsubscribe#watch={row.id}&token={unsubscribe_token}"
+            if unsubscribe_token
+            else None
+        ),
         emailVerificationRequired=row.email_verified_at is None,
         verificationEmailAccepted=(
             None if row.email_verified_at is not None else row.verification_sent_at is not None

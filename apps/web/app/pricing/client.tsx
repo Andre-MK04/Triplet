@@ -196,6 +196,10 @@ export function PricingClient() {
     <ButtonLink href="/login" className="mt-8 w-full">
       Log in to upgrade
     </ButtonLink>
+  ) : !user.isVerified ? (
+    <ButtonLink href="/verify-email" variant="secondary" className="mt-8 w-full">
+      Verify email to upgrade
+    </ButtonLink>
   ) : billing?.plan === "pro" ? (
     <Button variant="secondary" className="mt-8 w-full" disabled={pendingAction !== null} onClick={() => void manageBilling()}>
       {pendingAction === "portal" ? "Opening Stripe…" : "Manage billing"}
@@ -226,6 +230,13 @@ export function PricingClient() {
         <span className="font-mono text-[11px] uppercase tracking-label text-mint">
           Trial active — {billing.trialDaysRemaining} day{billing.trialDaysRemaining === 1 ? "" : "s"} left
         </span>
+      );
+    }
+    if (!user.isVerified) {
+      return (
+        <ButtonLink href="/verify-email" variant="secondary">
+          Verify email to start trial
+        </ButtonLink>
       );
     }
     if (billing && !billing.canStartTrial) {

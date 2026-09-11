@@ -22,7 +22,7 @@ keep the path to 1M open** — don't provision idle heavy infra.
 
 | Signal | Action |
 | --- | --- |
-| Login/search p95 latency rising, or >1 API replica | Move rate limiting + session lookups to **Redis** (interface is isolated in `app/rate_limit.py`; swap the store, keep the callers). In-memory limits weaken across replicas — this is the trigger. |
+| Before adding a second API worker or replica | Set `REDIS_URL` and `RATE_LIMIT_REQUIRE_SHARED=true`. Rate limiting is already Redis-capable in `app/security/limiter.py`; the second setting makes a missing shared backend a fatal production configuration error. In-memory limits reset on restart and multiply across replicas. |
 | DB connections near the Postgres limit | Add **PgBouncer / Railway connection pooling** in front of Postgres. |
 | Read query load dominates | Add a **Postgres read replica**; point search reads (cache) at the replica, writes at primary. |
 | Refresher nears Travelpayouts usage limits | Widen the refresh interval, shard origins across runs, or upgrade the Travelpayouts plan. Read-through still covers on-demand routes. |

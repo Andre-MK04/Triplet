@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from app.database import get_db
 from app.db.models import (
     AuditEventDB,
+    BillingSubscriptionDB,
     CountryVisitDB,
     EmailEventDB,
     EmailSuppressionDB,
@@ -67,6 +68,19 @@ def test_export_returns_users_data_without_secrets(db_session):
     client = make_client(db_session)
     signup(client)
     seed_user_data(client)
+    user = db_session.scalar(select(UserDB).where(UserDB.email == "privacy@example.com"))
+    db_session.add(
+        BillingSubscriptionDB(
+            id="billing-export-row",
+            user_id=user.id,
+            stripe_customer_id="customer_export",
+            stripe_subscription_id="subscription_export",
+            stripe_price_id="price_export",
+            plan="pro",
+            status="active",
+        )
+    )
+    db_session.commit()
 
     body = client.get("/me/export").json()
     assert body["account"]["email"] == "privacy@example.com"
@@ -74,6 +88,7 @@ def test_export_returns_users_data_without_secrets(db_session):
     assert len(body["savedSearches"]) == 1
     assert {country["countryCode"] for country in body["travelMap"]["countries"]} == {"IS", "IT"}
     assert body["travelMap"]["visits"][0]["startPrecision"] == "month"
+    assert body["billingSubscriptions"][0]["status"] == "active"
     # No secret material in the actual data (ignore the human-readable note).
     body.pop("note", None)
     dumped = str(body).lower()

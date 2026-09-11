@@ -44,6 +44,9 @@ def export_user_data(db: Session, user: UserDB) -> dict:
     oauth = db.scalars(select(UserOAuthAccountDB).where(UserOAuthAccountDB.user_id == user.id)).all()
     suggestions = db.scalars(select(TripSuggestionDB).where(TripSuggestionDB.user_id == user.id)).all()
     usage = db.scalars(select(UsageCounterDB).where(UsageCounterDB.user_id == user.id)).all()
+    subscriptions = db.scalars(
+        select(BillingSubscriptionDB).where(BillingSubscriptionDB.user_id == user.id)
+    ).all()
     country_relationships = db.scalars(
         select(UserCountryDB).where(UserCountryDB.user_id == user.id)
     ).all()
@@ -59,6 +62,9 @@ def export_user_data(db: Session, user: UserDB) -> dict:
             "email": user.email,
             "displayName": user.display_name,
             "plan": user.plan,
+            "subscriptionStatus": user.subscription_status,
+            "trialStartedAt": _iso(user.trial_started_at),
+            "trialEndsAt": _iso(user.trial_ends_at),
             "createdAt": _iso(user.created_at),
             "lastLoginAt": _iso(user.last_login_at),
         },
@@ -114,6 +120,21 @@ def export_user_data(db: Session, user: UserDB) -> dict:
         "usage": [
             {"feature": u.feature, "periodStart": _iso(u.period_start), "count": u.count}
             for u in usage
+        ],
+        "billingSubscriptions": [
+            {
+                "stripeCustomerId": subscription.stripe_customer_id,
+                "stripeSubscriptionId": subscription.stripe_subscription_id,
+                "stripePriceId": subscription.stripe_price_id,
+                "plan": subscription.plan,
+                "status": subscription.status,
+                "currentPeriodStart": _iso(subscription.current_period_start),
+                "currentPeriodEnd": _iso(subscription.current_period_end),
+                "cancelAtPeriodEnd": subscription.cancel_at_period_end,
+                "createdAt": _iso(subscription.created_at),
+                "updatedAt": _iso(subscription.updated_at),
+            }
+            for subscription in subscriptions
         ],
         "emailSuppression": (
             {

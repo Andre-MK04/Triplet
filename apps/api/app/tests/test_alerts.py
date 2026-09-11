@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
 
@@ -153,6 +154,51 @@ def test_alert_run_sends_first_notification_and_logs_rows(db_session, monkeypatc
     assert response.json()["resultCount"] > 0
     assert run_count == 1
     assert delivery_count == 1
+
+
+def test_alert_email_contains_a_working_one_click_unsubscribe_path(db_session, monkeypatch):
+    app.dependency_overrides[get_db] = override_db(db_session)
+    client = TestClient(app)
+    sent = {}
+
+    class RecordingProvider:
+        provider_name = "test"
+        delivers = True
+
+        def send_email(self, to, subject, html_body, text_body, **kwargs):
+            sent.update({"html": html_body, "text": text_body})
+            return "message-unsubscribe-test"
+
+    monkeypatch.setattr("app.alerts.service.build_email_provider", lambda: RecordingProvider())
+    created = create_alert(client, db_session)
+    manage_token = token_from_url(created["manageUrl"])
+
+    response = client.post(f"/alerts/{created['id']}/run?token={manage_token}")
+    assert response.status_code == 200
+    assert response.json()["notificationSent"] is True
+
+    unsubscribe_url = sent["text"].split("Unsubscribe this watch: ", 1)[1].splitlines()[0]
+    parsed = urlparse(unsubscribe_url)
+    query = parse_qs(parsed.fragment)
+    token = query["token"][0]
+    watch_id = query["watch"][0]
+    row = db_session.get(SavedSearchDB, watch_id)
+
+    assert parsed.path == "/watch/unsubscribe"
+    assert parsed.query == ""
+    assert "Unsubscribe this watch" in sent["html"]
+    assert token not in row.unsubscribe_token_hash
+    assert verify_token(token, row.unsubscribe_token_hash)
+
+    unsubscribed = client.post(
+        f"/alerts/{watch_id}/unsubscribe",
+        json={"token": token},
+    )
+    db_session.refresh(row)
+    app.dependency_overrides.clear()
+
+    assert unsubscribed.status_code == 200
+    assert row.is_active is False
 
 
 def test_alert_run_skips_same_result_inside_cooldown(db_session, monkeypatch):

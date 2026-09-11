@@ -41,7 +41,11 @@ def get_user_plan(user: UserDB | None, now: datetime | None = None) -> str:
     """Effective plan. Owner beats everything, then paid Pro, then a live trial."""
     if not user:
         return "free"
-    if is_owner_email(user.email):
+    # An email address is not an identity until it has been verified. Signup
+    # intentionally creates a usable session before verification, so checking
+    # only the string here let someone register a configured owner address and
+    # receive unlimited entitlements without controlling that mailbox.
+    if user.is_verified and is_owner_email(user.email):
         return "owner"
     if _is_paid_pro(user):
         return "pro"
@@ -59,7 +63,7 @@ def trial_days_remaining(user: UserDB | None, now: datetime | None = None) -> in
 
 
 def can_start_trial(user: UserDB | None, now: datetime | None = None) -> bool:
-    if not user or _is_paid_pro(user) or trial_is_active(user, now):
+    if not user or not user.is_verified or _is_paid_pro(user) or trial_is_active(user, now):
         return False
     if is_owner_email(user.email):
         # Nothing to unlock; a trial would only downgrade what they already have.

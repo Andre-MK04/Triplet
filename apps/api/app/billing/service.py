@@ -148,6 +148,8 @@ class TrialError(ValueError):
 
 def start_trial(db: Session, user: UserDB) -> dict:
     """Start the one-time, no-card 7-day Pro trial for this user."""
+    if not user.is_verified:
+        raise TrialError("Verify your email before starting the Pro trial.")
     if get_user_plan(user) == "pro" and user.subscription_status in {"active", "past_due"}:
         raise TrialError(f"You already have {settings.app_name} Pro.")
     if not can_start_trial(user):

@@ -5,14 +5,18 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user_optional
-from app.billing.usage import assert_origin_airports_allowed
+from app.billing.usage import (
+    assert_ai_search_allowed,
+    assert_origin_airports_allowed,
+    record_ai_search,
+)
 from app.database import get_db
 from app.db.models import UserDB
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
 from app.models import TripSearchRequest, TripSearchResponse
 from app.config import settings
 from app.observability import events
-from app.security import RateLimitCategory, check_rate_limit
+from app.security import RateLimitCategory, check_rate_limit, consume_ai_call
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import (
     FlightProviderNotImplementedError,
@@ -103,6 +107,7 @@ def get_trip_suggestion(
 @router.post("/suggestions/{suggestion_id}/plan")
 def plan_trip_suggestion(
     suggestion_id: str,
+    http_request: Request,
     db: Session = Depends(get_db),
     user: UserDB | None = Depends(get_current_user_optional),
 ) -> dict:
@@ -113,11 +118,29 @@ def plan_trip_suggestion(
     from app.db.models import UserTravelProfileDB
     from app.itinerary.service import ItineraryUnavailable, generate_itinerary
 
+    check_rate_limit(RateLimitCategory.AI, http_request, user.id if user else None)
     row = TripSuggestionsRepository(db).get_visible(suggestion_id, user_id=user.id if user else None)
     if not row:
         raise HTTPException(status_code=404, detail="Trip suggestion not found or expired.")
     if row.itinerary:
         return {"itinerary": row.itinerary, "cached": True}
+
+    # A new itinerary is a billable model call. It belongs under the same
+    # per-account quota and service-wide circuit breaker as AI search; cached
+    # plans remain free to reopen.
+    if not settings.ai_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="AI itineraries are not enabled in this environment.",
+        )
+    assert_ai_search_allowed(db, user)
+    if not consume_ai_call():
+        raise HTTPException(
+            status_code=503,
+            detail="AI itinerary generation is paused for today. Please try again tomorrow.",
+        )
+    if user:
+        record_ai_search(db, user)
 
     profile = None
     if user:

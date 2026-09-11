@@ -22,7 +22,12 @@ from app.db.models import UserDB
 @pytest.fixture()
 def owner(monkeypatch, db_session):
     monkeypatch.setattr(settings, "triplet_owner_emails", "Owner@Example.com, second@example.com")
-    user = UserDB(id="owner-1", email="owner@example.com", password_hash="x")
+    user = UserDB(
+        id="owner-1",
+        email="owner@example.com",
+        password_hash="x",
+        is_verified=True,
+    )
     db_session.add(user)
     db_session.commit()
     return user
@@ -61,6 +66,23 @@ def test_owner_plan_lifts_every_limit(owner):
     assert entitlements["maxOriginAirports"] == UNLIMITED
     assert entitlements["liveProviderAccess"] is True
     assert entitlements["dailyWatchChecks"] is True
+
+
+def test_unverified_configured_owner_remains_free(monkeypatch, db_session):
+    """Knowing the configured owner address must not grant owner privileges."""
+    monkeypatch.setattr(settings, "triplet_owner_emails", "owner@example.com")
+    user = UserDB(
+        id="unverified-owner",
+        email="owner@example.com",
+        password_hash="x",
+        is_verified=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    assert get_user_plan(user) == "free"
+    assert get_entitlements(user)["unlimited"] is False
+    assert can_start_trial(user) is False
 
 
 def test_owner_ai_searches_are_never_blocked(db_session, owner):

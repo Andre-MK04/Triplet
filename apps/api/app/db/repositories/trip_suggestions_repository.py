@@ -55,6 +55,8 @@ class TripSuggestionsRepository:
         row = self.db.get(TripSuggestionDB, suggestion_id)
         if not row:
             return None
+        if row.expires_at is not None and row.expires_at <= datetime.utcnow():
+            return None
         if row.user_id is not None and row.user_id != user_id:
             return None
         return row

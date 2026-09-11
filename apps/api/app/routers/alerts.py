@@ -2,7 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.alerts.schemas import AlertPreviewResponse, AlertRunResponse, CreateSavedSearchRequest, SavedSearchResponse
+from app.alerts.schemas import (
+    AlertPreviewResponse,
+    AlertRunResponse,
+    AlertTokenRequest,
+    CreateSavedSearchRequest,
+    SavedSearchResponse,
+)
 from app.alerts.service import (
     AlertPermissionError,
     AlertValidationError,
@@ -63,6 +69,23 @@ def delete_alert(
 
     def run() -> dict[str, bool]:
         SavedSearchService(db).deactivate_saved_search(saved_search_id, token)
+        return {"ok": True}
+
+    return _handle_alert_errors(run)
+
+
+@router.post("/{saved_search_id}/unsubscribe")
+def unsubscribe_alert(
+    saved_search_id: str,
+    body: AlertTokenRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """Stop one watch after an explicit action on the confirmation page."""
+    check_rate_limit(RateLimitCategory.ALERTS, http_request)
+
+    def run() -> dict[str, bool]:
+        SavedSearchService(db).deactivate_saved_search(saved_search_id, body.token)
         return {"ok": True}
 
     return _handle_alert_errors(run)
