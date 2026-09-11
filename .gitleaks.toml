@@ -1,0 +1,18 @@
+title = "Farelin secret-scanning configuration"
+
+[extend]
+useDefault = true
+
+# These exact synthetic values were used by billing tests before the fixtures
+# stopped resembling Stripe credentials. Keep the exception value-specific so
+# real sk_test_ and sk_live_ credentials remain covered by the default rules.
+[allowlist]
+description = "Historical synthetic Stripe test fixtures"
+regexTarget = "secret"
+regexes = [
+  '''^sk_test_placeholder$''',
+  '''^sk_test_secret$''',
+  # Deliberately fake values used to prove exception and log redaction.
+  '''^sk_live_ABCDEFGH1234$''',
+  '''^sk_test_51ABCdef$''',
+]

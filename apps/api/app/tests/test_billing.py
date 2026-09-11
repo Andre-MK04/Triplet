@@ -138,7 +138,8 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
         api_key = None
 
     monkeypatch.setattr(settings, "billing_enabled", True)
-    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_secret")
+    synthetic_secret = "stripe-test-secret"
+    monkeypatch.setattr(settings, "stripe_secret_key", synthetic_secret)
     monkeypatch.setattr(settings, "stripe_price_pro_monthly", "price_monthly")
     monkeypatch.setattr("app.billing.stripe_client.stripe", FakeStripe)
 
@@ -150,7 +151,7 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
     assert calls["checkout"]["line_items"][0]["price"] == "price_monthly"
     assert calls["checkout"]["client_reference_id"]
     assert calls["checkout"]["automatic_tax"] == {"enabled": False}
-    assert "sk_test_secret" not in response.text
+    assert synthetic_secret not in response.text
 
 
 def test_checkout_requires_verified_email(db_session, monkeypatch):
@@ -186,7 +187,7 @@ def test_checkout_rejects_a_display_amount_instead_of_a_stripe_price_id(db_sessi
     signup(client)
     verify_user(db_session)
     monkeypatch.setattr(settings, "billing_enabled", True)
-    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_placeholder")
+    monkeypatch.setattr(settings, "stripe_secret_key", "stripe-test-placeholder")
     monkeypatch.setattr(settings, "stripe_price_pro_monthly", "6,99€")
 
     response = client.post("/billing/create-checkout-session", json={"interval": "monthly"})
