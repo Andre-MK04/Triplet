@@ -185,6 +185,9 @@ class Settings:
     stripe_webhook_secret: str | None = os.getenv("STRIPE_WEBHOOK_SECRET") or None
     stripe_price_pro_monthly: str | None = os.getenv("STRIPE_PRICE_PRO_MONTHLY") or None
     stripe_price_pro_yearly: str | None = os.getenv("STRIPE_PRICE_PRO_YEARLY") or None
+    # Managed Payments requires 2025-03-31.basil or newer. Pin the version so
+    # Checkout does not silently inherit an older account or SDK default.
+    stripe_api_version: str = os.getenv("STRIPE_API_VERSION", "2025-03-31.basil")
     # Stripe Tax must only be enabled after the business has configured its tax
     # registrations in Stripe. Keeping this explicit avoids silently collecting
     # the wrong amount while still making the production path one setting away.

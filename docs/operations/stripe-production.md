@@ -38,6 +38,10 @@ Copy their `price_...` IDs. A test price belongs with a test secret key; live
 mode needs newly created live prices. Stripe price amounts cannot be edited
 after creation, so archive a mistake and create a replacement.
 
+If Managed Payments is enabled, set an eligible tax code on the `Farelin Pro`
+product and keep the integration on Stripe API `2025-03-31.basil` or newer.
+Stripe rejects Checkout before payment when either requirement is missing.
+
 Decide whether the displayed prices include tax before live launch. Farelin can
 enable Stripe Tax with `STRIPE_AUTOMATIC_TAX_ENABLED=true`, but only after the
 business has configured its actual tax registrations and confirmed the displayed
@@ -93,6 +97,7 @@ STRIPE_SECRET_KEY=<test sk_test_... or least-privilege test restricted key>
 STRIPE_WEBHOOK_SECRET=<test endpoint whsec_...>
 STRIPE_PRICE_PRO_MONTHLY=<test monthly price_...>
 STRIPE_PRICE_PRO_YEARLY=<test yearly price_...>
+STRIPE_API_VERSION=2025-03-31.basil
 STRIPE_AUTOMATIC_TAX_ENABLED=false
 BILLING_SUCCESS_URL=https://www.farelin.com/billing/success
 BILLING_CANCEL_URL=https://www.farelin.com/pricing

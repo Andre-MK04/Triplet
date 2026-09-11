@@ -21,6 +21,7 @@ from app.billing.service import (
 )
 from app.billing.stripe_client import (
     BillingConfigError,
+    BillingProviderError,
     BillingStateError,
     create_billing_portal_session,
     create_checkout_session,
@@ -98,6 +99,8 @@ def create_checkout(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except BillingConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except BillingProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc
@@ -114,6 +117,8 @@ def create_portal(
         record_audit_event(db, "billing.portal_created", user_id=user.id, request=request, commit=True)
         return CreateBillingPortalSessionResponse(portalUrl=session["url"])
     except BillingConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except BillingProviderError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 

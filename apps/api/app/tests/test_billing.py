@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from threading import Barrier
 
+from stripe import error as stripe_error
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 
@@ -136,6 +137,7 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
         Customer = FakeCustomer
         checkout = FakeCheckout
         api_key = None
+        api_version = None
 
     monkeypatch.setattr(settings, "billing_enabled", True)
     synthetic_secret = "stripe-test-secret"
@@ -151,7 +153,48 @@ def test_checkout_uses_configured_price_and_does_not_expose_secret(db_session, m
     assert calls["checkout"]["line_items"][0]["price"] == "price_monthly"
     assert calls["checkout"]["client_reference_id"]
     assert calls["checkout"]["automatic_tax"] == {"enabled": False}
+    assert FakeStripe.api_version == "2025-03-31.basil"
     assert synthetic_secret not in response.text
+
+
+def test_checkout_returns_safe_json_when_stripe_rejects_request(db_session, monkeypatch):
+    client = make_client(db_session)
+    signup(client)
+    user = verify_user(db_session)
+    user.stripe_customer_id = "cus_existing"
+    db_session.commit()
+
+    class RejectingCheckoutSession:
+        @staticmethod
+        def create(**_kwargs):
+            raise stripe_error.InvalidRequestError(
+                "Managed Payments requires a newer API version and a product tax code.",
+                param="line_items[0]",
+            )
+
+    class FakeCheckout:
+        Session = RejectingCheckoutSession
+
+    class FakeStripe:
+        checkout = FakeCheckout
+        api_key = None
+        api_version = None
+
+    monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_secret_key", "stripe-test-secret")
+    monkeypatch.setattr(settings, "stripe_price_pro_monthly", "price_monthly")
+    monkeypatch.setattr("app.billing.stripe_client.stripe", FakeStripe)
+
+    response = client.post("/billing/create-checkout-session", json={"interval": "monthly"})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == {
+        "detail": "Stripe billing is temporarily unavailable. Please try again shortly."
+    }
+    assert "Managed Payments" not in response.text
+    assert FakeStripe.api_version == "2025-03-31.basil"
 
 
 def test_checkout_requires_verified_email(db_session, monkeypatch):
