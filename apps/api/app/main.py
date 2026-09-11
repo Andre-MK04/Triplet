@@ -175,6 +175,20 @@ def validate_security_settings() -> None:
         ]
         if missing_billing:
             errors.append(f"Billing is enabled but missing: {', '.join(missing_billing)}.")
+        invalid_price_ids = [
+            name
+            for name, value in {
+                "STRIPE_PRICE_PRO_MONTHLY": settings.stripe_price_pro_monthly,
+                "STRIPE_PRICE_PRO_YEARLY": settings.stripe_price_pro_yearly,
+            }.items()
+            if value and not value.startswith("price_")
+        ]
+        if invalid_price_ids:
+            errors.append(
+                "Stripe price variables must contain price_ IDs, not monetary amounts: "
+                + ", ".join(invalid_price_ids)
+                + "."
+            )
         billing_urls = {
             "BILLING_SUCCESS_URL": settings.billing_success_url,
             "BILLING_CANCEL_URL": settings.billing_cancel_url,

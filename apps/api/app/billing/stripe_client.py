@@ -27,6 +27,15 @@ def require_stripe_config(*names: str) -> None:
         raise BillingConfigError(f"Missing Stripe billing configuration: {', '.join(missing)}.")
 
 
+def require_stripe_price_id(value: str | None, variable_name: str) -> str:
+    """Reject display amounts where Stripe catalogue IDs are required."""
+    if not value or not value.startswith("price_"):
+        raise BillingConfigError(
+            f"{variable_name} must be a Stripe Price ID beginning with 'price_', not a monetary amount."
+        )
+    return value
+
+
 def stripe_api():
     require_billing_enabled()
     require_stripe_config("stripe_secret_key")
@@ -62,8 +71,9 @@ def create_checkout_session(db: Session, user: UserDB, interval: str):
         raise BillingConfigError("Invalid billing interval.")
     price_attr = "stripe_price_pro_monthly" if interval == "monthly" else "stripe_price_pro_yearly"
     require_stripe_config("stripe_secret_key", price_attr)
+    variable_name = "STRIPE_PRICE_PRO_MONTHLY" if interval == "monthly" else "STRIPE_PRICE_PRO_YEARLY"
+    price_id = require_stripe_price_id(getattr(settings, price_attr), variable_name)
     customer_id = create_or_get_customer(db, user)
-    price_id = getattr(settings, price_attr)
     return stripe_api().checkout.Session.create(
         mode="subscription",
         customer=customer_id,

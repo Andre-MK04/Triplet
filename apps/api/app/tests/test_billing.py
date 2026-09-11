@@ -181,6 +181,22 @@ def test_checkout_refuses_second_subscription_for_pro_user(db_session, monkeypat
     assert "already active" in response.text
 
 
+def test_checkout_rejects_a_display_amount_instead_of_a_stripe_price_id(db_session, monkeypatch):
+    client = make_client(db_session)
+    signup(client)
+    verify_user(db_session)
+    monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_placeholder")
+    monkeypatch.setattr(settings, "stripe_price_pro_monthly", "6,99€")
+
+    response = client.post("/billing/create-checkout-session", json={"interval": "monthly"})
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert "beginning with 'price_'" in response.text
+    assert "not a monetary amount" in response.text
+
+
 def test_entitlements_free_pro_and_canceled(db_session):
     user = UserDB(
         id="user-billing",

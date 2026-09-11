@@ -87,6 +87,22 @@ def test_production_billing_requires_both_prices_and_https_returns(monkeypatch):
     assert "BILLING_SUCCESS_URL" in str(error.value)
 
 
+def test_production_billing_rejects_monetary_amounts_as_price_ids(monkeypatch):
+    _production_base(monkeypatch)
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    monkeypatch.setattr(settings, "billing_enabled", True)
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_placeholder")
+    monkeypatch.setattr(settings, "stripe_webhook_secret", "whsec_placeholder")
+    monkeypatch.setattr(settings, "stripe_price_pro_monthly", "6,99€")
+    monkeypatch.setattr(settings, "stripe_price_pro_yearly", "49,99€")
+    monkeypatch.setattr(settings, "billing_success_url", "https://www.farelin.com/billing/success")
+    monkeypatch.setattr(settings, "billing_cancel_url", "https://www.farelin.com/pricing")
+    monkeypatch.setattr(settings, "billing_portal_return_url", "https://www.farelin.com/dashboard")
+
+    with pytest.raises(RuntimeError, match="must contain price_ IDs"):
+        validate_security_settings()
+
+
 def test_missing_redis_warns_but_still_boots(monkeypatch):
     """A missing variable must never crash-loop a running service.
 
