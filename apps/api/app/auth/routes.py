@@ -24,6 +24,9 @@ from app.auth.schemas import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
+    NativeAuthResponse,
+    NativeLogoutRequest,
+    NativeRefreshRequest,
     ResetPasswordRequest,
     SignupRequest,
     UpdateProfileRequest,
@@ -44,6 +47,15 @@ from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 from app.security.client_ip import client_ip
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def native_auth_response(user: UserDB, access_token: str, refresh_token: str) -> NativeAuthResponse:
+    return NativeAuthResponse(
+        user=auth_user_response(user),
+        accessToken=access_token,
+        refreshToken=refresh_token,
+        expiresInSeconds=settings.auth_access_token_expire_minutes * 60,
+    )
 
 
 @router.post("/signup", response_model=AuthResponse)
@@ -93,6 +105,87 @@ def login(
     record_audit_event(db, "auth.login", user_id=user.id, request=request, commit=True)
     set_auth_cookies(response, access_token, refresh_token)
     return AuthResponse(user=auth_user_response(user), message="Logged in.")
+
+
+@router.post("/native/signup", response_model=NativeAuthResponse)
+def native_signup(
+    request_data: SignupRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(auth_rate_limit("signup")),
+) -> NativeAuthResponse:
+    """Create an account for a trusted native client without setting cookies."""
+
+    try:
+        user, access_token, refresh_token = AuthService(db).signup(
+            request_data,
+            user_agent=request.headers.get("user-agent"),
+            ip_address=client_ip(request),
+        )
+    except DuplicateEmailError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Database is not ready.") from exc
+    record_audit_event(db, "auth.native_signup", user_id=user.id, request=request, commit=True)
+    return native_auth_response(user, access_token, refresh_token)
+
+
+@router.post("/native/login", response_model=NativeAuthResponse)
+def native_login(
+    request_data: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: None = Depends(auth_rate_limit("login")),
+) -> NativeAuthResponse:
+    """Issue a native bearer session; the web login contract stays cookie-only."""
+
+    try:
+        user, access_token, refresh_token = AuthService(db).login(
+            request_data.email,
+            request_data.password,
+            user_agent=request.headers.get("user-agent"),
+            ip_address=client_ip(request),
+        )
+    except AuthError as exc:
+        record_audit_event(db, "auth.native_login_failed", request=request, commit=True)
+        raise HTTPException(status_code=401, detail="Invalid email or password") from exc
+    record_audit_event(db, "auth.native_login", user_id=user.id, request=request, commit=True)
+    return native_auth_response(user, access_token, refresh_token)
+
+
+@router.post("/native/refresh", response_model=NativeAuthResponse)
+def native_refresh(
+    request_data: NativeRefreshRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> NativeAuthResponse:
+    """Rotate a Keychain-held refresh token and return a new token pair."""
+
+    try:
+        user, access_token, refresh_token = AuthService(db).refresh(
+            request_data.refreshToken,
+            user_agent=request.headers.get("user-agent"),
+            ip_address=client_ip(request),
+        )
+    except AuthError as exc:
+        raise HTTPException(status_code=401, detail="Authentication required.") from exc
+    return native_auth_response(user, access_token, refresh_token)
+
+
+@router.post("/native/logout")
+def native_logout(
+    request_data: NativeLogoutRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, bool]:
+    """Revoke the supplied native refresh session without relying on cookies."""
+
+    AuthService(db).logout(request_data.refreshToken)
+    record_audit_event(db, "auth.native_logout", request=request, commit=True)
+    return {"ok": True}
 
 
 @router.get("/oauth/{provider}/start")

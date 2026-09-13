@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.farelin.app
+APP_DISPLAY_NAME = Farelin
+APP_ENVIRONMENT = production
+API_BASE_URL = https:/$()/www.farelin.com/backend
+

@@ -119,6 +119,71 @@ def test_login_me_refresh_and_logout_flow(db_session):
     assert unauthorized.status_code == 401
 
 
+def test_native_signup_returns_tokens_without_setting_browser_cookies(db_session):
+    client = make_client(db_session)
+
+    response = client.post("/auth/native/signup", json=signup_payload())
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["user"]["email"] == "traveler@example.com"
+    assert body["tokenType"] == "Bearer"
+    assert body["expiresInSeconds"] > 0
+    assert len(body["accessToken"]) > 32
+    assert len(body["refreshToken"]) > 32
+    assert ACCESS_COOKIE_NAME not in response.headers.get("set-cookie", "")
+    assert REFRESH_COOKIE_NAME not in response.headers.get("set-cookie", "")
+
+
+def test_native_bearer_session_refreshes_rotates_and_logs_out(db_session):
+    client = make_client(db_session)
+    created = client.post("/auth/native/signup", json=signup_payload()).json()
+
+    me = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {created['accessToken']}"},
+    )
+    refreshed = client.post(
+        "/auth/native/refresh",
+        json={"refreshToken": created["refreshToken"]},
+    )
+    replay = client.post(
+        "/auth/native/refresh",
+        json={"refreshToken": created["refreshToken"]},
+    )
+    rotated = refreshed.json()
+    logged_out = client.post(
+        "/auth/native/logout",
+        json={"refreshToken": rotated["refreshToken"]},
+    )
+    after_logout = client.post(
+        "/auth/native/refresh",
+        json={"refreshToken": rotated["refreshToken"]},
+    )
+    app.dependency_overrides.clear()
+
+    assert me.status_code == 200
+    assert refreshed.status_code == 200
+    assert rotated["refreshToken"] != created["refreshToken"]
+    assert replay.status_code == 401
+    assert logged_out.status_code == 200
+    assert after_logout.status_code == 401
+
+
+def test_invalid_explicit_bearer_does_not_fall_back_to_browser_cookie(db_session):
+    client = make_client(db_session)
+    client.post("/auth/signup", json=signup_payload())
+
+    response = client.get(
+        "/auth/me",
+        headers={"Authorization": "Bearer definitely-not-a-valid-token"},
+    )
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+
+
 def test_duplicate_signup_and_wrong_login_are_rejected(db_session):
     client = make_client(db_session)
     first = client.post("/auth/signup", json=signup_payload())

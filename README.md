@@ -206,6 +206,21 @@ trip” actions hand the country to the existing `/discover` AI-search flow.
 
 Farelin includes backend-managed email/password accounts. Passwords are hashed with Argon2id before storage, access and refresh tokens live in `httpOnly` cookies, and saved searches can belong to a logged-in user. Password signups start unverified and are emailed a single-use confirmation link; Google OAuth accounts whose email Google reports as verified are trusted without one.
 
+The native iPhone client uses the same accounts through a deliberately separate
+credential contract:
+
+- `POST /auth/native/signup`
+- `POST /auth/native/login`
+- `POST /auth/native/refresh`
+- `POST /auth/native/logout`
+
+These routes never set browser cookies. They return a short-lived bearer access
+token and a rotating opaque refresh token; the app keeps the access token only
+in memory and the refresh token in iOS Keychain. Existing protected routes
+accept either the established browser cookie or an explicit `Authorization:
+Bearer ...` header. An invalid explicit bearer credential never falls back to
+an ambient browser cookie. Tokens in URLs and query strings are not supported.
+
 The database intentionally stores `users.password_hash`, not the user's raw password. If you inspect the database after signup you should see a value beginning with `$argon2id$...`. Accounts created before the migration to Argon2id still carry a `pbkdf2_sha256$...` hash; those verify normally and are re-hashed to Argon2id the next time that person logs in, so the estate migrates without anyone being asked to reset anything. You should never see or store the plain password.
 
 Local development defaults:
@@ -546,6 +561,51 @@ Pro limits:
 - Daily and weekly alerts
 
 iOS note: this step implements web Stripe subscriptions only. A future iOS app may require StoreKit / Apple in-app purchases for digital premium features. Do not add Stripe Checkout inside the iOS app without reviewing App Store rules.
+
+## Native iOS app
+
+The iPhone app foundation lives in `apps/ios`. It is a native SwiftUI client
+built with Swift 6 strict concurrency and the current iOS SDK, with iOS 18 as
+the minimum deployment target. The app reuses Farelin's existing backend and
+will require sign-in before fare or AI search; it never calls OpenAI or a
+flight provider directly.
+
+Generate the Xcode project after adding or moving source files:
+
+```bash
+ruby apps/ios/scripts/generate_project.rb
+```
+
+Then open `apps/ios/Farelin.xcodeproj` and choose one of two schemes:
+
+- `Farelin Staging`: `com.farelin.app.staging` and
+  `https://staging.farelin.com/backend`
+- `Farelin`: `com.farelin.app` and `https://www.farelin.com/backend`
+
+The checked-in `.xcconfig` files contain only public environment routing. Do
+not add API keys, OAuth client secrets, APNs private keys, refresh tokens, or
+Stripe secrets to the iOS target. Native session refresh tokens live in
+Keychain with this-device-only accessibility; access tokens remain in memory.
+
+Build and test from the command line:
+
+```bash
+xcodebuild -project apps/ios/Farelin.xcodeproj \
+  -scheme "Farelin Staging" \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+
+xcodebuild -project apps/ios/Farelin.xcodeproj \
+  -scheme Farelin \
+  -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+The staging host is intentionally a separate environment and will show as
+unavailable until its Railway API and EU database are created. This prevents
+development builds from consuming production data or sending production
+notifications. Configure the Apple Development Team in Xcode before running
+on a physical device; that setting is intentionally not hardcoded here.
 
 ## Step 10 Product Flow Polish
 

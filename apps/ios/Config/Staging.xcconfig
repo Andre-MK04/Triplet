@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.farelin.app.staging
+APP_DISPLAY_NAME = Farelin Staging
+APP_ENVIRONMENT = staging
+API_BASE_URL = https:/$()/staging.farelin.com/backend
+

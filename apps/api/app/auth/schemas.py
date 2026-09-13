@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -52,6 +54,29 @@ class AuthUserResponse(BaseModel):
 class AuthResponse(BaseModel):
     user: AuthUserResponse
     message: str
+
+
+class NativeAuthResponse(BaseModel):
+    """Credentials returned only by the native-client auth endpoints.
+
+    Browser routes deliberately continue returning cookies. Keeping this as a
+    separate response type makes it difficult to expose bearer credentials by
+    accidentally changing the established web contract.
+    """
+
+    user: AuthUserResponse
+    accessToken: str
+    refreshToken: str
+    tokenType: Literal["Bearer"] = "Bearer"
+    expiresInSeconds: int
+
+
+class NativeRefreshRequest(BaseModel):
+    refreshToken: str = Field(min_length=32, max_length=512)
+
+
+class NativeLogoutRequest(BaseModel):
+    refreshToken: str = Field(min_length=32, max_length=512)
 
 
 class UpdateProfileRequest(BaseModel):

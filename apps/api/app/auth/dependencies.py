@@ -7,11 +7,20 @@ from app.db.models import UserDB
 
 
 def get_current_user_optional(request: Request, db: Session = Depends(get_db)) -> UserDB | None:
-    token = request.cookies.get(ACCESS_COOKIE_NAME)
+    authorization = request.headers.get("authorization")
+    if authorization:
+        scheme, separator, credential = authorization.partition(" ")
+        if separator != " " or scheme.lower() != "bearer" or not credential.strip():
+            raise HTTPException(status_code=401, detail="Authentication required.")
+        token = credential.strip()
+    else:
+        token = request.cookies.get(ACCESS_COOKIE_NAME)
     if not token:
         return None
     user_id = decode_access_token(token)
     if not user_id:
+        if authorization:
+            raise HTTPException(status_code=401, detail="Authentication required.")
         return None
     user = db.get(UserDB, user_id)
     if not user or not user.is_active:

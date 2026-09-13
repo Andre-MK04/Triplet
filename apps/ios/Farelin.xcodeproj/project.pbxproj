@@ -1,0 +1,719 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */; };
+		38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */; };
+		3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
+		3F1336578A6B726713EA4633 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */; };
+		466DD45BE0B19F63D797DD1D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5861B6F214DECDEE399F7A /* APIClient.swift */; };
+		4D315C90D9E66B6C55B1C0A6 /* FarelinUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */; };
+		50E7E05D232B524B3F71FE69 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0729BD432C52D74BA203D10A /* AuthModels.swift */; };
+		5F6AB25ACABE2A4202FA6B88 /* PurchaseProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */; };
+		60CC47A716B92285C2F9768F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2DB8726886ABB13C8FD9E60 /* RootView.swift */; };
+		77CAE90C8AEF0DC5A3DEA3F6 /* AppConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */; };
+		810E9493E949EDE7E5FFCCA5 /* AuthSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */; };
+		819E450D643860B33671141C /* FarelinTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1269DB89080FF7783FD656C9 /* FarelinTheme.swift */; };
+		A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCEC713499788706E4F6405 /* FoundationView.swift */; };
+		BE9BFC2A3DBF91BD2B3AEA83 /* FarelinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */; };
+		CF21CDCA2098B4E0200F27B9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
+		CFF0B32D41537A7F48F0EF25 /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5746754D4228EE40472EEC57 /* AuthenticationView.swift */; };
+		DD3A83F197147BC2775374DB /* SignedInFoundationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */; };
+		E49556F163966923FCC30CA1 /* AuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3E956A59DBCBF5112B0967 /* AuthSession.swift */; };
+		E4F04A2A78B55563F52060BB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
+		F500B1AC1089748768BD7C79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B7EC2B1555142D5DAE4159C /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		71A865BB21A37BCDC2E30ED4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 89B29662D614AAA74588654B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AEB46168509DB574CBF43AB;
+			remoteInfo = Farelin;
+		};
+		9D0E64179AFD82350994E36C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 89B29662D614AAA74588654B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3AEB46168509DB574CBF43AB;
+			remoteInfo = Farelin;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0729BD432C52D74BA203D10A /* AuthModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
+		0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RefreshTokenStore.swift; sourceTree = "<group>"; };
+		0C64792974BA8FAF5EB57C01 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		1269DB89080FF7783FD656C9 /* FarelinTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinTheme.swift; sourceTree = "<group>"; };
+		14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinApp.swift; sourceTree = "<group>"; };
+		1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthSessionTests.swift; sourceTree = "<group>"; };
+		1D5861B6F214DECDEE399F7A /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		2B7EC2B1555142D5DAE4159C /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
+		351A52F5DE1A15D31E28061E /* Production.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
+		3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PurchaseProviding.swift; sourceTree = "<group>"; };
+		4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PurchaseProviderTests.swift; sourceTree = "<group>"; };
+		5746754D4228EE40472EEC57 /* AuthenticationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
+		720180BB4A06118BC877FB22 /* FarelinUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FarelinUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		86978127302CBB600410B49C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2DB8726886ABB13C8FD9E60 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		AB5FD9DC36BE66D69C0FB348 /* FarelinTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FarelinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinUITests.swift; sourceTree = "<group>"; };
+		B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedInFoundationView.swift; sourceTree = "<group>"; };
+		CE3E956A59DBCBF5112B0967 /* AuthSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
+		D4768987DB99830432970AA4 /* Base.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
+		DBCEC713499788706E4F6405 /* FoundationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoundationView.swift; sourceTree = "<group>"; };
+		F970F9EC1A97CD28DBBCC822 /* Farelin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Farelin.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4246CDA4FC1DB616297D75B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		50283EA3482C641C6B7A20C8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CF21CDCA2098B4E0200F27B9 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D7A172B4DB300182FAF0CAC0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4F04A2A78B55563F52060BB /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		09103799A10D7F894CEEE9A5 /* FarelinTests */ = {
+			isa = PBXGroup;
+			children = (
+				2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */,
+				1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */,
+				4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */,
+			);
+			path = FarelinTests;
+			sourceTree = "<group>";
+		};
+		1596A780D3C474D7236791B8 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				0729BD432C52D74BA203D10A /* AuthModels.swift */,
+				CE3E956A59DBCBF5112B0967 /* AuthSession.swift */,
+				0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		3889F2C2B5A0875236EB3791 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				1269DB89080FF7783FD656C9 /* FarelinTheme.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		410DFECE41F600243BEF8EE6 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				997386649DF4A1F7EC982EB4 /* Authentication */,
+				8401F511B53932648C93049E /* Billing */,
+				66C5601C97476407C3A131A3 /* Foundation */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		5EE509D2BE19591A8CCC1B34 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				92AB931D78651CE159BC5D21 /* API */,
+				1596A780D3C474D7236791B8 /* Auth */,
+				3889F2C2B5A0875236EB3791 /* DesignSystem */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		66C5601C97476407C3A131A3 /* Foundation */ = {
+			isa = PBXGroup;
+			children = (
+				DBCEC713499788706E4F6405 /* FoundationView.swift */,
+			);
+			path = Foundation;
+			sourceTree = "<group>";
+		};
+		7586DDF7060CE2C18BEA58F3 /* Farelin */ = {
+			isa = PBXGroup;
+			children = (
+				C7BFDFA772F08916083A69E5 /* App */,
+				5EE509D2BE19591A8CCC1B34 /* Core */,
+				410DFECE41F600243BEF8EE6 /* Features */,
+				ABCC86536F227C8C8D33E348 /* Resources */,
+			);
+			path = Farelin;
+			sourceTree = "<group>";
+		};
+		7EBB91E43867666F12C2D9EB /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				0C64792974BA8FAF5EB57C01 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		8401F511B53932648C93049E /* Billing */ = {
+			isa = PBXGroup;
+			children = (
+				3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */,
+			);
+			path = Billing;
+			sourceTree = "<group>";
+		};
+		92AB931D78651CE159BC5D21 /* API */ = {
+			isa = PBXGroup;
+			children = (
+				1D5861B6F214DECDEE399F7A /* APIClient.swift */,
+			);
+			path = API;
+			sourceTree = "<group>";
+		};
+		997386649DF4A1F7EC982EB4 /* Authentication */ = {
+			isa = PBXGroup;
+			children = (
+				5746754D4228EE40472EEC57 /* AuthenticationView.swift */,
+				B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */,
+			);
+			path = Authentication;
+			sourceTree = "<group>";
+		};
+		ABCC86536F227C8C8D33E348 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2B7EC2B1555142D5DAE4159C /* Assets.xcassets */,
+				86978127302CBB600410B49C /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AFB569F335E2682A1CD98E96 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7EBB91E43867666F12C2D9EB /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C43E40F9B5247037411B4DC3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F970F9EC1A97CD28DBBCC822 /* Farelin.app */,
+				AB5FD9DC36BE66D69C0FB348 /* FarelinTests.xctest */,
+				720180BB4A06118BC877FB22 /* FarelinUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C470EB9B95842F010CBBDFA2 = {
+			isa = PBXGroup;
+			children = (
+				C43E40F9B5247037411B4DC3 /* Products */,
+				AFB569F335E2682A1CD98E96 /* Frameworks */,
+				E7321F52878581D0CF02DA85 /* Config */,
+				7586DDF7060CE2C18BEA58F3 /* Farelin */,
+				09103799A10D7F894CEEE9A5 /* FarelinTests */,
+				E3BC6A2C709889C5059BDC53 /* FarelinUITests */,
+			);
+			sourceTree = "<group>";
+		};
+		C7BFDFA772F08916083A69E5 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */,
+				14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */,
+				A2DB8726886ABB13C8FD9E60 /* RootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		E3BC6A2C709889C5059BDC53 /* FarelinUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */,
+			);
+			path = FarelinUITests;
+			sourceTree = "<group>";
+		};
+		E7321F52878581D0CF02DA85 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */,
+				351A52F5DE1A15D31E28061E /* Production.xcconfig */,
+				D4768987DB99830432970AA4 /* Base.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3609A86B0624E2664F2C3A18 /* FarelinUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F350D1166F3469D44549E38E /* Build configuration list for PBXNativeTarget "FarelinUITests" */;
+			buildPhases = (
+				2B76C379C22A9A14C45628A7 /* Sources */,
+				4246CDA4FC1DB616297D75B8 /* Frameworks */,
+				5861D79F01B70509F490CA35 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				980152991EAF69C9086417B3 /* PBXTargetDependency */,
+			);
+			name = FarelinUITests;
+			productName = FarelinUITests;
+			productReference = 720180BB4A06118BC877FB22 /* FarelinUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		3AEB46168509DB574CBF43AB /* Farelin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB6C1CA6B3AEBBC0B3E8D235 /* Build configuration list for PBXNativeTarget "Farelin" */;
+			buildPhases = (
+				6517D9AF7582F6993EBACA43 /* Sources */,
+				50283EA3482C641C6B7A20C8 /* Frameworks */,
+				BFE34328E8EF78F474FF14BF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Farelin;
+			productName = Farelin;
+			productReference = F970F9EC1A97CD28DBBCC822 /* Farelin.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D29E664CBF8510618598FFCB /* FarelinTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DD620C5CF8C63C39D6858FBF /* Build configuration list for PBXNativeTarget "FarelinTests" */;
+			buildPhases = (
+				1B11E1EFED934094B564204A /* Sources */,
+				D7A172B4DB300182FAF0CAC0 /* Frameworks */,
+				41FB4BF5DE548653A36E7BBD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E87625C985A3669C1BE98D5C /* PBXTargetDependency */,
+			);
+			name = FarelinTests;
+			productName = FarelinTests;
+			productReference = AB5FD9DC36BE66D69C0FB348 /* FarelinTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		89B29662D614AAA74588654B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					3609A86B0624E2664F2C3A18 = {
+						ProvisioningStyle = Automatic;
+					};
+					3AEB46168509DB574CBF43AB = {
+						DevelopmentTeam = TYQSVP5A64;
+						ProvisioningStyle = Automatic;
+					};
+					D29E664CBF8510618598FFCB = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = D1C868766DB957134AFD8C58 /* Build configuration list for PBXProject "Farelin" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C470EB9B95842F010CBBDFA2;
+			productRefGroup = C43E40F9B5247037411B4DC3 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3AEB46168509DB574CBF43AB /* Farelin */,
+				D29E664CBF8510618598FFCB /* FarelinTests */,
+				3609A86B0624E2664F2C3A18 /* FarelinUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		41FB4BF5DE548653A36E7BBD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5861D79F01B70509F490CA35 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFE34328E8EF78F474FF14BF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F500B1AC1089748768BD7C79 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1B11E1EFED934094B564204A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				77CAE90C8AEF0DC5A3DEA3F6 /* AppConfigurationTests.swift in Sources */,
+				810E9493E949EDE7E5FFCCA5 /* AuthSessionTests.swift in Sources */,
+				1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B76C379C22A9A14C45628A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D315C90D9E66B6C55B1C0A6 /* FarelinUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6517D9AF7582F6993EBACA43 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3F1336578A6B726713EA4633 /* AppConfiguration.swift in Sources */,
+				BE9BFC2A3DBF91BD2B3AEA83 /* FarelinApp.swift in Sources */,
+				60CC47A716B92285C2F9768F /* RootView.swift in Sources */,
+				466DD45BE0B19F63D797DD1D /* APIClient.swift in Sources */,
+				50E7E05D232B524B3F71FE69 /* AuthModels.swift in Sources */,
+				E49556F163966923FCC30CA1 /* AuthSession.swift in Sources */,
+				38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */,
+				819E450D643860B33671141C /* FarelinTheme.swift in Sources */,
+				CFF0B32D41537A7F48F0EF25 /* AuthenticationView.swift in Sources */,
+				DD3A83F197147BC2775374DB /* SignedInFoundationView.swift in Sources */,
+				5F6AB25ACABE2A4202FA6B88 /* PurchaseProviding.swift in Sources */,
+				A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		980152991EAF69C9086417B3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Farelin;
+			target = 3AEB46168509DB574CBF43AB /* Farelin */;
+			targetProxy = 9D0E64179AFD82350994E36C /* PBXContainerItemProxy */;
+		};
+		E87625C985A3669C1BE98D5C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Farelin;
+			target = 3AEB46168509DB574CBF43AB /* Farelin */;
+			targetProxy = 71A865BB21A37BCDC2E30ED4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		437C7154DDE9A3C82F9E1427 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		648586907ADAC3A4BFB715D7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 351A52F5DE1A15D31E28061E /* Production.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.farelin.tests;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Farelin.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Farelin";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		74F6A430EC62CF66AEB17225 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.farelin.tests;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Farelin.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Farelin";
+			};
+			name = Debug;
+		};
+		92DA20C6708B67F48F687421 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.farelin.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Farelin;
+			};
+			name = Debug;
+		};
+		B22878D44E35FFDE2D28AF47 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 351A52F5DE1A15D31E28061E /* Production.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.farelin.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Farelin;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C3C6B98784796A603B7E6A3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				DEVELOPMENT_TEAM = TYQSVP5A64;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_NAME = Farelin;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		CDF0AE09AEF5FFF459C92DBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 351A52F5DE1A15D31E28061E /* Production.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E5350D992127EC26B6297582 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 351A52F5DE1A15D31E28061E /* Production.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				DEVELOPMENT_TEAM = TYQSVP5A64;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_NAME = Farelin;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D1C868766DB957134AFD8C58 /* Build configuration list for PBXProject "Farelin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				437C7154DDE9A3C82F9E1427 /* Debug */,
+				CDF0AE09AEF5FFF459C92DBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DD620C5CF8C63C39D6858FBF /* Build configuration list for PBXNativeTarget "FarelinTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				648586907ADAC3A4BFB715D7 /* Release */,
+				74F6A430EC62CF66AEB17225 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB6C1CA6B3AEBBC0B3E8D235 /* Build configuration list for PBXNativeTarget "Farelin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E5350D992127EC26B6297582 /* Release */,
+				C3C6B98784796A603B7E6A3B /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F350D1166F3469D44549E38E /* Build configuration list for PBXNativeTarget "FarelinUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B22878D44E35FFDE2D28AF47 /* Release */,
+				92DA20C6708B67F48F687421 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 89B29662D614AAA74588654B /* Project object */;
+}

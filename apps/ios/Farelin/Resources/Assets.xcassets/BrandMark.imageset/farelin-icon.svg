@@ -1,0 +1,21 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="737.933" height="634" viewBox="0 0 737.933 634" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Farelin Icon">
+<path id="Vector 13" d="M737.933 110.261C737.933 325.168 682.368 382 645.892 382.851H645.892C507.217 382.851 484.42 382.851 492.491 341.503C511.922 241.962 737.933 54.6205 737.933 110.261Z" fill="url(#paint0_linear_0_4)"/>
+<path id="Vector 15" d="M5.69742 328.23C99.3747 213.478 269.037 184.789 302.274 202.145C362.36 233.521 232.642 357.23 193.359 359.879C79.8416 367.536 -26.0055 367.066 5.69742 328.23Z" fill="url(#paint1_linear_0_4)"/>
+<path id="Vector 17" d="M330.493 601.468C194.909 401.045 378.719 128.309 529.512 24.3251C548.941 10.9273 574.186 23.6859 575.774 47.2331C585.318 188.75 515.551 222.199 466.924 337.929C425.611 436.253 440.694 507.189 380.19 600.612C368.45 618.738 342.593 619.355 330.493 601.468Z" fill="url(#paint2_linear_0_4)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_4" x1="614.497" y1="100.14" x2="614.497" y2="382.851" gradientUnits="userSpaceOnUse">
+<stop stop-color="#73E6C9"/>
+<stop offset="1" stop-color="#0E9B81"/>
+</linearGradient>
+<linearGradient id="paint1_linear_0_4" x1="158.955" y1="197.478" x2="158.955" y2="363.76" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FF9A78"/>
+<stop offset="1" stop-color="#E8673E"/>
+</linearGradient>
+<linearGradient id="paint2_linear_0_4" x1="429.915" y1="0" x2="429.915" y2="634" gradientUnits="userSpaceOnUse">
+<stop stop-color="#56D8B8"/>
+<stop offset="1" stop-color="#0E7F69"/>
+</linearGradient>
+</defs>
+</svg>
