@@ -130,6 +130,41 @@ def test_recommended_airports_respects_distance_cap(db_session):
     assert codes == ["LJU"]
 
 
+def test_recommended_origins_exclude_airports_search_cannot_use(db_session):
+    seed_geo(db_session)
+    db_session.add(
+        AirportDirectoryDB(
+            id=17,
+            iata_code="RKE",
+            name="Copenhagen Roskilde Airport",
+            city="Roskilde",
+            country_code="DK",
+            country_name="Denmark",
+            latitude=46.21,
+            longitude=14.48,
+            type="medium_airport",
+            scheduled_service=True,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    client = make_client(db_session)
+
+    all_airports = client.get(
+        "/airports/recommended",
+        params={"locationId": 1, "maxDistanceKm": 60},
+    ).json()
+    supported_origins = client.get(
+        "/airports/recommended",
+        params={"locationId": 1, "maxDistanceKm": 60, "originsOnly": True},
+    ).json()
+    app.dependency_overrides.clear()
+
+    assert "RKE" in {row["iataCode"] for row in all_airports}
+    assert "RKE" not in {row["iataCode"] for row in supported_origins}
+    assert "LJU" in {row["iataCode"] for row in supported_origins}
+
+
 def test_get_airport_by_iata(db_session):
     seed_geo(db_session)
     client = make_client(db_session)

@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A61D8E72A8E4F7CB227A101 /* AuthenticatedAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B101 /* AuthenticatedAppView.swift */; };
+		0A61D8E72A8E4F7CB227A102 /* DashboardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */; };
+		0A61D8E72A8E4F7CB227A103 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */; };
+		0A61D8E72A8E4F7CB227A104 /* DashboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B104 /* DashboardTests.swift */; };
+		0A61D8E72A8E4F7CB227A105 /* TravelProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */; };
+		0A61D8E72A8E4F7CB227A106 /* TravelProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */; };
+		0A61D8E72A8E4F7CB227A107 /* TravelProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */; };
 		1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */; };
 		38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */; };
 		3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
@@ -47,6 +54,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0A61D8E72A8E4F7CB227B101 /* AuthenticatedAppView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthenticatedAppView.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardModels.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B104 /* DashboardTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardTests.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TravelProfileModels.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TravelProfileView.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TravelProfileTests.swift; sourceTree = "<group>"; };
 		0729BD432C52D74BA203D10A /* AuthModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RefreshTokenStore.swift; sourceTree = "<group>"; };
 		0C64792974BA8FAF5EB57C01 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -107,7 +121,9 @@
 			children = (
 				2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */,
 				1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */,
+				0A61D8E72A8E4F7CB227B104 /* DashboardTests.swift */,
 				4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */,
+				0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */,
 			);
 			path = FarelinTests;
 			sourceTree = "<group>";
@@ -135,7 +151,9 @@
 			children = (
 				997386649DF4A1F7EC982EB4 /* Authentication */,
 				8401F511B53932648C93049E /* Billing */,
+				0A61D8E72A8E4F7CB227C101 /* Dashboard */,
 				66C5601C97476407C3A131A3 /* Foundation */,
+				0A61D8E72A8E4F7CB227C102 /* Onboarding */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -156,6 +174,24 @@
 				DBCEC713499788706E4F6405 /* FoundationView.swift */,
 			);
 			path = Foundation;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C101 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */,
+				0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C102 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */,
+				0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 		7586DDF7060CE2C18BEA58F3 /* Farelin */ = {
@@ -245,6 +281,7 @@
 			isa = PBXGroup;
 			children = (
 				7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */,
+				0A61D8E72A8E4F7CB227B101 /* AuthenticatedAppView.swift */,
 				14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */,
 				A2DB8726886ABB13C8FD9E60 /* RootView.swift */,
 			);
@@ -400,7 +437,9 @@
 			files = (
 				77CAE90C8AEF0DC5A3DEA3F6 /* AppConfigurationTests.swift in Sources */,
 				810E9493E949EDE7E5FFCCA5 /* AuthSessionTests.swift in Sources */,
+				0A61D8E72A8E4F7CB227A104 /* DashboardTests.swift in Sources */,
 				1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */,
+				0A61D8E72A8E4F7CB227A107 /* TravelProfileTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -417,6 +456,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3F1336578A6B726713EA4633 /* AppConfiguration.swift in Sources */,
+				0A61D8E72A8E4F7CB227A101 /* AuthenticatedAppView.swift in Sources */,
 				BE9BFC2A3DBF91BD2B3AEA83 /* FarelinApp.swift in Sources */,
 				60CC47A716B92285C2F9768F /* RootView.swift in Sources */,
 				466DD45BE0B19F63D797DD1D /* APIClient.swift in Sources */,
@@ -427,6 +467,10 @@
 				CFF0B32D41537A7F48F0EF25 /* AuthenticationView.swift in Sources */,
 				DD3A83F197147BC2775374DB /* SignedInFoundationView.swift in Sources */,
 				5F6AB25ACABE2A4202FA6B88 /* PurchaseProviding.swift in Sources */,
+				0A61D8E72A8E4F7CB227A102 /* DashboardModels.swift in Sources */,
+				0A61D8E72A8E4F7CB227A103 /* DashboardView.swift in Sources */,
+				0A61D8E72A8E4F7CB227A105 /* TravelProfileModels.swift in Sources */,
+				0A61D8E72A8E4F7CB227A106 /* TravelProfileView.swift in Sources */,
 				A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

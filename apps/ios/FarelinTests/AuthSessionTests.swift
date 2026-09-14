@@ -94,6 +94,21 @@ final class AuthSessionTests: XCTestCase {
         XCTAssertNil(accessToken)
     }
 
+    func testExpiredAccessCanRefreshAndRotateStoredToken() async throws {
+        let service = FakeAuthService()
+        let store = MemoryRefreshTokenStore(token: "refresh-old")
+        let session = AuthSession(service: service, tokenStore: store)
+
+        let refreshed = await session.refreshAccess()
+        let storedToken = try await store.load()
+        let accessToken = await service.savedAccessToken()
+
+        XCTAssertTrue(refreshed)
+        XCTAssertEqual(session.state, .signedIn(.fixture))
+        XCTAssertEqual(storedToken, "refresh-new")
+        XCTAssertEqual(accessToken, "access-new")
+    }
+
     func testConfirmingVerificationCodeUpdatesSignedInUser() async {
         let service = FakeAuthService()
         let store = MemoryRefreshTokenStore()

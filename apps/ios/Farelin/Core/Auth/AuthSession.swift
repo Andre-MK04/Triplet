@@ -80,6 +80,23 @@ final class AuthSession {
         isWorking = false
     }
 
+    /// Refreshes an expired bearer session using the rotated token held in Keychain.
+    /// Feature stores call this only after an authenticated request returns 401.
+    func refreshAccess() async -> Bool {
+        do {
+            guard let refreshToken = try await tokenStore.load() else {
+                await clearSession()
+                return false
+            }
+            let tokens = try await service.nativeRefresh(refreshToken: refreshToken)
+            try await establish(tokens)
+            return true
+        } catch {
+            await clearSession()
+            return false
+        }
+    }
+
     func requestVerificationCode() async {
         isWorking = true
         defer { isWorking = false }
@@ -129,6 +146,12 @@ final class AuthSession {
         try await tokenStore.save(tokens.refreshToken)
         await service.setAccessToken(tokens.accessToken)
         state = .signedIn(tokens.user)
+    }
+
+    private func clearSession() async {
+        try? await tokenStore.clear()
+        await service.setAccessToken(nil)
+        state = .signedOut
     }
 
     private func readable(_ error: Error) -> String {

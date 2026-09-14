@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     let configuration: AppConfiguration
     let session: AuthSession
+    let apiClient: APIClient
 
     var body: some View {
         Group {
@@ -12,7 +13,20 @@ struct RootView: View {
             case .signedOut:
                 AuthenticationView(configuration: configuration, session: session)
             case .signedIn(let user):
-                SignedInFoundationView(configuration: configuration, session: session, user: user)
+                if user.isVerified {
+                    AuthenticatedAppView(
+                        configuration: configuration,
+                        session: session,
+                        user: user,
+                        apiClient: apiClient
+                    )
+                } else {
+                    SignedInFoundationView(
+                        configuration: configuration,
+                        session: session,
+                        user: user
+                    )
+                }
             }
         }
         .task {

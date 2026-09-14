@@ -252,6 +252,10 @@ def recommended_airports(
     lon: float | None = Query(default=None, ge=-180, le=180),
     maxDistanceKm: float = Query(default=200, ge=10, le=1500),
     limit: int = Query(default=12, ge=1, le=30),
+    originsOnly: bool = Query(
+        default=False,
+        description=f"Only airports {settings.app_name} can search departures from (Europe).",
+    ),
     db: Session = Depends(get_db),
 ) -> list[AirportResult]:
     """Active scheduled-service airports within maxDistanceKm of a point, nearest first."""
@@ -271,6 +275,8 @@ def recommended_airports(
         .where(AirportDirectoryDB.latitude.between(lat - dlat, lat + dlat))
         .where(AirportDirectoryDB.longitude.between(lon - dlon, lon + dlon))
     ).all()
+    if originsOnly:
+        candidates = [row for row in candidates if is_supported_origin(row.iata_code)]
 
     within = []
     for row in candidates:
@@ -298,6 +304,8 @@ def recommended_airports(
     results: list[AirportResult] = []
     for distance, place in nearby:
         if place.code in seen:
+            continue
+        if originsOnly and not is_supported_origin(place.code):
             continue
         seen.add(place.code)
         results.append(_catalogue_airport_result(place, distance))

@@ -13,7 +13,7 @@ port and must not duplicate fare or entitlement logic on-device.
 Build with Xcode 26.6, the iOS 26 SDK, and Swift 6 strict concurrency. The
 interface adopts Farelin's visual identity through native navigation, tabs,
 sheets, search, haptics, accessibility, and an interactive MapKit globe.
-Minimum deployment is iOS 18 to avoid excluding otherwise compatible users;
+Minimum deployment is iOS 17 to avoid excluding otherwise compatible users;
 iOS 26-only presentation APIs are availability-gated. The first public app is
 iPhone-only and requires sign-in before search. iPad comes later.
 
@@ -338,10 +338,22 @@ the reviewed build is released with production services and truthful metadata.
     staging host remains unavailable until its owner-only Railway setup exists.
 - [ ] Stage 2 — secure native authentication
   - Email/password signup, login, rotated relaunch, logout, Keychain storage,
-    email-verification state, and bearer authorization are implemented.
-  - Sign in with Apple, Google native exchange, physical-device validation, and
-    the separate staging deployment remain before this stage is complete.
+    native verification codes, bearer authorization, and first-request access
+    refresh are implemented and validated against the EU staging deployment on
+    a physical iPhone.
+  - Sign in with Apple and Google native exchange remain before this stage is
+    complete; refresh coordination must be centralized as more feature stores
+    begin issuing authenticated requests concurrently.
 - [ ] Stage 3 — shell, onboarding, profile, dashboard
+  - Native iPhone tabs and a real `/me/dashboard`-backed Today screen are
+    implemented. Usage, entitlements, saved-watch summaries, loading, empty,
+    and retry states do not duplicate backend plan logic.
+  - The complete native travel-profile flow uses the backend city directory,
+    origin-safe airport recommendations, plan-aware origin limits, structured
+    comfort preferences, and existing profile persistence. New accounts are
+    gated into onboarding; completed profiles can be edited from Account.
+  - Simulator unit/UI coverage is green. The onboarding flow still needs its
+    final physical-device pass against the deployed staging geo endpoints.
 - [ ] Stage 4 — search, results, trip planning
 - [ ] Stage 5 — watches and native push
 - [ ] Stage 6 — My World and interactive globe

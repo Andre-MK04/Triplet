@@ -37,7 +37,7 @@ protocol NativeAuthServicing: Sendable {
     func setAccessToken(_ token: String?) async
 }
 
-actor APIClient: NativeAuthServicing {
+actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing {
     private let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
@@ -49,6 +49,82 @@ actor APIClient: NativeAuthServicing {
 
     func health() async throws -> HealthResponse {
         try await send(path: "health", method: "GET", response: HealthResponse.self)
+    }
+
+    func dashboard() async throws -> DashboardResponse {
+        try await send(
+            path: "me/dashboard",
+            method: "GET",
+            authenticated: true,
+            response: DashboardResponse.self
+        )
+    }
+
+    func travelProfile() async throws -> TravelProfileResponse {
+        try await send(
+            path: "me/travel-profile",
+            method: "GET",
+            authenticated: true,
+            response: TravelProfileResponse.self
+        )
+    }
+
+    func updateTravelProfile(_ payload: TravelProfilePayload) async throws -> TravelProfileResponse {
+        try await send(
+            path: "me/travel-profile",
+            method: "PUT",
+            body: payload,
+            authenticated: true,
+            response: TravelProfileResponse.self
+        )
+    }
+
+    func searchLocations(_ query: String) async throws -> [LocationResult] {
+        try await send(
+            path: "locations/search",
+            method: "GET",
+            queryItems: [URLQueryItem(name: "q", value: query)],
+            response: [LocationResult].self
+        )
+    }
+
+    func recommendedAirports(
+        latitude: Double,
+        longitude: Double,
+        maxDistanceKm: Int
+    ) async throws -> [AirportResult] {
+        try await send(
+            path: "airports/recommended",
+            method: "GET",
+            queryItems: [
+                URLQueryItem(name: "lat", value: String(latitude)),
+                URLQueryItem(name: "lon", value: String(longitude)),
+                URLQueryItem(name: "maxDistanceKm", value: String(maxDistanceKm)),
+                URLQueryItem(name: "originsOnly", value: "true"),
+            ],
+            response: [AirportResult].self
+        )
+    }
+
+    func searchAirports(
+        _ query: String,
+        latitude: Double?,
+        longitude: Double?
+    ) async throws -> [AirportResult] {
+        var queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "originsOnly", value: "true"),
+        ]
+        if let latitude, let longitude {
+            queryItems.append(URLQueryItem(name: "lat", value: String(latitude)))
+            queryItems.append(URLQueryItem(name: "lon", value: String(longitude)))
+        }
+        return try await send(
+            path: "airports/search",
+            method: "GET",
+            queryItems: queryItems,
+            response: [AirportResult].self
+        )
     }
 
     func setAccessToken(_ token: String?) {
@@ -140,12 +216,14 @@ actor APIClient: NativeAuthServicing {
     private func send<Response: Decodable & Sendable>(
         path: String,
         method: String,
+        queryItems: [URLQueryItem] = [],
         authenticated: Bool = false,
         response: Response.Type
     ) async throws -> Response {
         try await send(
             path: path,
             method: method,
+            queryItems: queryItems,
             body: Optional<EmptyPayload>.none,
             authenticated: authenticated,
             response: response
@@ -155,11 +233,21 @@ actor APIClient: NativeAuthServicing {
     private func send<Body: Encodable & Sendable, Response: Decodable & Sendable>(
         path: String,
         method: String,
+        queryItems: [URLQueryItem] = [],
         body: Body?,
         authenticated: Bool = false,
         response: Response.Type
     ) async throws -> Response {
-        let url = baseURL.appending(path: path)
+        guard var components = URLComponents(
+            url: baseURL.appending(path: path),
+            resolvingAgainstBaseURL: false
+        ) else {
+            throw APIError.invalidResponse
+        }
+        if !queryItems.isEmpty {
+            components.queryItems = queryItems
+        }
+        guard let url = components.url else { throw APIError.invalidResponse }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 20

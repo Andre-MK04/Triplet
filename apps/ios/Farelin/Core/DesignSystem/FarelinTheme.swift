@@ -28,3 +28,21 @@ struct FarelinPrimaryButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.15), value: isEnabled)
     }
 }
+
+struct FarelinCardModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(18)
+            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 22))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
+            }
+    }
+}
+
+extension View {
+    func farelinCard() -> some View {
+        modifier(FarelinCardModifier())
+    }
+}
