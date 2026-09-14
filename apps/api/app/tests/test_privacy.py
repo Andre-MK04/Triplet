@@ -8,6 +8,7 @@ from app.db.models import (
     CountryVisitDB,
     EmailEventDB,
     EmailSuppressionDB,
+    NativeEmailVerificationCodeDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
     UserDB,
@@ -134,6 +135,7 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
         RefreshTokenSessionDB,
         UserCountryDB,
         CountryVisitDB,
+        NativeEmailVerificationCodeDB,
     ):
         remaining = db_session.scalar(
             select(func.count()).select_from(model).where(model.user_id == user_id)
@@ -162,7 +164,13 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
 def test_retention_cleanup_prunes_only_old_data(db_session):
     from datetime import datetime, timedelta
     from sqlalchemy import func, select
-    from app.db.models import AuditEventDB, CachedRoundTripDB, EmailEventDB
+    from app.db.models import (
+        AuditEventDB,
+        CachedRoundTripDB,
+        EmailEventDB,
+        NativeEmailVerificationCodeDB,
+        UserDB,
+    )
     from app.privacy.retention import cleanup
 
     now = datetime.utcnow()
@@ -176,15 +184,31 @@ def test_retention_cleanup_prunes_only_old_data(db_session):
                                 received_at=now - timedelta(days=100)))
     db_session.add(EmailEventDB(svix_id="new-email-event", event_type="email.delivered",
                                 received_at=now - timedelta(days=10)))
+    user = UserDB(
+        id="retention-user",
+        email="retention@example.com",
+        password_hash="test-hash",
+    )
+    db_session.add(user)
+    db_session.add(NativeEmailVerificationCodeDB(
+        id="expired-code", user_id=user.id, code_hash="expired",
+        expires_at=now - timedelta(minutes=1),
+    ))
+    db_session.add(NativeEmailVerificationCodeDB(
+        id="active-code", user_id=user.id, code_hash="active",
+        expires_at=now + timedelta(minutes=5),
+    ))
     db_session.commit()
 
     summary = cleanup(db_session, now=now)
     assert summary["auditDeleted"] == 1
     assert summary["cachedDealsDeleted"] == 1
     assert summary["emailEventsDeleted"] == 1
+    assert summary["nativeVerificationCodesDeleted"] == 1
     assert db_session.scalar(select(func.count()).select_from(AuditEventDB)) == 1
     assert db_session.scalar(select(func.count()).select_from(CachedRoundTripDB)) == 1
     assert db_session.scalar(select(func.count()).select_from(EmailEventDB)) == 1
+    assert db_session.scalar(select(func.count()).select_from(NativeEmailVerificationCodeDB)) == 1
 
 
 def test_session_rows_never_keep_a_raw_ip(db_session):

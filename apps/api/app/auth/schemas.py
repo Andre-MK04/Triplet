@@ -105,3 +105,7 @@ class VerifyEmailRequest(BaseModel):
     """
 
     token: str = Field(min_length=16, max_length=512)
+
+
+class NativeVerifyEmailCodeRequest(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$")

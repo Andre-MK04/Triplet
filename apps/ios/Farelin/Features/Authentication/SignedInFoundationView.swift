@@ -4,6 +4,8 @@ struct SignedInFoundationView: View {
     let configuration: AppConfiguration
     let session: AuthSession
     let user: AuthUser
+    @State private var verificationCode = ""
+    @FocusState private var codeFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -27,14 +29,29 @@ struct SignedInFoundationView: View {
 
                 if !user.isVerified {
                     Section("Confirm your email") {
-                        Text("Verify your address before using Farelin’s AI and fare-search tools. This keeps usage tied to a reachable account.")
+                        Text("Enter the six-digit code sent to \(user.email) before using Farelin’s AI and fare-search tools.")
                             .font(.subheadline)
-                        Button("Send a new verification email") {
-                            Task { await session.resendVerification() }
+                        TextField("6-digit code", text: $verificationCode)
+                            .keyboardType(.numberPad)
+                            .textContentType(.oneTimeCode)
+                            .focused($codeFocused)
+                            .onChange(of: verificationCode) {
+                                verificationCode = String(
+                                    verificationCode.filter(\.isNumber).prefix(6)
+                                )
+                            }
+                            .accessibilityIdentifier("verification-code")
+                        Button("Confirm email") {
+                            codeFocused = false
+                            Task { await session.confirmVerificationCode(verificationCode) }
                         }
-                        Button("I’ve confirmed my email") {
-                            Task { await session.refreshUser() }
+                        .disabled(session.isWorking || verificationCode.count != 6)
+                        .accessibilityIdentifier("verification-confirm")
+                        Button("Send a new code") {
+                            Task { await session.requestVerificationCode() }
                         }
+                        .disabled(session.isWorking)
+                        .accessibilityIdentifier("verification-request")
                     }
                 } else {
                     Section {

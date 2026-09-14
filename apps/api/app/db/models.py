@@ -472,6 +472,25 @@ class EmailVerificationTokenDB(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class NativeEmailVerificationCodeDB(Base):
+    """Single-use email code issued only to an authenticated native session.
+
+    The plaintext code never reaches the database. Failed attempts are stored
+    on the record so one issued code cannot be guessed indefinitely even when
+    requests come from changing IP addresses.
+    """
+
+    __tablename__ = "native_email_verification_codes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    code_hash: Mapped[str] = mapped_column(String(128), index=True)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class EmailEventDB(Base):
     """Minimal verified delivery metadata; never the webhook's full payload."""
 

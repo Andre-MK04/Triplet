@@ -44,7 +44,14 @@ class AuthService:
     def __init__(self, db: Session):
         self.db = db
 
-    def signup(self, request: SignupRequest, user_agent: str | None = None, ip_address: str | None = None):
+    def signup(
+        self,
+        request: SignupRequest,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+        *,
+        send_web_verification: bool = True,
+    ):
         password_error = validate_password_strength(request.password, request.email)
         if password_error:
             raise AuthError(password_error)
@@ -84,7 +91,8 @@ class AuthService:
         # exists and is signed in whether or not mail is working; a provider
         # outage must cost someone a link they can request again, not the
         # account they just created.
-        send_verification_email(self.db, user)
+        if send_web_verification:
+            send_verification_email(self.db, user)
 
         return user, access_token, refresh_token
 

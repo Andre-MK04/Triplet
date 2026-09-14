@@ -32,7 +32,8 @@ protocol NativeAuthServicing: Sendable {
     func nativeRefresh(refreshToken: String) async throws -> NativeAuthTokens
     func nativeLogout(refreshToken: String) async throws
     func currentUser() async throws -> AuthUser
-    func resendVerification() async throws -> VerificationDelivery
+    func requestVerificationCode() async throws -> VerificationDelivery
+    func confirmVerificationCode(_ code: String) async throws -> AuthUser
     func setAccessToken(_ token: String?) async
 }
 
@@ -116,13 +117,24 @@ actor APIClient: NativeAuthServicing {
         return response.user
     }
 
-    func resendVerification() async throws -> VerificationDelivery {
+    func requestVerificationCode() async throws -> VerificationDelivery {
         try await send(
-            path: "auth/verify-email/resend",
+            path: "auth/native/verify-email/request",
             method: "POST",
             authenticated: true,
             response: VerificationDelivery.self
         )
+    }
+
+    func confirmVerificationCode(_ code: String) async throws -> AuthUser {
+        let response = try await send(
+            path: "auth/native/verify-email/confirm",
+            method: "POST",
+            body: VerificationCodePayload(code: code),
+            authenticated: true,
+            response: AuthEnvelope.self
+        )
+        return response.user
     }
 
     private func send<Response: Decodable & Sendable>(

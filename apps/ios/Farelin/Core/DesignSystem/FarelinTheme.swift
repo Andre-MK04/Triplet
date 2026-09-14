@@ -8,16 +8,23 @@ enum FarelinColor {
 }
 
 struct FarelinPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
             .foregroundStyle(FarelinColor.ink)
-            .background(FarelinColor.mint.opacity(configuration.isPressed ? 0.75 : 1))
+            .background(
+                FarelinColor.mint.opacity(
+                    !isEnabled ? 0.42 : (configuration.isPressed ? 0.75 : 1)
+                )
+            )
             .clipShape(.rect(cornerRadius: 16))
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(isEnabled ? 1 : 0.72)
             .animation(.snappy(duration: 0.18), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.15), value: isEnabled)
     }
 }
-

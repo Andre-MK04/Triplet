@@ -20,9 +20,9 @@ app_group = project.main_group.new_group("Farelin", "Farelin")
 test_group = project.main_group.new_group("FarelinTests", "FarelinTests")
 ui_test_group = project.main_group.new_group("FarelinUITests", "FarelinUITests")
 
-app = project.new_target(:application, "Farelin", :ios, "18.0")
-tests = project.new_target(:unit_test_bundle, "FarelinTests", :ios, "18.0")
-ui_tests = project.new_target(:ui_test_bundle, "FarelinUITests", :ios, "18.0")
+app = project.new_target(:application, "Farelin", :ios, "17.0")
+tests = project.new_target(:unit_test_bundle, "FarelinTests", :ios, "17.0")
+ui_tests = project.new_target(:ui_test_bundle, "FarelinUITests", :ios, "17.0")
 
 def add_tree(group, target, root, relative_path)
   absolute_path = File.join(root, relative_path)
@@ -51,7 +51,7 @@ add_tree(ui_test_group, ui_tests, ROOT, "FarelinUITests")
 
 project.build_configurations.each do |configuration|
   configuration.base_configuration_reference = configuration.name == "Debug" ? staging_config : production_config
-  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "18.0"
+  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "17.0"
 end
 
 [app, tests, ui_tests].each do |target|

@@ -11,7 +11,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete
 
 from app.database import SessionLocal
-from app.db.models import AuditEventDB, CachedRoundTripDB, EmailEventDB, TripSuggestionDB
+from app.db.models import (
+    AuditEventDB,
+    CachedRoundTripDB,
+    EmailEventDB,
+    NativeEmailVerificationCodeDB,
+    TripSuggestionDB,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +54,9 @@ def cleanup(db, now: datetime | None = None) -> dict:
     email_events_deleted = db.execute(
         delete(EmailEventDB).where(EmailEventDB.received_at < email_event_cutoff)
     ).rowcount or 0
+    native_codes_deleted = db.execute(
+        delete(NativeEmailVerificationCodeDB).where(NativeEmailVerificationCodeDB.expires_at < now)
+    ).rowcount or 0
     db.commit()
 
     summary = {
@@ -55,10 +64,12 @@ def cleanup(db, now: datetime | None = None) -> dict:
         "cachedDealsDeleted": deals_deleted,
         "expiredSuggestionsDeleted": suggestions_deleted,
         "emailEventsDeleted": email_events_deleted,
+        "nativeVerificationCodesDeleted": native_codes_deleted,
     }
     logger.info(
-        "retention_cleanup audit=%s deals=%s suggestions=%s email_events=%s",
+        "retention_cleanup audit=%s deals=%s suggestions=%s email_events=%s native_codes=%s",
         audit_deleted, deals_deleted, suggestions_deleted, email_events_deleted,
+        native_codes_deleted,
     )
     return summary
 

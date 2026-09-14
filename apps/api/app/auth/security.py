@@ -137,6 +137,7 @@ def create_refresh_token() -> tuple[str, str, datetime]:
 
 #: How long an account email verification link stays usable.
 EMAIL_VERIFICATION_TTL_HOURS = 24
+NATIVE_EMAIL_VERIFICATION_TTL_MINUTES = 10
 
 
 def create_reset_token() -> tuple[str, str, datetime]:
@@ -156,6 +157,18 @@ def create_email_verification_token() -> tuple[str, str, datetime]:
     raw = secrets.token_urlsafe(48)
     expires_at = datetime.utcnow() + timedelta(hours=EMAIL_VERIFICATION_TTL_HOURS)
     return raw, hash_token(raw), expires_at
+
+
+def create_native_email_verification_code(user_id: str) -> tuple[str, str, datetime]:
+    """Create a six-digit code while storing only its keyed digest.
+
+    The user id is part of the digest input, so an identical code issued to a
+    different account cannot verify this one. ``secrets`` supplies the digits;
+    ``random`` would make them predictable.
+    """
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    expires_at = datetime.utcnow() + timedelta(minutes=NATIVE_EMAIL_VERIFICATION_TTL_MINUTES)
+    return code, hash_token(f"{user_id}:{code}"), expires_at
 
 
 def hash_token(token: str) -> str:

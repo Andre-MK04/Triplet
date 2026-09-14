@@ -3,6 +3,42 @@ import XCTest
 
 @MainActor
 final class AuthSessionTests: XCTestCase {
+    func testCreateAccountExplainsMissingPasswordInsteadOfSilentlyDisablingSubmit() {
+        let message = AuthenticationFormValidator.message(
+            mode: .createAccount,
+            email: "traveler@example.com",
+            password: "",
+            acceptedLegal: true,
+            legalVersionsLoaded: true
+        )
+
+        XCTAssertEqual(message, "Enter your password.")
+    }
+
+    func testCreateAccountExplainsMinimumPasswordLength() {
+        let message = AuthenticationFormValidator.message(
+            mode: .createAccount,
+            email: "traveler@example.com",
+            password: "too-short",
+            acceptedLegal: true,
+            legalVersionsLoaded: true
+        )
+
+        XCTAssertEqual(message, "Use at least 12 characters for your password.")
+    }
+
+    func testLegacySignInDoesNotEnforceTheNewAccountPasswordLength() {
+        let message = AuthenticationFormValidator.message(
+            mode: .signIn,
+            email: "traveler@example.com",
+            password: "old-pass",
+            acceptedLegal: false,
+            legalVersionsLoaded: false
+        )
+
+        XCTAssertNil(message)
+    }
+
     func testRestoreWithoutKeychainTokenShowsSignIn() async {
         let service = FakeAuthService()
         let store = MemoryRefreshTokenStore()
@@ -57,6 +93,31 @@ final class AuthSessionTests: XCTestCase {
         XCTAssertEqual(logoutToken, "refresh-new")
         XCTAssertNil(accessToken)
     }
+
+    func testConfirmingVerificationCodeUpdatesSignedInUser() async {
+        let service = FakeAuthService()
+        let store = MemoryRefreshTokenStore()
+        let session = AuthSession(service: service, tokenStore: store)
+        await session.signIn(email: "traveler@example.com", password: "Strong-pass-123!")
+
+        await session.confirmVerificationCode("123456")
+
+        let confirmedCode = await service.confirmedCode()
+        XCTAssertEqual(session.state, .signedIn(.fixture))
+        XCTAssertEqual(confirmedCode, "123456")
+        XCTAssertEqual(session.message, "Email confirmed. Your account is ready.")
+    }
+
+    func testShortVerificationCodeIsRejectedBeforeNetworkRequest() async {
+        let service = FakeAuthService()
+        let session = AuthSession(service: service, tokenStore: MemoryRefreshTokenStore())
+
+        await session.confirmVerificationCode("123")
+
+        let confirmedCode = await service.confirmedCode()
+        XCTAssertNil(confirmedCode)
+        XCTAssertEqual(session.message, "Enter the six-digit code from your email.")
+    }
 }
 
 private actor MemoryRefreshTokenStore: RefreshTokenStoring {
@@ -75,6 +136,7 @@ private actor FakeAuthService: NativeAuthServicing {
     private var accessToken: String?
     private var refreshedToken: String?
     private var logoutToken: String?
+    private var verificationCode: String?
 
     func legalVersions() -> LegalVersions {
         LegalVersions(termsVersion: "current-terms", privacyVersion: "current-privacy")
@@ -100,12 +162,17 @@ private actor FakeAuthService: NativeAuthServicing {
 
     func currentUser() -> AuthUser { .fixture }
 
-    func resendVerification() -> VerificationDelivery {
+    func requestVerificationCode() -> VerificationDelivery {
         VerificationDelivery(
             message: "Sent.",
             deliveryConfigured: true,
             deliveryAccepted: true
         )
+    }
+
+    func confirmVerificationCode(_ code: String) -> AuthUser {
+        verificationCode = code
+        return .fixture
     }
 
     func setAccessToken(_ token: String?) {
@@ -115,6 +182,7 @@ private actor FakeAuthService: NativeAuthServicing {
     func savedAccessToken() -> String? { accessToken }
     func refreshedWithToken() -> String? { refreshedToken }
     func loggedOutWithToken() -> String? { logoutToken }
+    func confirmedCode() -> String? { verificationCode }
 }
 
 private extension AuthUser {

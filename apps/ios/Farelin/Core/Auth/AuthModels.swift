@@ -56,3 +56,7 @@ struct SignupPayload: Encodable, Sendable {
 struct RefreshPayload: Encodable, Sendable {
     let refreshToken: String
 }
+
+struct VerificationCodePayload: Encodable, Sendable {
+    let code: String
+}

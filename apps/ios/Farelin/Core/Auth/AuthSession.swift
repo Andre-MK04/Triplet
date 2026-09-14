@@ -80,24 +80,33 @@ final class AuthSession {
         isWorking = false
     }
 
-    func resendVerification() async {
+    func requestVerificationCode() async {
         isWorking = true
         defer { isWorking = false }
         do {
-            let delivery = try await service.resendVerification()
+            let delivery = try await service.requestVerificationCode()
             message = delivery.deliveryAccepted
-                ? "A fresh verification link is on its way."
-                : "Farelin could not send a verification email right now."
+                ? "A six-digit code is on its way. It expires in 10 minutes."
+                : delivery.deliveryConfigured
+                    ? "Please wait a minute before requesting another code."
+                    : "Email delivery is not configured for this environment yet."
         } catch {
             message = readable(error)
         }
     }
 
-    func refreshUser() async {
+    func confirmVerificationCode(_ code: String) async {
+        let normalized = code.filter(\.isNumber)
+        guard normalized.count == 6 else {
+            message = "Enter the six-digit code from your email."
+            return
+        }
+        isWorking = true
+        defer { isWorking = false }
         do {
-            let user = try await service.currentUser()
+            let user = try await service.confirmVerificationCode(normalized)
             state = .signedIn(user)
-            message = user.isVerified ? "Email confirmed." : "This email is not confirmed yet."
+            message = "Email confirmed. Your account is ready."
         } catch {
             message = readable(error)
         }

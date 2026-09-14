@@ -18,7 +18,14 @@ from app.auth.oauth import (
     verify_oauth_state,
 )
 from app.auth.rate_limit import auth_rate_limit
-from app.auth.verification import VerificationError, resend_verification, verify_email
+from app.auth.verification import (
+    NativeVerificationError,
+    VerificationError,
+    resend_verification,
+    send_native_verification_code,
+    verify_email,
+    verify_native_email_code,
+)
 from app.auth.schemas import (
     AuthResponse,
     ChangePasswordRequest,
@@ -27,6 +34,7 @@ from app.auth.schemas import (
     NativeAuthResponse,
     NativeLogoutRequest,
     NativeRefreshRequest,
+    NativeVerifyEmailCodeRequest,
     ResetPasswordRequest,
     SignupRequest,
     UpdateProfileRequest,
@@ -121,6 +129,7 @@ def native_signup(
             request_data,
             user_agent=request.headers.get("user-agent"),
             ip_address=client_ip(request),
+            send_web_verification=False,
         )
     except DuplicateEmailError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -130,6 +139,7 @@ def native_signup(
         db.rollback()
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc
     record_audit_event(db, "auth.native_signup", user_id=user.id, request=request, commit=True)
+    send_native_verification_code(db, user)
     return native_auth_response(user, access_token, refresh_token)
 
 
@@ -186,6 +196,52 @@ def native_logout(
     AuthService(db).logout(request_data.refreshToken)
     record_audit_event(db, "auth.native_logout", request=request, commit=True)
     return {"ok": True}
+
+
+@router.post("/native/verify-email/request")
+def native_verification_code_request(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+    _: None = Depends(auth_rate_limit("verify_email_resend")),
+) -> dict:
+    """Send a code only to the email owned by the current bearer session."""
+    delivery_accepted = send_native_verification_code(db, user)
+    delivery_configured = build_email_provider().delivers
+    record_audit_event(
+        db,
+        "auth.native_verification_requested",
+        user_id=user.id,
+        request=request,
+        commit=True,
+    )
+    return {
+        "message": "If this account still needs confirming, a code is on its way.",
+        "deliveryConfigured": delivery_configured,
+        "deliveryAccepted": delivery_accepted,
+    }
+
+
+@router.post("/native/verify-email/confirm", response_model=AuthResponse)
+def native_verification_code_confirm(
+    payload: NativeVerifyEmailCodeRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+    _: None = Depends(auth_rate_limit("verify_email")),
+) -> AuthResponse:
+    try:
+        verified_user = verify_native_email_code(db, user, payload.code)
+    except NativeVerificationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    record_audit_event(
+        db,
+        "auth.native_email_verified",
+        user_id=verified_user.id,
+        request=request,
+        commit=True,
+    )
+    return AuthResponse(user=auth_user_response(verified_user), message="Email verified.")
 
 
 @router.get("/oauth/{provider}/start")

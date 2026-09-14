@@ -16,6 +16,7 @@ struct AuthenticationView: View {
     @State private var password = ""
     @State private var displayName = ""
     @State private var acceptedLegal = false
+    @State private var validationMessage: String?
     @FocusState private var focusedField: Field?
 
     private enum Field { case name, email, password }
@@ -43,22 +44,37 @@ struct AuthenticationView: View {
 
                     VStack(spacing: 18) {
                         if mode == .createAccount {
-                            TextField("Name (optional)", text: $displayName)
-                                .textContentType(.name)
-                                .focused($focusedField, equals: .name)
-                                .textFieldStyle(FarelinTextFieldStyle())
+                            field(label: "Name", hint: "Optional") {
+                                TextField("How should we greet you?", text: $displayName)
+                                    .textContentType(.name)
+                                    .focused($focusedField, equals: .name)
+                                    .textFieldStyle(FarelinTextFieldStyle())
+                                    .accessibilityIdentifier("auth-name")
+                            }
                         }
-                        TextField("Email", text: $email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .focused($focusedField, equals: .email)
-                            .textFieldStyle(FarelinTextFieldStyle())
-                        SecureField("Password", text: $password)
+                        field(label: "Email") {
+                            TextField("you@example.com", text: $email)
+                                .textContentType(.emailAddress)
+                                .keyboardType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .focused($focusedField, equals: .email)
+                                .textFieldStyle(FarelinTextFieldStyle())
+                                .accessibilityIdentifier("auth-email")
+                        }
+                        field(
+                            label: "Password",
+                            hint: mode == .createAccount ? "At least 12 characters" : nil
+                        ) {
+                            SecureField(
+                                mode == .createAccount ? "Create a secure password" : "Your password",
+                                text: $password
+                            )
                             .textContentType(mode == .signIn ? .password : .newPassword)
                             .focused($focusedField, equals: .password)
                             .textFieldStyle(FarelinTextFieldStyle())
+                            .accessibilityIdentifier("auth-password")
+                        }
                     }
 
                     if mode == .createAccount {
@@ -73,27 +89,18 @@ struct AuthenticationView: View {
                                 .font(.caption)
                             }
                         }
+                        .accessibilityIdentifier("auth-legal-toggle")
                     }
 
-                    if let message = session.message {
+                    if let message = validationMessage ?? session.message {
                         Text(message)
                             .font(.subheadline)
                             .foregroundStyle(FarelinColor.coral)
+                            .accessibilityIdentifier("auth-form-message")
                     }
 
                     Button {
-                        focusedField = nil
-                        Task {
-                            if mode == .signIn {
-                                await session.signIn(email: email, password: password)
-                            } else {
-                                await session.signUp(
-                                    email: email,
-                                    password: password,
-                                    displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-                                )
-                            }
-                        }
+                        submit()
                     } label: {
                         Group {
                             if session.isWorking {
@@ -104,7 +111,8 @@ struct AuthenticationView: View {
                         }
                     }
                     .buttonStyle(FarelinPrimaryButtonStyle())
-                    .disabled(!canSubmit || session.isWorking)
+                    .disabled(session.isWorking)
+                    .accessibilityIdentifier("auth-submit")
 
                     Text("The iPhone app requires an account before fare or AI search. You can still explore Farelin publicly on the web.")
                         .font(.caption)
@@ -117,14 +125,56 @@ struct AuthenticationView: View {
         }
         .onChange(of: mode) {
             session.message = nil
+            validationMessage = nil
             acceptedLegal = false
         }
     }
 
-    private var canSubmit: Bool {
-        email.contains("@")
-            && password.count >= 12
-            && (mode == .signIn || (acceptedLegal && session.legalVersions != nil))
+    @ViewBuilder
+    private func field<Content: View>(
+        label: String,
+        hint: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text(label.uppercased())
+                    .font(.caption2.monospaced().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(1.2)
+                Spacer()
+                if let hint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            content()
+        }
+    }
+
+    private func submit() {
+        focusedField = nil
+        validationMessage = AuthenticationFormValidator.message(
+            mode: mode,
+            email: email,
+            password: password,
+            acceptedLegal: acceptedLegal,
+            legalVersionsLoaded: session.legalVersions != nil
+        )
+        guard validationMessage == nil else { return }
+
+        Task {
+            if mode == .signIn {
+                await session.signIn(email: email, password: password)
+            } else {
+                await session.signUp(
+                    email: email,
+                    password: password,
+                    displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                )
+            }
+        }
     }
 
     private var brand: some View {
@@ -144,6 +194,34 @@ struct AuthenticationView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+enum AuthenticationFormValidator {
+    static func message(
+        mode: AuthenticationView.Mode,
+        email: String,
+        password: String,
+        acceptedLegal: Bool,
+        legalVersionsLoaded: Bool
+    ) -> String? {
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedEmail.contains("@"), normalizedEmail.split(separator: "@").last?.contains(".") == true else {
+            return "Enter a valid email address."
+        }
+        guard !password.isEmpty else {
+            return "Enter your password."
+        }
+        if mode == .createAccount, password.count < 12 {
+            return "Use at least 12 characters for your password."
+        }
+        if mode == .createAccount, !acceptedLegal {
+            return "Accept Farelin’s Terms and Privacy Policy to create your account."
+        }
+        if mode == .createAccount, !legalVersionsLoaded {
+            return "Farelin could not load the current terms. Check your connection and try again."
+        }
+        return nil
     }
 }
 

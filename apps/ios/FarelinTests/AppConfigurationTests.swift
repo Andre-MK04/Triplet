@@ -6,7 +6,7 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertThrowsError(
             try AppConfiguration(
                 environmentValue: "production",
-                apiBaseURLValue: "https://staging.farelin.com/backend"
+                apiBaseURLValue: "https://farelin-api-staging-staging.up.railway.app"
             )
         ) { error in
             XCTAssertEqual(error as? ConfigurationError, .environmentHostMismatch)
@@ -28,11 +28,10 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertThrowsError(
             try AppConfiguration(
                 environmentValue: "staging",
-                apiBaseURLValue: "http://staging.farelin.com/backend"
+                apiBaseURLValue: "http://farelin-api-staging-staging.up.railway.app"
             )
         ) { error in
             XCTAssertEqual(error as? ConfigurationError, .insecureAPIURL)
         }
     }
 }
-

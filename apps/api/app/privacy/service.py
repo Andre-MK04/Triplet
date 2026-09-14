@@ -25,6 +25,7 @@ from app.db.models import (
     EmailEventDB,
     EmailSuppressionDB,
     EmailVerificationTokenDB,
+    NativeEmailVerificationCodeDB,
     PasswordResetTokenDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
@@ -173,6 +174,7 @@ def erase_user(db: Session, user: UserDB, request=None) -> None:
         RefreshTokenSessionDB,
         PasswordResetTokenDB,
         EmailVerificationTokenDB,
+        NativeEmailVerificationCodeDB,
         UsageCounterDB,
         BillingSubscriptionDB,
     ):

@@ -565,7 +565,7 @@ iOS note: this step implements web Stripe subscriptions only. A future iOS app m
 ## Native iOS app
 
 The iPhone app foundation lives in `apps/ios`. It is a native SwiftUI client
-built with Swift 6 strict concurrency and the current iOS SDK, with iOS 18 as
+built with Swift 6 strict concurrency and the current iOS SDK, with iOS 17 as
 the minimum deployment target. The app reuses Farelin's existing backend and
 will require sign-in before fare or AI search; it never calls OpenAI or a
 flight provider directly.
@@ -579,13 +579,23 @@ ruby apps/ios/scripts/generate_project.rb
 Then open `apps/ios/Farelin.xcodeproj` and choose one of two schemes:
 
 - `Farelin Staging`: `com.farelin.app.staging` and
-  `https://staging.farelin.com/backend`
+  `https://farelin-api-staging-staging.up.railway.app`
 - `Farelin`: `com.farelin.app` and `https://www.farelin.com/backend`
 
 The checked-in `.xcconfig` files contain only public environment routing. Do
 not add API keys, OAuth client secrets, APNs private keys, refresh tokens, or
 Stripe secrets to the iOS target. Native session refresh tokens live in
 Keychain with this-device-only accessibility; access tokens remain in memory.
+
+Native email confirmation uses the same signed-in API environment as the app:
+
+- `POST /auth/native/verify-email/request` sends a six-digit, single-use code.
+- `POST /auth/native/verify-email/confirm` consumes it for the current account.
+
+Codes expire after 10 minutes, lock after five incorrect attempts, and are
+stored only as keyed hashes. Browser signup keeps its existing web-link flow.
+To test real delivery on staging, configure a delivering email provider there;
+the console provider truthfully reports that it does not reach a mailbox.
 
 Build and test from the command line:
 
