@@ -15,4 +15,7 @@ regexes = [
   # Deliberately fake values used to prove exception and log redaction.
   '''^sk_live_ABCDEFGH1234$''',
   '''^sk_test_51ABCdef$''',
+  # A travel-profile rule identifier misclassified as a generic API key in
+  # commit 4ba5882. This exact value is public application vocabulary.
+  '''^no_departures_before_6am$''',
 ]

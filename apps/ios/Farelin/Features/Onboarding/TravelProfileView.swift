@@ -359,18 +359,18 @@ struct TravelProfileView: View {
 
     private func comfortStep(_ draft: TravelProfileDraft) -> some View {
         VStack(spacing: 12) {
-            ForEach(Self.comfortRules, id: \.key) { rule in
+            ForEach(Self.comfortRules, id: \.ruleID) { rule in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(rule.title).font(.headline)
                     Text(rule.detail).font(.caption).foregroundStyle(.secondary)
                     Picker(
                         rule.title,
                         selection: Binding(
-                            get: { draft.comfortRuleModes[rule.key] ?? "off" },
+                            get: { draft.comfortRuleModes[rule.ruleID] ?? "off" },
                             set: { value in
                                 store.update {
-                                    if value == "off" { $0.comfortRuleModes.removeValue(forKey: rule.key) }
-                                    else { $0.comfortRuleModes[rule.key] = value }
+                                    if value == "off" { $0.comfortRuleModes.removeValue(forKey: rule.ruleID) }
+                                    else { $0.comfortRuleModes[rule.ruleID] = value }
                                 }
                             }
                         )
@@ -657,7 +657,7 @@ private extension TravelProfileView {
     ]
 
     struct ComfortCopy {
-        let key: String
+        let ruleID: String
         let title: String
         let detail: String
         let allowed: String
@@ -666,12 +666,12 @@ private extension TravelProfileView {
     }
 
     static let comfortRules = [
-        ComfortCopy(key: "direct_only", title: "Connecting flights", detail: "How strongly should Farelin favor nonstop routes?", allowed: "Connections allowed", preferred: "Prefer direct", required: "Direct only"),
-        ComfortCopy(key: "max_one_stop", title: "Trips with two or more stops", detail: "Long chains can be cheaper, but take more energy.", allowed: "Allowed", preferred: "Prefer max one", required: "Never show"),
-        ComfortCopy(key: "avoid_overnight_layovers", title: "Overnight layovers", detail: "Connections that require a night in transit.", allowed: "Allowed", preferred: "Prefer to avoid", required: "Never show"),
-        ComfortCopy(key: "no_departures_before_6am", title: "Departures before 6am", detail: "Very early flights may add taxi or hotel costs.", allowed: "Allowed", preferred: "Prefer to avoid", required: "Never show"),
-        ComfortCopy(key: "no_returns_after_midnight", title: "Arrivals after midnight", detail: "Late arrivals can make the final journey harder.", allowed: "Allowed", preferred: "Prefer to avoid", required: "Never show"),
-        ComfortCopy(key: "cabin_bag_included", title: "Cabin bag", detail: "Some observed fares include only a personal item.", allowed: "Not important", preferred: "Prefer included", required: "Must include"),
+        ComfortCopy(ruleID: "direct_only", title: "Connecting flights", detail: "How strongly should Farelin favor nonstop routes?", allowed: "Connections allowed", preferred: "Prefer direct", required: "Direct only"),
+        ComfortCopy(ruleID: "max_one_stop", title: "Trips with two or more stops", detail: "Long chains can be cheaper, but take more energy.", allowed: "Allowed", preferred: "Prefer max one", required: "Never show"),
+        ComfortCopy(ruleID: "avoid_overnight_layovers", title: "Overnight layovers", detail: "Connections that require a night in transit.", allowed: "Allowed", preferred: "Prefer to avoid", required: "Never show"),
+        ComfortCopy(ruleID: "no_departures_before_6am", title: "Departures before 6am", detail: "Very early flights may add taxi or hotel costs.", allowed: "Allowed", preferred: "Prefer to avoid", required: "Never show"),
+        ComfortCopy(ruleID: "no_returns_after_midnight", title: "Arrivals after midnight", detail: "Late arrivals can make the final journey harder.", allowed: "Allowed", preferred: "Prefer to avoid", required: "Never show"),
+        ComfortCopy(ruleID: "cabin_bag_included", title: "Cabin bag", detail: "Some observed fares include only a personal item.", allowed: "Not important", preferred: "Prefer included", required: "Must include"),
     ]
 
     static let tripShapeOptions = [
