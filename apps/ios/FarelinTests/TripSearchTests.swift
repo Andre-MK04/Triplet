@@ -42,6 +42,165 @@ final class TripSearchTests: XCTestCase {
         XCTAssertNil(request)
     }
 
+    func testRapidSubmissionsOnlyCreateOneMeteredSearch() async throws {
+        let service = SlowCountingTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.query = "A food weekend in Stockholm next month"
+
+        store.submit(origins: ["CPH"])
+        store.submit(origins: ["CPH"])
+        store.submit(origins: ["CPH"])
+
+        XCTAssertTrue(store.isSearching)
+        try await Task.sleep(for: .milliseconds(120))
+        let callCount = await service.callCount()
+        XCTAssertEqual(callCount, 1)
+    }
+
+    func testAdvancedSearchUsesProfileForBlankFieldsAndSendsExplicitOverrides() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.destinations = [.stockholm]
+        store.advanced.travelStyles = ["food"]
+        store.advanced.directPreference = "connections"
+        store.advanced.budgetText = "350"
+
+        await store.searchAdvanced(profileOrigins: ["CPH", "MMX"])
+
+        let request = await service.lastAdvancedRequest()
+        XCTAssertNil(request?.originAirports)
+        XCTAssertEqual(request?.destinationAirports, ["STO"])
+        XCTAssertEqual(request?.travelStyles, ["food"])
+        XCTAssertEqual(request?.directOnly, false)
+        XCTAssertEqual(request?.maxBudget, 350)
+        XCTAssertNil(request?.startDate)
+        XCTAssertNil(store.errorMessage)
+    }
+
+    func testAdvancedSearchDefaultsToReturnAndSendsTheVisibleTripShape() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+
+        XCTAssertEqual(store.advanced.tripPlan, "return")
+
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+
+        let request = await service.lastAdvancedRequest()
+        XCTAssertEqual(request?.tripPlan, "return")
+        XCTAssertNil(store.errorMessage)
+    }
+
+    func testAdvancedMultiCityRequiresTwoSpecificStopsWithoutCallingBackend() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.tripPlan = "multi_city"
+        store.advanced.destinations = [.stockholm]
+
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+
+        XCTAssertEqual(
+            store.errorMessage,
+            "Add at least two cities or airports in travel order for a multi-city trip."
+        )
+        let request = await service.lastAdvancedRequest()
+        XCTAssertNil(request)
+    }
+
+    func testAdvancedOpenJawMapsArrivalAndFlyHomeCitiesToDifferentFields() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.tripPlan = "open_jaw"
+        store.advanced.destinations = [.stockholm, .helsinki]
+
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+
+        let request = await service.lastAdvancedRequest()
+        XCTAssertEqual(request?.destinationAirports, ["STO"])
+        XCTAssertEqual(request?.returnOriginAirports, ["HEL"])
+        XCTAssertEqual(request?.tripPlan, "open_jaw")
+        XCTAssertNil(request?.routeStops)
+        XCTAssertNil(store.errorMessage)
+    }
+
+    func testAdvancedOpenJawRequiresExactlyTwoSpecificCities() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.tripPlan = "open_jaw"
+        store.advanced.destinations = [.stockholm]
+
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+
+        XCTAssertEqual(
+            store.errorMessage,
+            "Add exactly two cities or airports: where you land, then where you fly home from."
+        )
+        let request = await service.lastAdvancedRequest()
+        XCTAssertNil(request)
+    }
+
+    func testTripDetailLoadsAnExistingCachedItineraryWithoutRegenerating() async {
+        let service = FakeTripDetailService(
+            suggestion: .fixture(itinerary: .fixture),
+            generated: ItineraryGenerationResponse(itinerary: .fixture, cached: false)
+        )
+        let store = TripDetailStore(
+            trip: .fixture(),
+            suggestionID: "suggestion",
+            service: service
+        )
+
+        await store.load()
+        await store.generateItinerary()
+        let generationCalls = await service.generationCallCount()
+
+        XCTAssertEqual(store.title, "Copenhagen for food lovers")
+        XCTAssertEqual(store.itinerary?.days.first?.items.first?.title, "Torvehallerne tasting")
+        XCTAssertTrue(store.itineraryWasCached)
+        XCTAssertEqual(generationCalls, 0)
+    }
+
+    func testTripDetailGeneratesAnItineraryOnlyOnce() async {
+        let service = FakeTripDetailService(
+            suggestion: .fixture(itinerary: nil),
+            generated: ItineraryGenerationResponse(itinerary: .fixture, cached: false)
+        )
+        let store = TripDetailStore(
+            trip: .fixture(),
+            suggestionID: "suggestion",
+            service: service
+        )
+
+        await store.load()
+        await store.generateItinerary()
+        await store.generateItinerary()
+        let generationCalls = await service.generationCallCount()
+
+        XCTAssertEqual(store.itinerary?.summary, "A realistic food-focused weekend.")
+        XCTAssertFalse(store.itineraryWasCached)
+        XCTAssertEqual(generationCalls, 1)
+    }
+
+    func testRapidItineraryTapsOnlyCreateOneGenerationRequest() async throws {
+        let service = FakeTripDetailService(
+            suggestion: .fixture(itinerary: nil),
+            generated: ItineraryGenerationResponse(itinerary: .fixture, cached: false)
+        )
+        let store = TripDetailStore(
+            trip: .fixture(),
+            suggestionID: "suggestion",
+            service: service
+        )
+
+        store.submitItineraryGeneration()
+        store.submitItineraryGeneration()
+        store.submitItineraryGeneration()
+
+        XCTAssertTrue(store.isGenerating)
+        try await Task.sleep(for: .milliseconds(40))
+        let generationCalls = await service.generationCallCount()
+        XCTAssertEqual(generationCalls, 1)
+    }
+
     func testEstimatedPriceCopyNeverSoundsGuaranteed() {
         let trip = SearchTrip.fixture(isEstimate: true, freshness: "stale", legCount: 3)
 
@@ -136,6 +295,7 @@ final class TripSearchTests: XCTestCase {
 private actor FakeTripSearchService: TripSearchServicing {
     private let response: FarelinAISearchResponse
     private var request: FarelinAISearchRequest?
+    private var advancedRequest: FarelinAdvancedSearchRequest?
 
     init(response: FarelinAISearchResponse) {
         self.response = response
@@ -146,7 +306,62 @@ private actor FakeTripSearchService: TripSearchServicing {
         return response
     }
 
+    func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {
+        advancedRequest = request
+        return response
+    }
+
+    func searchPlaces(_ query: String) async throws -> [FlightPlaceResult] { [] }
+
     func lastRequest() -> FarelinAISearchRequest? { request }
+    func lastAdvancedRequest() -> FarelinAdvancedSearchRequest? { advancedRequest }
+}
+
+private actor SlowCountingTripSearchService: TripSearchServicing {
+    private let response: FarelinAISearchResponse
+    private var calls = 0
+
+    init(response: FarelinAISearchResponse) {
+        self.response = response
+    }
+
+    func searchTrips(_ request: FarelinAISearchRequest) async throws -> FarelinAISearchResponse {
+        calls += 1
+        try await Task.sleep(for: .milliseconds(80))
+        return response
+    }
+
+    func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {
+        calls += 1
+        try await Task.sleep(for: .milliseconds(80))
+        return response
+    }
+
+    func searchPlaces(_ query: String) async throws -> [FlightPlaceResult] { [] }
+
+    func callCount() -> Int { calls }
+}
+
+private actor FakeTripDetailService: TripDetailServicing {
+    private let suggestion: TripSuggestionResponse
+    private let generated: ItineraryGenerationResponse
+    private var generationCalls = 0
+
+    init(suggestion: TripSuggestionResponse, generated: ItineraryGenerationResponse) {
+        self.suggestion = suggestion
+        self.generated = generated
+    }
+
+    func tripSuggestion(id: String) async throws -> TripSuggestionResponse {
+        suggestion
+    }
+
+    func generateItinerary(suggestionID: String) async throws -> ItineraryGenerationResponse {
+        generationCalls += 1
+        return generated
+    }
+
+    func generationCallCount() -> Int { generationCalls }
 }
 
 private extension FarelinAISearchResponse {
@@ -156,7 +371,76 @@ private extension FarelinAISearchResponse {
         trips: [.fixture()],
         relaxationNote: nil,
         missingFields: [],
-        providerMetadata: nil
+        providerMetadata: nil,
+        sourceMap: nil,
+        hardBudgetApplied: nil
+    )
+}
+
+private extension FlightPlaceResult {
+    static let stockholm = FlightPlaceResult(
+        code: "STO",
+        kind: "city",
+        name: "Stockholm",
+        subtitle: "City · Sweden",
+        city: "Stockholm",
+        countryCode: "SE",
+        countryName: "Sweden",
+        continent: "Europe",
+        searchCodes: ["STO"]
+    )
+
+    static let helsinki = FlightPlaceResult(
+        code: "HEL",
+        kind: "city",
+        name: "Helsinki",
+        subtitle: "City · Finland",
+        city: "Helsinki",
+        countryCode: "FI",
+        countryName: "Finland",
+        continent: "Europe",
+        searchCodes: ["HEL"]
+    )
+}
+
+private extension TripSuggestionResponse {
+    static func fixture(itinerary: ItineraryPlan?) -> TripSuggestionResponse {
+        TripSuggestionResponse(
+            id: "suggestion",
+            title: "Copenhagen for food lovers",
+            tripType: "same_city",
+            createdAt: "2026-09-14T10:00:00Z",
+            expiresAt: "2026-09-15T10:00:00Z",
+            dealScore: 80,
+            fitScore: 85,
+            trip: .fixture(),
+            itinerary: itinerary,
+            disclaimer: "Prices were observed and may have changed."
+        )
+    }
+}
+
+private extension ItineraryPlan {
+    static let fixture = ItineraryPlan(
+        summary: "A realistic food-focused weekend.",
+        days: [
+            ItineraryDay(
+                label: "Day 1 — arrival",
+                items: [
+                    ItineraryItem(
+                        partOfDay: "afternoon",
+                        title: "Torvehallerne tasting",
+                        description: "Try a few Danish specialties after checking in.",
+                        category: "food",
+                        estimatedCost: "€20–35"
+                    )
+                ]
+            )
+        ],
+        gettingAround: "Use the metro and walk in the centre.",
+        extraCostEstimate: "€80–140",
+        disclaimers: ["Confirm opening hours and prices."],
+        generatedAt: "2026-09-14T10:00:00Z"
     )
 }
 

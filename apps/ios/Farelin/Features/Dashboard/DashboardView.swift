@@ -80,12 +80,14 @@ struct DashboardView: View {
                     title: "AI searches",
                     used: usage.aiSearchesThisMonth,
                     limit: usage.aiSearchesPerMonth,
+                    unlimited: usage.unlimited,
                     symbol: "wand.and.stars"
                 )
                 UsageCard(
                     title: "Saved watches",
                     used: usage.activeSavedSearches,
                     limit: usage.savedSearchLimit,
+                    unlimited: usage.unlimited,
                     symbol: "bell.badge"
                 )
             }
@@ -189,6 +191,7 @@ private struct UsageCard: View {
     let title: String
     let used: Int
     let limit: Int
+    let unlimited: Bool
     let symbol: String
 
     var body: some View {
@@ -198,10 +201,16 @@ private struct UsageCard: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("\(used) / \(limit)")
-                .font(.title3.monospacedDigit().weight(.semibold))
-            ProgressView(value: Double(used), total: Double(max(limit, 1)))
-                .tint(FarelinColor.mint)
+            if unlimited {
+                Text("Unlimited")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(FarelinColor.mint)
+            } else {
+                Text("\(used) / \(limit)")
+                    .font(.title3.monospacedDigit().weight(.semibold))
+                ProgressView(value: Double(used), total: Double(max(limit, 1)))
+                    .tint(FarelinColor.mint)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .farelinCard()

@@ -37,7 +37,7 @@ protocol NativeAuthServicing: Sendable {
     func setAccessToken(_ token: String?) async
 }
 
-actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing {
+actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, TripDetailServicing {
     private let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
@@ -137,6 +137,46 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
         )
     }
 
+    func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {
+        try await send(
+            path: "trips/advanced-search",
+            method: "POST",
+            body: request,
+            authenticated: true,
+            timeoutInterval: 60,
+            response: FarelinAISearchResponse.self
+        )
+    }
+
+    func searchPlaces(_ query: String) async throws -> [FlightPlaceResult] {
+        try await send(
+            path: "places/search",
+            method: "GET",
+            queryItems: [URLQueryItem(name: "q", value: query)],
+            response: [FlightPlaceResult].self
+        )
+    }
+
+    func tripSuggestion(id: String) async throws -> TripSuggestionResponse {
+        try await send(
+            path: "trips/suggestions/\(id)",
+            method: "GET",
+            authenticated: true,
+            response: TripSuggestionResponse.self
+        )
+    }
+
+    func generateItinerary(suggestionID: String) async throws -> ItineraryGenerationResponse {
+        try await send(
+            path: "trips/suggestions/\(suggestionID)/plan",
+            method: "POST",
+            body: EmptyPayload(),
+            authenticated: true,
+            timeoutInterval: 60,
+            response: ItineraryGenerationResponse.self
+        )
+    }
+
     func setAccessToken(_ token: String?) {
         accessToken = token
     }
@@ -228,6 +268,7 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
         method: String,
         queryItems: [URLQueryItem] = [],
         authenticated: Bool = false,
+        timeoutInterval: TimeInterval = 20,
         response: Response.Type
     ) async throws -> Response {
         try await send(
@@ -236,6 +277,7 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             queryItems: queryItems,
             body: Optional<EmptyPayload>.none,
             authenticated: authenticated,
+            timeoutInterval: timeoutInterval,
             response: response
         )
     }
@@ -246,6 +288,7 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
         queryItems: [URLQueryItem] = [],
         body: Body?,
         authenticated: Bool = false,
+        timeoutInterval: TimeInterval = 20,
         response: Response.Type
     ) async throws -> Response {
         guard var components = URLComponents(
@@ -260,7 +303,7 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
         guard let url = components.url else { throw APIError.invalidResponse }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeoutInterval
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {

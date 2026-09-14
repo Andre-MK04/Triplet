@@ -57,12 +57,13 @@ def readiness() -> dict:
     except SQLAlchemyError:
         checks["database"]["error"] = "unavailable"
 
-    if settings.flight_provider in LIVE_PROVIDER_NAMES:
-        provider_status = build_provider(settings.flight_provider).get_provider_status()
+    provider_to_check = live_name if settings.flight_provider == "hybrid" else settings.flight_provider
+    if provider_to_check in LIVE_PROVIDER_NAMES:
+        provider_status = build_provider(provider_to_check).get_provider_status()
         checks["provider"]["accessStatus"] = provider_status.accessStatus
         if provider_status.accessStatus != "available":
             checks["provider"]["ok"] = False
-            checks["provider"]["error"] = f"{settings.flight_provider} API access is not configured."
+            checks["provider"]["error"] = f"{provider_to_check} API access is not configured."
 
     status = "ready" if all(check["ok"] for check in checks.values()) else "degraded"
     if settings.app_env in {"production", "prod"} and not settings.expose_api_docs:

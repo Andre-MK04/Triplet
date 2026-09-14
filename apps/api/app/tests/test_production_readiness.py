@@ -205,6 +205,24 @@ def test_local_readiness_still_shows_detail(monkeypatch):
     assert "checks" in body and "environment" in body
 
 
+def test_hybrid_readiness_validates_its_live_provider(monkeypatch):
+    """Hybrid is only truly ready for cold-cache searches when its live half works."""
+    from app.routers.health import readiness
+
+    monkeypatch.setattr(settings, "app_env", "staging")
+    monkeypatch.setattr(settings, "flight_provider", "hybrid")
+    monkeypatch.setattr(settings, "live_flight_provider", "travelpayouts")
+    monkeypatch.setattr(settings, "travelpayouts_api_enabled", False)
+    monkeypatch.setattr(settings, "travelpayouts_api_token", None)
+
+    body = readiness()
+
+    assert body["status"] == "degraded"
+    assert body["checks"]["provider"]["ok"] is False
+    assert body["checks"]["provider"]["providerName"] == "travelpayouts"
+    assert body["checks"]["provider"]["accessStatus"] == "not_configured"
+
+
 def test_interactive_docs_are_closed_in_production(monkeypatch):
     """Reflects the policy applied at app construction in app/main.py."""
     monkeypatch.setattr(settings, "app_env", "production")

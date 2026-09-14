@@ -80,6 +80,7 @@ SENSITIVE_RESPONSE_PREFIXES = (
     "/contact",
     "/ai",
     "/trips/search",
+    "/trips/advanced-search",
     "/trips/suggestions",
 )
 insecure_dev_secret = "dev-secret-change-me"

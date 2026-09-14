@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user_optional
+from app.auth.dependencies import get_current_user_optional, get_current_user_required
 from app.billing.usage import (
     assert_ai_search_allowed,
     assert_origin_airports_allowed,
@@ -13,7 +13,13 @@ from app.billing.usage import (
 from app.database import get_db
 from app.db.models import UserDB
 from app.db.repositories.trip_suggestions_repository import TripSuggestionsRepository
-from app.models import TripSearchRequest, TripSearchResponse
+from app.models import (
+    AdvancedTripSearchRequest,
+    AdvancedTripSearchResponse,
+    TripSearchRequest,
+    TripSearchResponse,
+)
+from app.preferences.resolution import resolve_search_preferences
 from app.config import settings
 from app.observability import events
 from app.security import RateLimitCategory, check_rate_limit, consume_ai_call
@@ -79,6 +85,112 @@ def search_trips(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return TripSearchResponse.model_validate(result.model_dump())
+
+
+@router.post("/advanced-search", response_model=AdvancedTripSearchResponse)
+def advanced_search(
+    request: AdvancedTripSearchRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> AdvancedTripSearchResponse:
+    """Run a structured search with server-owned profile resolution.
+
+    This route does not call a language model or consume AI usage. Explicit
+    request values win; profile values only fill omissions.
+    """
+    from app.db.models import UserTravelProfileDB
+
+    if (request.startDate is None) != (request.endDate is None):
+        raise HTTPException(status_code=400, detail="Choose both a start and end date, or leave both to your profile.")
+
+    profile_row = db.get(UserTravelProfileDB, user.id)
+    if not profile_row:
+        raise HTTPException(status_code=400, detail="Complete your travel profile before using advanced search.")
+
+    comfort_modes = dict(profile_row.comfort_rule_modes or {})
+    explicit = request.model_dump(exclude_none=True)
+    if request.comfortRules:
+        explicit["directOnly"] = request.comfortRules.get("direct_only") == "require"
+        explicit["includeBaggage"] = request.comfortRules.get("cabin_bag_included") in {"prefer", "require"}
+    profile = {
+        "originAirports": list(profile_row.origin_airports or []),
+        "preferredTripLengthMin": profile_row.preferred_trip_length_min,
+        "preferredTripLengthMax": profile_row.preferred_trip_length_max,
+        "preferredTravelStyles": list(profile_row.preferred_trip_types or []),
+        "absoluteMaxBudget": profile_row.absolute_max_budget,
+        "dealSensitivity": profile_row.deal_sensitivity,
+        "comfortRules": comfort_modes,
+        "spontaneityLevel": profile_row.spontaneity,
+        "directOnly": comfort_modes.get("direct_only") == "require",
+        "includeBaggage": comfort_modes.get("cabin_bag_included") in {"prefer", "require"},
+    }
+    resolved = resolve_search_preferences(explicit, profile)
+    origins = [code.upper() for code in resolved.values["originAirports"]]
+    if not origins:
+        raise HTTPException(status_code=400, detail="Add at least one origin airport to your travel profile.")
+
+    trip_plan = request.tripPlan or resolved.values["tripPlan"]
+    if trip_plan == "multi_city" and not request.routeStops:
+        raise HTTPException(status_code=400, detail="Multi-city search needs at least two destinations in travel order.")
+
+    # No hard budget means broad discovery, not an invisible profile cap. The
+    # engine still requires a numeric ceiling, so 5000 is an internal safety
+    # bound; hardBudgetApplied tells clients not to present it as the user's cap.
+    hard_budget = resolved.values["maxBudget"] is not None
+    engine_budget = float(resolved.values["maxBudget"] or 5000)
+    search_request = TripSearchRequest(
+        originAirports=origins,
+        destinationAirports=(
+            [code.upper() for code in request.destinationAirports]
+            if request.destinationAirports else None
+        ),
+        destinationCountries=[code.upper() for code in (request.destinationCountries or [])],
+        destinationRegions=list(request.destinationRegions or []),
+        destinationContinents=list(request.destinationContinents or []),
+        returnOriginAirports=(
+            [code.upper() for code in request.returnOriginAirports]
+            if request.returnOriginAirports else None
+        ),
+        startDate=resolved.values["startDate"],
+        endDate=resolved.values["endDate"],
+        minTripLengthDays=resolved.values["minTripLengthDays"],
+        maxTripLengthDays=resolved.values["maxTripLengthDays"],
+        maxBudget=engine_budget,
+        maxGroundTransferHours=resolved.values["maxGroundTransferHours"],
+        tripStyle=resolved.values["tripStyle"],
+        tripPlan=trip_plan,
+        routeStops=[code.upper() for code in request.routeStops] if request.routeStops else None,
+        directOnly=bool(resolved.values["directOnly"]),
+        includeBaggage=bool(resolved.values["includeBaggage"]),
+        travelStyles=list(resolved.values["travelStyles"]),
+    )
+
+    result = search_trips(search_request, http_request, db, user)
+    source_map = dict(resolved.sourceMap)
+    for field_name in (
+        "destinationAirports",
+        "destinationCountries",
+        "destinationRegions",
+        "destinationContinents",
+        "returnOriginAirports",
+        "routeStops",
+    ):
+        source_map[field_name] = "search" if getattr(request, field_name) else "default"
+
+    count = len(result.trips)
+    message = (
+        f"Found {count} observed trip {'option' if count == 1 else 'options'} from your structured search."
+        if count
+        else "No observed fares matched those structured filters right now."
+    )
+    return AdvancedTripSearchResponse(
+        **result.model_dump(),
+        message=message,
+        parsedRequest=search_request,
+        sourceMap=source_map,
+        hardBudgetApplied=hard_budget,
+    )
 
 
 @router.get("/suggestions/{suggestion_id}")

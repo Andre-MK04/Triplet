@@ -359,8 +359,15 @@ the reviewed build is released with production services and truthful metadata.
     `/ai/search`: profile origins, progressive loading, parsed-request context,
     provider caveats, empty/error states, and truthful observed/estimated fare
     cards all remain thin clients of backend search and entitlement logic.
-  - Advanced structured search, saved-watch creation, suggestion detail, and
-    AI itinerary generation remain for the next Stage 4 slices.
+  - Native suggestion detail and cached AI itinerary generation are implemented:
+    flight legs, transfers, warnings, provider links, personalized day plans,
+    estimated extra costs, and provider disclaimers remain tied to backend data.
+    Rapid-tap guards prevent duplicate metered search and itinerary requests.
+  - Advanced structured search is implemented with worldwide place autocomplete,
+    ordered multi-city stops, dates, trip length, budget, travel style, comfort,
+    transfer and origin overrides. The authenticated backend resolves omissions
+    from the profile, returns source labels, and consumes no AI allowance.
+  - Saved-watch creation remains for the final Stage 4 slice.
 - [ ] Stage 5 — watches and native push
 - [ ] Stage 6 — My World and interactive globe
 - [ ] Stage 7 — account, privacy, StoreKit seam, resilience

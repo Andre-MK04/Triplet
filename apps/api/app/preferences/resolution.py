@@ -42,6 +42,9 @@ APP_DEFAULTS: dict[str, Any] = {
     "comfortRules": {},
     "maxBudget": None,
     "dealSensitivity": "balanced",
+    "directOnly": False,
+    "includeBaggage": False,
+    "tripPlan": "return",
 }
 
 # Field-name aliases so callers can pass either the raw profile attr or the
@@ -111,6 +114,9 @@ def resolve_search_preferences(
     resolve("comfortRules", "comfortRules", default=dict(APP_DEFAULTS["comfortRules"]))
     resolve("maxGroundTransferHours", "maxGroundTransferHours", default=APP_DEFAULTS["maxGroundTransferHours"])
     resolve("tripStyle", "tripStyle", default=APP_DEFAULTS["tripStyle"])
+    resolve("directOnly", "directOnly", default=APP_DEFAULTS["directOnly"])
+    resolve("includeBaggage", "includeBaggage", default=APP_DEFAULTS["includeBaggage"])
+    resolve("tripPlan", "tripPlan", default=APP_DEFAULTS["tripPlan"])
 
     # Date range: explicit search dates win; otherwise derive from spontaneity.
     if _present(search_input.get("startDate")) and _present(search_input.get("endDate")):

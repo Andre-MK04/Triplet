@@ -55,6 +55,36 @@ class TripSearchRequest(BaseModel):
     travelStyles: list[str] = Field(default_factory=list, max_length=9)
 
 
+class AdvancedTripSearchRequest(BaseModel):
+    """Partial, explicit search overrides supplied by a signed-in client.
+
+    Missing values are resolved on the server from the user's travel profile.
+    Keeping this separate from ``TripSearchRequest`` prevents clients from
+    copying profile-default logic and lets structured search remain available
+    when an account has exhausted its AI allowance.
+    """
+
+    originAirports: list[str] | None = Field(default=None, min_length=1, max_length=12)
+    destinationAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    destinationCountries: list[str] | None = Field(default=None, max_length=20)
+    destinationRegions: list[str] | None = Field(default=None, max_length=8)
+    destinationContinents: list[str] | None = Field(default=None, max_length=7)
+    returnOriginAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    startDate: date | None = None
+    endDate: date | None = None
+    minTripLengthDays: int | None = Field(default=None, ge=1, le=30)
+    maxTripLengthDays: int | None = Field(default=None, ge=1, le=30)
+    maxBudget: float | None = Field(default=None, gt=0, le=5000)
+    maxGroundTransferHours: float | None = Field(default=None, ge=0, le=12)
+    tripStyle: Literal["one city", "two nearby cities", "surprise me"] | None = None
+    tripPlan: Literal["return", "open_jaw", "multi_city"] | None = None
+    routeStops: list[str] | None = Field(default=None, min_length=2, max_length=6)
+    directOnly: bool | None = None
+    includeBaggage: bool | None = None
+    travelStyles: list[str] | None = Field(default=None, max_length=9)
+    comfortRules: dict[str, Literal["off", "prefer", "require"]] | None = None
+
+
 class ScoreComponent(BaseModel):
     label: str
     points: int
@@ -172,3 +202,11 @@ class TripSearchResponse(BaseModel):
     providerWarnings: list[str] = []
     cachedResultsUsed: bool = False
     providerMetadata: ProviderMetadata | None = None
+
+
+class AdvancedTripSearchResponse(TripSearchResponse):
+    message: str
+    parsedRequest: TripSearchRequest
+    missingFields: list[str] = []
+    sourceMap: dict[str, Literal["search", "watch", "profile", "default"]]
+    hardBudgetApplied: bool

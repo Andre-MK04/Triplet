@@ -20,8 +20,13 @@ PROFILE = {
 
 def test_explicit_search_overrides_profile():
     resolved = resolve_search_preferences(
-        {"originAirports": ["BUD"], "maxBudget": 120, "travelStyles": ["beach"]},
-        PROFILE,
+        {
+            "originAirports": ["BUD"],
+            "maxBudget": 120,
+            "travelStyles": ["beach"],
+            "directOnly": False,
+        },
+        {**PROFILE, "directOnly": True},
     )
     assert resolved.values["originAirports"] == ["BUD"]
     assert resolved.values["maxBudget"] == 120
@@ -29,6 +34,8 @@ def test_explicit_search_overrides_profile():
     assert resolved.sourceMap["originAirports"] == "search"
     assert resolved.sourceMap["maxBudget"] == "search"
     assert resolved.sourceMap["travelStyles"] == "search"
+    assert resolved.values["directOnly"] is False
+    assert resolved.sourceMap["directOnly"] == "search"
 
 
 def test_profile_fills_missing_values():

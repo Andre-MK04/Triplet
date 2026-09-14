@@ -12,6 +12,7 @@ struct AuthenticatedAppView: View {
     let configuration: AppConfiguration
     let session: AuthSession
     let user: AuthUser
+    let apiClient: APIClient
     @State private var selectedTab = FarelinTab.dashboard
     @State private var dashboardStore: DashboardStore
     @State private var profileStore: TravelProfileStore
@@ -27,6 +28,7 @@ struct AuthenticatedAppView: View {
         self.configuration = configuration
         self.session = session
         self.user = user
+        self.apiClient = apiClient
         _dashboardStore = State(
             initialValue: DashboardStore(
                 service: apiClient,
@@ -75,7 +77,9 @@ struct AuthenticatedAppView: View {
 
             DiscoverView(
                 store: searchStore,
-                originAirports: profileStore.draft?.originAirports ?? []
+                originAirports: profileStore.draft?.originAirports ?? [],
+                tripDetailService: apiClient,
+                reauthenticate: { await session.refreshAccess() }
             )
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(FarelinTab.discover)

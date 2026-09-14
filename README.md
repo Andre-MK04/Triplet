@@ -79,6 +79,7 @@ The API exposes:
 - `GET /health`
 - `GET /airports`
 - `POST /trips/search`
+- `POST /trips/advanced-search` (authenticated, profile-resolved, no AI usage)
 - `POST /auth/signup`
 - `POST /auth/login`
 - `POST /auth/logout`
@@ -586,6 +587,22 @@ The checked-in `.xcconfig` files contain only public environment routing. Do
 not add API keys, OAuth client secrets, APNs private keys, refresh tokens, or
 Stripe secrets to the iOS target. Native session refresh tokens live in
 Keychain with this-device-only accessibility; access tokens remain in memory.
+
+The staging API and database are intentionally isolated from production, so
+provider and AI settings must be configured on the staging Railway API service
+as well. A staging build can use the same search architecture without sharing
+production user data by setting `FLIGHT_PROVIDER=hybrid`,
+`LIVE_FLIGHT_PROVIDER=travelpayouts`, `TRAVELPAYOUTS_API_ENABLED=true`, and the
+staging copies of `TRAVELPAYOUTS_API_TOKEN`, `TRAVELPAYOUTS_MARKER`,
+`AI_ENABLED=true`, `AI_PROVIDER=openai`, and `OPENAI_API_KEY`. Never place those
+secret values in this repository or the iOS target. `GET /ready` reports the
+staging AI state and whether hybrid mode's live provider is actually available.
+
+Native Discover supports both natural-language AI search and structured
+advanced search. Advanced search calls `POST /trips/advanced-search`, does not
+consume the monthly AI allowance, and sends only explicit overrides. The API
+resolves all omitted values from the signed-in travel profile and returns a
+`sourceMap` so the app can distinguish profile defaults from per-search choices.
 
 Native email confirmation uses the same signed-in API environment as the app:
 

@@ -3,8 +3,11 @@ import SwiftUI
 struct DiscoverView: View {
     let store: TripSearchStore
     let originAirports: [String]
+    let tripDetailService: any TripDetailServicing
+    let reauthenticate: (@MainActor @Sendable () async -> Bool)?
 
     @FocusState private var promptFocused: Bool
+    @State private var searchMode = DiscoverSearchMode.ai
 
     private let examples = [
         "A warm food-focused week in October under €300",
@@ -17,6 +20,12 @@ struct DiscoverView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 22) {
                     introduction
+                    Picker("Search mode", selection: $searchMode) {
+                        Text("Ask Farelin").tag(DiscoverSearchMode.ai)
+                        Text("Advanced").tag(DiscoverSearchMode.advanced)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("discover-mode")
                     searchComposer
 
                     if store.isSearching {
@@ -35,19 +44,29 @@ struct DiscoverView: View {
             .scrollDismissesKeyboard(.interactively)
             .background(Color(.systemBackground))
             .navigationTitle("Discover")
+            .task(id: store.placeQuery) {
+                guard searchMode == .advanced else { return }
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
+                await store.searchPlaces()
+            }
         }
     }
 
     private var introduction: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("ASK FARELIN")
+            Text(searchMode == .ai ? "ASK FARELIN" : "BUILD YOUR SEARCH")
                 .font(.caption2.monospaced().weight(.semibold))
                 .tracking(1.4)
                 .foregroundStyle(FarelinColor.mint)
             Text("Where could you go?")
                 .font(.system(size: 34, weight: .bold, design: .rounded))
                 .tracking(-0.8)
-            Text("Describe the trip naturally. Farelin uses your profile unless you override it here.")
+            Text(
+                searchMode == .ai
+                    ? "Describe the trip naturally. Farelin uses your profile unless you override it here."
+                    : "Choose only what matters for this trip. Anything untouched comes from your travel profile."
+            )
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .lineSpacing(3)
@@ -56,6 +75,16 @@ struct DiscoverView: View {
     }
 
     private var searchComposer: some View {
+        Group {
+            if searchMode == .ai {
+                aiSearchComposer
+            } else {
+                advancedSearchComposer
+            }
+        }
+    }
+
+    private var aiSearchComposer: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Flying from")
@@ -127,7 +156,7 @@ struct DiscoverView: View {
 
             Button {
                 promptFocused = false
-                Task { await store.search(origins: originAirports) }
+                store.submit(origins: originAirports)
             } label: {
                 Label("Find trips", systemImage: "location.magnifyingglass")
             }
@@ -136,6 +165,384 @@ struct DiscoverView: View {
             .accessibilityIdentifier("discover-search")
         }
         .farelinCard()
+    }
+
+    private var advancedSearchComposer: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            advancedTripShape
+            Divider()
+            advancedOrigins
+            Divider()
+            advancedDestinations
+            Divider()
+            advancedDatesAndLength
+            Divider()
+            advancedPreferences
+
+            HStack {
+                Button("Reset to profile defaults") {
+                    store.resetAdvancedOverrides()
+                }
+                .font(.caption.weight(.semibold))
+                Spacer()
+                profileSourceLabel("Profile fills blank fields")
+            }
+
+            Button {
+                promptFocused = false
+                store.submitAdvanced(profileOrigins: originAirports)
+            } label: {
+                Label("Find trips", systemImage: "slider.horizontal.3")
+            }
+            .buttonStyle(FarelinPrimaryButtonStyle())
+            .disabled(store.isSearching)
+            .accessibilityIdentifier("advanced-search")
+        }
+        .farelinCard()
+    }
+
+    private var advancedTripShape: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            advancedHeading("Trip shape", source: "search")
+            Text("Choose how the journey should begin and end.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                tripShapeButton(
+                    value: "return",
+                    title: "Return",
+                    systemImage: "arrow.triangle.2.circlepath"
+                )
+                tripShapeButton(
+                    value: "open_jaw",
+                    title: "Open-jaw",
+                    systemImage: "arrow.triangle.branch"
+                )
+                tripShapeButton(
+                    value: "multi_city",
+                    title: "Multi-city",
+                    systemImage: "point.3.connected.trianglepath.dotted"
+                )
+            }
+
+            Text(tripShapeExplanation)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("trip-shape-explanation")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("trip-shape-selector")
+    }
+
+    private func tripShapeButton(value: String, title: String, systemImage: String) -> some View {
+        let selected = store.advanced.tripPlan == value
+        return Button {
+            withAnimation(.snappy(duration: 0.2)) {
+                store.advanced.tripPlan = value
+            }
+        } label: {
+            VStack(spacing: 7) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, minHeight: 62)
+            .padding(.horizontal, 4)
+            .foregroundStyle(selected ? FarelinColor.ink : Color.primary)
+            .background(
+                selected ? FarelinColor.mint : Color(.tertiarySystemBackground),
+                in: .rect(cornerRadius: 14)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(selected ? FarelinColor.mint : Color(.separator).opacity(0.55))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(selected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("trip-shape-\(value)")
+    }
+
+    private var tripShapeExplanation: String {
+        switch store.advanced.tripPlan {
+        case "open_jaw":
+            return "Fly into one place and return home from another. Add both places below."
+        case "multi_city":
+            return "Visit several places in order. Add at least two cities or airports below."
+        default:
+            return "Fly to one destination and return to your origin airport."
+        }
+    }
+
+    private var advancedOrigins: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            advancedHeading("Flying from", source: store.advanced.useProfileOrigins ? "profile" : "search")
+            Toggle("Use all profile airports", isOn: Binding(
+                get: { store.advanced.useProfileOrigins },
+                set: { store.setUseProfileOrigins($0, profileOrigins: originAirports) }
+            ))
+            .tint(FarelinColor.mint)
+
+            if !store.advanced.useProfileOrigins {
+                FlowLayout(spacing: 8) {
+                    ForEach(originAirports, id: \.self) { code in
+                        Button {
+                            store.toggleOrigin(code)
+                        } label: {
+                            selectableChip(code, selected: store.advanced.selectedOrigins.contains(code))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } else {
+                Text(originAirports.joined(separator: " · "))
+                    .font(.subheadline.monospaced().weight(.medium))
+                    .foregroundStyle(originAirports.isEmpty ? FarelinColor.coral : .secondary)
+            }
+        }
+    }
+
+    private var advancedDestinations: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            advancedHeading(
+                advancedDestinationHeading,
+                source: store.advanced.destinations.isEmpty ? "default" : "search"
+            )
+            if store.advanced.destinations.isEmpty {
+                Text(advancedDestinationHelp)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(Array(store.advanced.destinations.enumerated()), id: \.element.id) { index, place in
+                        HStack(spacing: 10) {
+                            destinationOrderMarker(index: index)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(place.name)
+                                    .font(.subheadline.weight(.semibold))
+                                Text("\(place.code.uppercased()) · \(place.subtitle)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button {
+                                store.removeDestination(place)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(place.name)")
+                        }
+                    }
+                }
+            }
+
+            TextField("Search places", text: Binding(
+                get: { store.placeQuery },
+                set: { store.placeQuery = $0 }
+            ))
+            .textInputAutocapitalization(.words)
+            .padding(12)
+            .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 13))
+            .overlay { RoundedRectangle(cornerRadius: 13).stroke(Color(.separator).opacity(0.5)) }
+            .accessibilityIdentifier("advanced-destination")
+
+            if store.isSearchingPlaces {
+                ProgressView("Looking up places…")
+                    .font(.caption)
+            } else if !store.placeResults.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(store.placeResults.prefix(7)) { place in
+                        Button {
+                            store.addDestination(place)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(place.name)
+                                        .font(.subheadline.weight(.medium))
+                                    Text("\(place.code.uppercased()) · \(place.subtitle)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "plus.circle")
+                                    .foregroundStyle(FarelinColor.mint)
+                            }
+                            .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.plain)
+                        if place.id != store.placeResults.prefix(7).last?.id { Divider() }
+                    }
+                }
+            }
+        }
+    }
+
+    private var advancedDestinationHeading: String {
+        switch store.advanced.tripPlan {
+        case "open_jaw": "Land in / fly home from"
+        case "multi_city": "Destinations in travel order"
+        default: "Where"
+        }
+    }
+
+    private var advancedDestinationHelp: String {
+        switch store.advanced.tripPlan {
+        case "open_jaw":
+            "Add two cities or airports: first where you land, then where you fly home from."
+        case "multi_city":
+            "Add at least two cities or airports in the order you want to visit them."
+        default:
+            "Leave blank for anywhere, or search a city, airport, country, region or continent."
+        }
+    }
+
+    @ViewBuilder
+    private func destinationOrderMarker(index: Int) -> some View {
+        if store.advanced.tripPlan == "multi_city" {
+            Text("\(index + 1)")
+                .font(.caption.monospaced().bold())
+                .frame(width: 24, height: 24)
+                .background(FarelinColor.mint.opacity(0.18), in: Circle())
+        } else if store.advanced.tripPlan == "open_jaw" {
+            Image(systemName: index == 0 ? "airplane.arrival" : "airplane.departure")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(FarelinColor.mint)
+                .frame(width: 24, height: 24)
+                .accessibilityLabel(index == 0 ? "Land in" : "Fly home from")
+        }
+    }
+
+    private var advancedDatesAndLength: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            advancedHeading("When", source: store.advanced.useProfileDates ? "profile" : "search")
+            Toggle("Use my profile date window", isOn: Binding(
+                get: { store.advanced.useProfileDates },
+                set: { store.advanced.useProfileDates = $0 }
+            ))
+            .tint(FarelinColor.mint)
+            if !store.advanced.useProfileDates {
+                DatePicker("Earliest departure", selection: Binding(
+                    get: { store.advanced.startDate },
+                    set: { store.advanced.startDate = $0 }
+                ), in: Date.now..., displayedComponents: .date)
+                DatePicker("Latest departure", selection: Binding(
+                    get: { store.advanced.endDate },
+                    set: { store.advanced.endDate = $0 }
+                ), in: store.advanced.startDate..., displayedComponents: .date)
+            }
+
+            advancedHeading("Trip length", source: store.advanced.useProfileTripLength ? "profile" : "search")
+            Toggle("Use my preferred trip length", isOn: Binding(
+                get: { store.advanced.useProfileTripLength },
+                set: { store.advanced.useProfileTripLength = $0 }
+            ))
+            .tint(FarelinColor.mint)
+            if !store.advanced.useProfileTripLength {
+                Stepper("At least \(store.advanced.minTripLengthDays) days", value: Binding(
+                    get: { store.advanced.minTripLengthDays },
+                    set: {
+                        store.advanced.minTripLengthDays = $0
+                        store.advanced.maxTripLengthDays = max(store.advanced.maxTripLengthDays, $0)
+                    }
+                ), in: 1...30)
+                Stepper("At most \(store.advanced.maxTripLengthDays) days", value: Binding(
+                    get: { store.advanced.maxTripLengthDays },
+                    set: { store.advanced.maxTripLengthDays = $0 }
+                ), in: store.advanced.minTripLengthDays...30)
+            }
+        }
+    }
+
+    private var advancedPreferences: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            advancedHeading("Trip preferences", source: "search")
+            TextField("Maximum flight budget (optional)", text: Binding(
+                get: { store.advanced.budgetText },
+                set: { store.advanced.budgetText = $0 }
+            ))
+            .keyboardType(.decimalPad)
+            .padding(12)
+            .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 13))
+            .overlay { RoundedRectangle(cornerRadius: 13).stroke(Color(.separator).opacity(0.5)) }
+
+            Text("Travel style")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            FlowLayout(spacing: 8) {
+                ForEach(advancedTravelStyles, id: \.key) { style in
+                    Button {
+                        store.toggleTravelStyle(style.key)
+                    } label: {
+                        selectableChip(style.label, selected: store.advanced.travelStyles.contains(style.key))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if store.advanced.travelStyles.isEmpty {
+                profileSourceLabel("Using profile travel styles")
+            }
+
+            Picker("Connections", selection: Binding(
+                get: { store.advanced.directPreference },
+                set: { store.advanced.directPreference = $0 }
+            )) {
+                Text("Profile default").tag("profile")
+                Text("Connections are okay").tag("connections")
+                Text("Direct flights only").tag("direct")
+            }
+            Picker("Cabin bag", selection: Binding(
+                get: { store.advanced.baggagePreference },
+                set: { store.advanced.baggagePreference = $0 }
+            )) {
+                Text("Profile default").tag("profile")
+                Text("Not required").tag("not_required")
+                Text("Prefer included").tag("included")
+            }
+            Stepper(
+                "Up to \(FarelinSearchFormat.duration(hours: store.advanced.maxGroundTransferHours)) ground transfer",
+                value: Binding(
+                    get: { store.advanced.maxGroundTransferHours },
+                    set: { store.advanced.maxGroundTransferHours = $0 }
+                ),
+                in: 0...12,
+                step: 0.5
+            )
+        }
+    }
+
+    private func advancedHeading(_ title: String, source: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+            Spacer()
+            profileSourceLabel(source == "search" ? "Overridden for this search" : source == "profile" ? "Using profile default" : "Farelin default")
+        }
+    }
+
+    private func profileSourceLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .tracking(0.6)
+            .foregroundStyle(.secondary)
+    }
+
+    private func selectableChip(_ text: String, selected: Bool) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .foregroundStyle(selected ? FarelinColor.ink : Color.primary)
+            .background(selected ? FarelinColor.mint : Color(.tertiarySystemBackground), in: Capsule())
+            .overlay { Capsule().stroke(selected ? FarelinColor.mint : Color(.separator).opacity(0.5)) }
     }
 
     private var searchingState: some View {
@@ -164,7 +571,11 @@ struct DiscoverView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button("Try again") {
-                Task { await store.search(origins: originAirports) }
+                if searchMode == .ai {
+                    store.submit(origins: originAirports)
+                } else {
+                    store.submitAdvanced(profileOrigins: originAirports)
+                }
             }
             .buttonStyle(.bordered)
         }
@@ -177,9 +588,13 @@ struct DiscoverView: View {
             Image(systemName: "point.3.connected.trianglepath.dotted")
                 .font(.title2)
                 .foregroundStyle(FarelinColor.mint)
-            Text("One request, complete trip ideas")
+            Text(searchMode == .ai ? "One request, complete trip ideas" : "Precise controls, no AI allowance used")
                 .font(.headline)
-            Text("Dates, budgets and places you name here override your profile. Anything you leave vague comes from your saved travel defaults.")
+            Text(
+                searchMode == .ai
+                    ? "Dates, budgets and places you name here override your profile. Anything you leave vague comes from your saved travel defaults."
+                    : "Advanced search calls the fare engine directly. Explicit controls override your profile; untouched fields keep your defaults."
+            )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineSpacing(3)
@@ -202,7 +617,7 @@ struct DiscoverView: View {
         }
 
         if let parsed = response.parsedRequest {
-            parsedSummary(parsed)
+            parsedSummary(parsed, sourceMap: response.sourceMap, hardBudgetApplied: response.hardBudgetApplied)
         }
 
         if let notice = providerNotice(response.providerMetadata) {
@@ -237,13 +652,21 @@ struct DiscoverView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(response.trips) { trip in
-                    NativeTripCard(trip: trip)
+                    NativeTripCard(
+                        trip: trip,
+                        tripDetailService: tripDetailService,
+                        reauthenticate: reauthenticate
+                    )
                 }
             }
         }
     }
 
-    private func parsedSummary(_ parsed: ParsedTripSearch) -> some View {
+    private func parsedSummary(
+        _ parsed: ParsedTripSearch,
+        sourceMap: [String: String]?,
+        hardBudgetApplied: Bool?
+    ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("WHAT FARELIN UNDERSTOOD")
                 .font(.caption2.monospaced().weight(.semibold))
@@ -251,14 +674,22 @@ struct DiscoverView: View {
                 .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    SearchFact(label: "FROM", value: parsed.originAirports.joined(separator: " + "))
-                    SearchFact(label: "WHEN", value: "\(FarelinSearchFormat.shortDate(parsed.startDate))–\(FarelinSearchFormat.shortDate(parsed.endDate))")
-                    SearchFact(label: "LENGTH", value: "\(parsed.minTripLengthDays)–\(parsed.maxTripLengthDays) days")
-                    SearchFact(label: "BUDGET", value: "≤ \(FarelinSearchFormat.money(parsed.maxBudget, currency: "EUR"))")
-                    SearchFact(label: "PLAN", value: parsed.tripPlan.replacingOccurrences(of: "_", with: " ").capitalized)
+                    SearchFact(label: "FROM", value: parsed.originAirports.joined(separator: " + "), source: sourceMap?["originAirports"])
+                    SearchFact(label: "WHEN", value: "\(FarelinSearchFormat.shortDate(parsed.startDate))–\(FarelinSearchFormat.shortDate(parsed.endDate))", source: sourceMap?["dateRange"])
+                    SearchFact(label: "LENGTH", value: "\(parsed.minTripLengthDays)–\(parsed.maxTripLengthDays) days", source: sourceMap?["minTripLengthDays"])
+                    SearchFact(
+                        label: "BUDGET",
+                        value: hardBudgetApplied == false ? "No hard cap" : "≤ \(FarelinSearchFormat.money(parsed.maxBudget, currency: "EUR"))",
+                        source: sourceMap?["maxBudget"]
+                    )
+                    SearchFact(label: "PLAN", value: parsed.tripPlan.replacingOccurrences(of: "_", with: " ").capitalized, source: sourceMap?["tripPlan"])
                 }
             }
-            Text("Your wording overrides profile defaults for this search.")
+            Text(
+                searchMode == .ai
+                    ? "Your wording overrides profile defaults for this search."
+                    : "Search labels show which values came from this search and which came from your profile."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -296,6 +727,13 @@ struct DiscoverView: View {
 private struct SearchFact: View {
     let label: String
     let value: String
+    let source: String?
+
+    init(label: String, value: String, source: String? = nil) {
+        self.label = label
+        self.value = value
+        self.source = source
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -305,6 +743,11 @@ private struct SearchFact: View {
             Text(value)
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
+            if let source {
+                Text(source == "search" ? "THIS SEARCH" : source == "profile" ? "PROFILE" : "DEFAULT")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(source == "search" ? FarelinColor.mint : .secondary)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -313,8 +756,26 @@ private struct SearchFact: View {
     }
 }
 
+private enum DiscoverSearchMode: Hashable {
+    case ai
+    case advanced
+}
+
+private let advancedTravelStyles: [(key: String, label: String)] = [
+    ("weekend_city_break", "Weekend"),
+    ("beach", "Beach"),
+    ("food", "Food"),
+    ("culture", "Culture"),
+    ("nature", "Nature"),
+    ("nightlife", "Nightlife"),
+    ("cheap_adventure", "Cheap adventure"),
+    ("long_haul_dream", "Long-haul"),
+]
+
 private struct NativeTripCard: View {
     let trip: SearchTrip
+    let tripDetailService: any TripDetailServicing
+    let reauthenticate: (@MainActor @Sendable () async -> Bool)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
@@ -389,6 +850,17 @@ private struct NativeTripCard: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
+                NavigationLink {
+                    TripDetailView(
+                        trip: trip,
+                        service: tripDetailService,
+                        reauthenticate: reauthenticate
+                    )
+                } label: {
+                    Text("View trip")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
                 if let url = trip.checkPriceURL {
                     Link(destination: url) {
                         Label("Check price", systemImage: "arrow.up.right")
@@ -406,6 +878,296 @@ private struct NativeTripCard: View {
 
     private func scoreColor(_ score: Int) -> Color {
         score >= 75 ? FarelinColor.mint : score >= 50 ? .orange : .secondary
+    }
+}
+
+private struct TripDetailView: View {
+    @State private var store: TripDetailStore
+
+    init(
+        trip: SearchTrip,
+        service: any TripDetailServicing,
+        reauthenticate: (@MainActor @Sendable () async -> Bool)?
+    ) {
+        _store = State(
+            initialValue: TripDetailStore(
+                trip: trip,
+                suggestionID: trip.suggestionId,
+                service: service,
+                reauthenticate: reauthenticate
+            )
+        )
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                tripHeader
+                flightPlan
+                whyItWorks
+                itinerarySection
+                providerAction
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 36)
+        }
+        .background(Color(.systemBackground))
+        .navigationTitle(store.title ?? "Trip idea")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await store.load() }
+    }
+
+    private var tripHeader: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(store.trip.tripTypeLabel.uppercased())
+                .font(.caption2.monospaced().weight(.semibold))
+                .tracking(1.2)
+                .foregroundStyle(FarelinColor.mint)
+            Text(store.trip.routeTitle)
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .tracking(-0.7)
+            Text("\(FarelinSearchFormat.shortDate(store.trip.outboundFlight.departureDateTime))–\(FarelinSearchFormat.shortDate(store.trip.returnFlight.departureDateTime)) · \(store.trip.nights) \(store.trip.nights == 1 ? "night" : "nights")")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(FarelinSearchFormat.priceHeadline(store.trip))
+                    .font(.title2.bold())
+                    .foregroundStyle(FarelinColor.mint)
+                Spacer()
+                TripBadge(text: "\(store.trip.dealScore) deal", color: detailScoreColor(store.trip.dealScore))
+                if let fit = store.trip.fitScore {
+                    TripBadge(text: "\(fit) fit", color: detailScoreColor(fit))
+                }
+            }
+            Text(FarelinSearchFormat.observationDetail(store.trip))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 8)
+    }
+
+    private var flightPlan: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            detailTitle("Flights")
+            FlightSummaryRow(label: "Outbound", flight: store.trip.outboundFlight)
+            if let transfer = store.trip.groundTransfer {
+                Label {
+                    Text("\(transfer.fromCity) → \(transfer.toCity) · about \(FarelinSearchFormat.duration(hours: transfer.durationHours)) by \(transfer.mode) · estimated \(FarelinSearchFormat.money(transfer.estimatedCost, currency: "EUR"))")
+                        .font(.caption)
+                } icon: {
+                    Image(systemName: "tram.fill")
+                }
+                .foregroundStyle(.secondary)
+                .farelinCard()
+            }
+            FlightSummaryRow(label: "Return", flight: store.trip.returnFlight)
+        }
+    }
+
+    private var whyItWorks: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            detailTitle("Why this works")
+            Text(store.trip.explanation)
+                .font(.body)
+                .lineSpacing(3)
+            if !store.trip.tags.isEmpty {
+                FlowLayout(spacing: 7) {
+                    ForEach(store.trip.tags, id: \.self) { tag in
+                        TripBadge(text: tag, color: .secondary)
+                    }
+                }
+            }
+            ForEach(store.trip.warnings, id: \.self) { warning in
+                Label(warning, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(FarelinColor.coral)
+            }
+        }
+        .farelinCard()
+    }
+
+    @ViewBuilder
+    private var itinerarySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                detailTitle("Your Farelin plan")
+                Spacer()
+                if store.itineraryWasCached, store.itinerary != nil {
+                    Text("SAVED PLAN")
+                        .font(.caption2.monospaced().weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let itinerary = store.itinerary {
+                Text(itinerary.summary)
+                    .font(.body)
+                    .lineSpacing(3)
+
+                ForEach(Array(itinerary.days.enumerated()), id: \.offset) { _, day in
+                    VStack(alignment: .leading, spacing: 11) {
+                        Text(day.label)
+                            .font(.headline)
+                        ForEach(Array(day.items.enumerated()), id: \.offset) { _, item in
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: itinerarySymbol(item.category))
+                                    .foregroundStyle(FarelinColor.mint)
+                                    .frame(width: 22)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.title)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("\(item.partOfDay.capitalized) · \(item.estimatedCost)")
+                                        .font(.caption)
+                                        .foregroundStyle(FarelinColor.coral)
+                                    Text(item.description)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineSpacing(2)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                if let gettingAround = itinerary.gettingAround, !gettingAround.isEmpty {
+                    Label(gettingAround, systemImage: "figure.walk")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let estimate = itinerary.extraCostEstimate, !estimate.isEmpty {
+                    Label("Estimated extras: \(estimate)", systemImage: "eurosign.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(itinerary.disclaimers, id: \.self) { disclaimer in
+                    Text(disclaimer)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            } else if store.isGenerating {
+                HStack(spacing: 12) {
+                    ProgressView()
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Planning around your flights…")
+                            .font(.subheadline.weight(.semibold))
+                        Text("This may take a few moments. Farelin will cache the finished plan.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else if store.suggestionID != nil {
+                Text("Build a realistic day-by-day idea around the observed arrival and departure times, your profile, and this trip’s length.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Button {
+                    store.submitItineraryGeneration()
+                } label: {
+                    Label("Plan this trip", systemImage: "map")
+                }
+                .buttonStyle(FarelinPrimaryButtonStyle())
+            } else {
+                Text("This result does not have a saved suggestion to plan. Run a fresh search and open it again.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let error = store.errorMessage {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(FarelinColor.coral)
+                    Button("Dismiss") { store.dismissError() }
+                        .font(.caption.weight(.semibold))
+                }
+            }
+        }
+        .farelinCard()
+    }
+
+    private var providerAction: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(store.disclaimer)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let url = store.trip.checkPriceURL {
+                Link(destination: url) {
+                    Label("Check final price with provider", systemImage: "arrow.up.right")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(FarelinPrimaryButtonStyle())
+            }
+        }
+    }
+
+    private func detailTitle(_ value: String) -> some View {
+        Text(value.uppercased())
+            .font(.caption2.monospaced().weight(.semibold))
+            .tracking(1.2)
+            .foregroundStyle(.secondary)
+    }
+
+    private func itinerarySymbol(_ category: String) -> String {
+        switch category.lowercased() {
+        case "food": "fork.knife"
+        case "nature", "hike", "hiking": "mountain.2"
+        case "culture", "museum", "architecture": "building.columns"
+        case "nightlife": "moon.stars"
+        default: "location.fill"
+        }
+    }
+
+    private func detailScoreColor(_ score: Int) -> Color {
+        score >= 75 ? FarelinColor.mint : score >= 50 ? .orange : .secondary
+    }
+}
+
+private struct FlowLayout: Layout {
+    let spacing: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let result = arrangement(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let result = arrangement(proposal: proposal, subviews: subviews)
+        for (index, point) in result.points.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y),
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private func arrangement(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, points: [CGPoint]) {
+        let width = proposal.width ?? 320
+        var points: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            points.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        return (CGSize(width: width, height: y + rowHeight), points)
     }
 }
 
