@@ -15,6 +15,7 @@ struct AuthenticatedAppView: View {
     @State private var selectedTab = FarelinTab.dashboard
     @State private var dashboardStore: DashboardStore
     @State private var profileStore: TravelProfileStore
+    @State private var searchStore: TripSearchStore
     @State private var showingProfile = false
 
     init(
@@ -34,6 +35,12 @@ struct AuthenticatedAppView: View {
         )
         _profileStore = State(
             initialValue: TravelProfileStore(
+                service: apiClient,
+                reauthenticate: { await session.refreshAccess() }
+            )
+        )
+        _searchStore = State(
+            initialValue: TripSearchStore(
                 service: apiClient,
                 reauthenticate: { await session.refreshAccess() }
             )
@@ -66,11 +73,9 @@ struct AuthenticatedAppView: View {
             .tabItem { Label("Today", systemImage: "sparkles") }
             .tag(FarelinTab.dashboard)
 
-            FeaturePreviewView(
-                title: "Discover",
-                headline: "Where could you go?",
-                detail: "AI and advanced fare search are being connected to your profile next.",
-                symbol: "location.magnifyingglass"
+            DiscoverView(
+                store: searchStore,
+                originAirports: profileStore.draft?.originAirports ?? []
             )
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(FarelinTab.discover)

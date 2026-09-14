@@ -1,0 +1,208 @@
+import XCTest
+@testable import Farelin
+
+@MainActor
+final class TripSearchTests: XCTestCase {
+    func testAISearchResponseDecodesBackendShape() throws {
+        let response = try JSONDecoder().decode(
+            FarelinAISearchResponse.self,
+            from: Data(Self.searchJSON.utf8)
+        )
+
+        XCTAssertEqual(response.trips.count, 1)
+        XCTAssertEqual(response.trips[0].routeTitle, "CPH → Stockholm")
+        XCTAssertEqual(response.trips[0].price?.freshness, "fresh")
+        XCTAssertEqual(response.parsedRequest?.originAirports, ["CPH", "MMX"])
+        XCTAssertEqual(response.providerMetadata?.cachedResultsUsed, true)
+    }
+
+    func testSearchUsesProfileOriginsAndKeepsServerResults() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.query = "A food weekend in Stockholm next month"
+
+        await store.search(origins: ["CPH", "MMX"])
+
+        let request = await service.lastRequest()
+        XCTAssertEqual(request?.originAirports, ["CPH", "MMX"])
+        XCTAssertEqual(store.response?.trips.first?.destination?.city, "Stockholm")
+        XCTAssertNil(store.errorMessage)
+        XCTAssertFalse(store.isSearching)
+    }
+
+    func testSearchRequiresAnOriginWithoutCallingBackend() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.query = "A week somewhere warm next month"
+
+        await store.search(origins: [])
+
+        let request = await service.lastRequest()
+        XCTAssertEqual(store.errorMessage, "Add at least one origin airport to your travel profile first.")
+        XCTAssertNil(request)
+    }
+
+    func testEstimatedPriceCopyNeverSoundsGuaranteed() {
+        let trip = SearchTrip.fixture(isEstimate: true, freshness: "stale", legCount: 3)
+
+        XCTAssertEqual(FarelinSearchFormat.priceHeadline(trip), "Estimated from €210")
+        XCTAssertTrue(FarelinSearchFormat.observationDetail(trip).contains("separately observed"))
+        XCTAssertFalse(FarelinSearchFormat.observationDetail(trip).lowercased().contains("guaranteed price"))
+    }
+
+    private static let searchJSON = """
+    {
+      "message": "Stockholm fits your food-focused weekend and the returned fare is within budget.",
+      "parsedRequest": {
+        "originAirports": ["CPH", "MMX"],
+        "destinationAirports": ["STO"],
+        "destinationCountries": [],
+        "destinationRegions": [],
+        "destinationContinents": [],
+        "startDate": "2026-10-01",
+        "endDate": "2026-11-30",
+        "minTripLengthDays": 2,
+        "maxTripLengthDays": 4,
+        "maxBudget": 300,
+        "maxGroundTransferHours": 3,
+        "tripStyle": "one city",
+        "tripPlan": "return",
+        "directOnly": false,
+        "includeBaggage": false,
+        "travelStyles": ["food"]
+      },
+      "trips": [{
+        "id": "trip-1",
+        "tripType": "same_city",
+        "outboundFlight": {
+          "id": "out-1", "origin": "CPH", "destination": "ARN",
+          "departureDateTime": "2026-10-16T09:00:00+02:00",
+          "arrivalDateTime": "2026-10-16T10:15:00+02:00",
+          "airline": "SK", "price": 55, "currency": "EUR",
+          "bookingUrl": "https://example.com/check", "deepLink": null,
+          "affiliateUrl": null, "stops": 0, "durationMinutes": 75,
+          "isLive": false, "confidenceLevel": "indicative",
+          "observedAt": "2026-09-14T10:00:00Z"
+        },
+        "returnFlight": {
+          "id": "in-1", "origin": "ARN", "destination": "CPH",
+          "departureDateTime": "2026-10-18T19:00:00+02:00",
+          "arrivalDateTime": "2026-10-18T20:15:00+02:00",
+          "airline": "SK", "price": 55, "currency": "EUR",
+          "bookingUrl": "https://example.com/check", "deepLink": null,
+          "affiliateUrl": null, "stops": 0, "durationMinutes": 75,
+          "isLive": false, "confidenceLevel": "indicative",
+          "observedAt": "2026-09-14T10:00:00Z"
+        },
+        "groundTransfer": null,
+        "price": {
+          "amount": 110, "currency": "EUR", "kind": "cached_return",
+          "source": "travelpayouts-cache", "isLive": false,
+          "isEstimate": false, "observedAt": "2026-09-14T10:00:00Z",
+          "ageHours": 1, "freshness": "fresh", "freshnessScore": 95,
+          "legCount": 1, "history": null
+        },
+        "totalPrice": 110, "tripLengthDays": 3, "nights": 2,
+        "score": 82, "dealScore": 80, "fitScore": 86,
+        "suggestionId": "suggestion-1", "fareKind": "round_trip_bundle",
+        "explanation": "A useful short trip with convenient times.",
+        "warnings": ["Cabin bag details are unknown."],
+        "tags": ["food", "weekend"],
+        "bookingUrl": "https://example.com/check", "provider": "travelpayouts",
+        "destination": {
+          "code": "STO", "kind": "city", "city": "Stockholm",
+          "country": "Sweden", "countryCode": "SE", "continent": "Europe"
+        }
+      }],
+      "relaxationNote": null,
+      "missingFields": [],
+      "providerMetadata": {
+        "providerUsed": "travelpayouts", "providerName": "travelpayouts",
+        "liveProviderAttempted": false, "liveProviderSucceeded": false,
+        "cachedResultsUsed": true, "cachedResultsStale": false,
+        "requestsAttempted": 0, "requestsLimit": 0, "rawOffersCount": 1,
+        "mappedFlightsCount": 2, "skippedOffersCount": 0,
+        "affiliateLinksGenerated": 1, "deepLinksReturned": 1,
+        "providerWarnings": []
+      },
+      "aiMetadata": {
+        "aiProvider": "openai", "model": "gpt-5-mini", "toolCallsUsed": 1,
+        "fallbackUsed": false, "warnings": []
+      }
+    }
+    """
+}
+
+private actor FakeTripSearchService: TripSearchServicing {
+    private let response: FarelinAISearchResponse
+    private var request: FarelinAISearchRequest?
+
+    init(response: FarelinAISearchResponse) {
+        self.response = response
+    }
+
+    func searchTrips(_ request: FarelinAISearchRequest) async throws -> FarelinAISearchResponse {
+        self.request = request
+        return response
+    }
+
+    func lastRequest() -> FarelinAISearchRequest? { request }
+}
+
+private extension FarelinAISearchResponse {
+    static let fixture = FarelinAISearchResponse(
+        message: "Stockholm is a strong fit.",
+        parsedRequest: nil,
+        trips: [.fixture()],
+        relaxationNote: nil,
+        missingFields: [],
+        providerMetadata: nil
+    )
+}
+
+private extension SearchTrip {
+    static func fixture(
+        isEstimate: Bool = false,
+        freshness: String = "fresh",
+        legCount: Int = 1
+    ) -> SearchTrip {
+        let outbound = SearchFlight(
+            id: "out", origin: "CPH", destination: "ARN",
+            departureDateTime: "2026-10-16T09:00:00Z",
+            arrivalDateTime: "2026-10-16T10:15:00Z",
+            airline: "SK", price: 105, currency: "EUR",
+            bookingUrl: "https://example.com/check", deepLink: nil, affiliateUrl: nil,
+            stops: 0, durationMinutes: 75, isLive: false,
+            confidenceLevel: "indicative", observedAt: "2026-09-14T10:00:00Z"
+        )
+        let inbound = SearchFlight(
+            id: "in", origin: "ARN", destination: "CPH",
+            departureDateTime: "2026-10-18T19:00:00Z",
+            arrivalDateTime: "2026-10-18T20:15:00Z",
+            airline: "SK", price: 105, currency: "EUR",
+            bookingUrl: "https://example.com/check", deepLink: nil, affiliateUrl: nil,
+            stops: 0, durationMinutes: 75, isLive: false,
+            confidenceLevel: "indicative", observedAt: "2026-09-14T10:00:00Z"
+        )
+        return SearchTrip(
+            id: "trip", tripType: "same_city", outboundFlight: outbound,
+            returnFlight: inbound, groundTransfer: nil,
+            price: SearchPriceInfo(
+                amount: 210, currency: "EUR",
+                kind: isEstimate ? "estimated_multi_city" : "cached_return",
+                source: "travelpayouts-cache", isLive: false, isEstimate: isEstimate,
+                observedAt: "2026-09-14T10:00:00Z", ageHours: 72,
+                freshness: freshness, legCount: legCount
+            ),
+            totalPrice: 210, tripLengthDays: 3, nights: 2, score: 80,
+            dealScore: 80, fitScore: 85, suggestionId: "suggestion",
+            fareKind: "round_trip_bundle", explanation: "A good fit.",
+            warnings: [], tags: ["food"], bookingUrl: "https://example.com/check",
+            provider: "travelpayouts",
+            destination: SearchDestination(
+                code: "STO", city: "Stockholm", country: "Sweden",
+                countryCode: "SE", continent: "Europe"
+            )
+        )
+    }
+}

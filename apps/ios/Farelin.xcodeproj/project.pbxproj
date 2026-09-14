@@ -14,6 +14,9 @@
 		0A61D8E72A8E4F7CB227A105 /* TravelProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */; };
 		0A61D8E72A8E4F7CB227A106 /* TravelProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */; };
 		0A61D8E72A8E4F7CB227A107 /* TravelProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */; };
+		0A61D8E72A8E4F7CB227A108 /* TripSearchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B108 /* TripSearchModels.swift */; };
+		0A61D8E72A8E4F7CB227A109 /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B109 /* DiscoverView.swift */; };
+		0A61D8E72A8E4F7CB227A110 /* TripSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B110 /* TripSearchTests.swift */; };
 		1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */; };
 		38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */; };
 		3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
@@ -61,6 +64,9 @@
 		0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TravelProfileModels.swift; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TravelProfileView.swift; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TravelProfileTests.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B108 /* TripSearchModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TripSearchModels.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B109 /* DiscoverView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
+		0A61D8E72A8E4F7CB227B110 /* TripSearchTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TripSearchTests.swift; sourceTree = "<group>"; };
 		0729BD432C52D74BA203D10A /* AuthModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RefreshTokenStore.swift; sourceTree = "<group>"; };
 		0C64792974BA8FAF5EB57C01 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -124,6 +130,7 @@
 				0A61D8E72A8E4F7CB227B104 /* DashboardTests.swift */,
 				4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */,
 				0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */,
+				0A61D8E72A8E4F7CB227B110 /* TripSearchTests.swift */,
 			);
 			path = FarelinTests;
 			sourceTree = "<group>";
@@ -152,6 +159,7 @@
 				997386649DF4A1F7EC982EB4 /* Authentication */,
 				8401F511B53932648C93049E /* Billing */,
 				0A61D8E72A8E4F7CB227C101 /* Dashboard */,
+				0A61D8E72A8E4F7CB227C103 /* Discover */,
 				66C5601C97476407C3A131A3 /* Foundation */,
 				0A61D8E72A8E4F7CB227C102 /* Onboarding */,
 			);
@@ -192,6 +200,15 @@
 				0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */,
 			);
 			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C103 /* Discover */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B108 /* TripSearchModels.swift */,
+				0A61D8E72A8E4F7CB227B109 /* DiscoverView.swift */,
+			);
+			path = Discover;
 			sourceTree = "<group>";
 		};
 		7586DDF7060CE2C18BEA58F3 /* Farelin */ = {
@@ -440,6 +457,7 @@
 				0A61D8E72A8E4F7CB227A104 /* DashboardTests.swift in Sources */,
 				1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */,
 				0A61D8E72A8E4F7CB227A107 /* TravelProfileTests.swift in Sources */,
+				0A61D8E72A8E4F7CB227A110 /* TripSearchTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -469,6 +487,8 @@
 				5F6AB25ACABE2A4202FA6B88 /* PurchaseProviding.swift in Sources */,
 				0A61D8E72A8E4F7CB227A102 /* DashboardModels.swift in Sources */,
 				0A61D8E72A8E4F7CB227A103 /* DashboardView.swift in Sources */,
+				0A61D8E72A8E4F7CB227A108 /* TripSearchModels.swift in Sources */,
+				0A61D8E72A8E4F7CB227A109 /* DiscoverView.swift in Sources */,
 				0A61D8E72A8E4F7CB227A105 /* TravelProfileModels.swift in Sources */,
 				0A61D8E72A8E4F7CB227A106 /* TravelProfileView.swift in Sources */,
 				A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */,

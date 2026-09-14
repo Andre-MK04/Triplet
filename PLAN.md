@@ -344,7 +344,7 @@ the reviewed build is released with production services and truthful metadata.
   - Sign in with Apple and Google native exchange remain before this stage is
     complete; refresh coordination must be centralized as more feature stores
     begin issuing authenticated requests concurrently.
-- [ ] Stage 3 — shell, onboarding, profile, dashboard
+- [x] Stage 3 — shell, onboarding, profile, dashboard
   - Native iPhone tabs and a real `/me/dashboard`-backed Today screen are
     implemented. Usage, entitlements, saved-watch summaries, loading, empty,
     and retry states do not duplicate backend plan logic.
@@ -352,9 +352,15 @@ the reviewed build is released with production services and truthful metadata.
     origin-safe airport recommendations, plan-aware origin limits, structured
     comfort preferences, and existing profile persistence. New accounts are
     gated into onboarding; completed profiles can be edited from Account.
-  - Simulator unit/UI coverage is green. The onboarding flow still needs its
-    final physical-device pass against the deployed staging geo endpoints.
+  - Simulator unit/UI coverage is green. The full onboarding flow and deployed
+    staging geo endpoints are validated on a physical iPhone.
 - [ ] Stage 4 — search, results, trip planning
+  - The first native Discover slice is implemented against authenticated
+    `/ai/search`: profile origins, progressive loading, parsed-request context,
+    provider caveats, empty/error states, and truthful observed/estimated fare
+    cards all remain thin clients of backend search and entitlement logic.
+  - Advanced structured search, saved-watch creation, suggestion detail, and
+    AI itinerary generation remain for the next Stage 4 slices.
 - [ ] Stage 5 — watches and native push
 - [ ] Stage 6 — My World and interactive globe
 - [ ] Stage 7 — account, privacy, StoreKit seam, resilience
