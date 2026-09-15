@@ -3,12 +3,14 @@ import SwiftUI
 enum FarelinColor {
     static let mint = Color(red: 0.49, green: 0.87, blue: 0.76)
     static let coral = Color(red: 1.00, green: 0.60, blue: 0.47)
+    static let gold = Color(red: 0.91, green: 0.77, blue: 0.42)
     static let ink = Color(red: 0.043, green: 0.067, blue: 0.090)
     static let cloud = Color(red: 0.91, green: 0.94, blue: 0.96)
 }
 
 struct FarelinPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -22,10 +24,10 @@ struct FarelinPrimaryButtonStyle: ButtonStyle {
                 )
             )
             .clipShape(.rect(cornerRadius: 16))
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.985 : 1))
             .opacity(isEnabled ? 1 : 0.72)
-            .animation(.snappy(duration: 0.18), value: configuration.isPressed)
-            .animation(.easeOut(duration: 0.15), value: isEnabled)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isEnabled)
     }
 }
 

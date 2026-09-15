@@ -32,6 +32,26 @@ struct ParsedTripSearch: Decodable, Sendable {
     let travelStyles: [String]?
 }
 
+struct NativeSavedWatchRequest: Encodable, Sendable {
+    let email: String
+    let name: String
+    let originAirports: [String]
+    let destinationAirports: [String]
+    let startDate: String
+    let endDate: String
+    let minTripLengthDays: Int
+    let maxTripLengthDays: Int
+    let maxBudget: Double
+    let maxGroundTransferHours: Double
+    let tripStyle: String
+    let frequency: String
+    let triggerMode: String
+}
+
+protocol NativeWatchCreating: Sendable {
+    func createWatch(_ request: NativeSavedWatchRequest) async throws -> SavedWatchSummary
+}
+
 struct FlightPlaceResult: Decodable, Identifiable, Hashable, Sendable {
     var id: String { "\(kind):\(code)" }
     let code: String
@@ -80,6 +100,7 @@ struct AdvancedSearchDraft: Equatable, Sendable {
     var travelStyles: [String] = []
     var directPreference = "profile"
     var baggagePreference = "profile"
+    var useDefaultGroundTransfer = true
     var maxGroundTransferHours = 4.0
 }
 
@@ -135,6 +156,28 @@ struct SearchGroundTransfer: Decodable, Sendable {
     let mode: String
 }
 
+struct SearchTripSegment: Decodable, Sendable {
+    let kind: String
+    let origin: String
+    let destination: String
+    let originCity: String
+    let destinationCity: String
+    let departureDate: String
+    let flight: SearchFlight?
+    let transfer: SearchGroundTransfer?
+    let bookingUrl: String?
+}
+
+struct SearchCityStay: Decodable, Sendable {
+    let code: String
+    let city: String
+    let country: String
+    let countryCode: String
+    let arrivalDate: String
+    let departureDate: String
+    let nights: Int
+}
+
 struct SearchDestination: Decodable, Sendable {
     let code: String
     let city: String
@@ -149,6 +192,10 @@ struct SearchTrip: Decodable, Identifiable, Sendable {
     let outboundFlight: SearchFlight
     let returnFlight: SearchFlight
     let groundTransfer: SearchGroundTransfer?
+    let segments: [SearchTripSegment]?
+    let stays: [SearchCityStay]?
+    let flightCost: Double?
+    let groundEstimate: Double?
     let price: SearchPriceInfo?
     let totalPrice: Double
     let tripLengthDays: Int
@@ -170,7 +217,8 @@ struct SearchTrip: Decodable, Identifiable, Sendable {
         case "open_jaw":
             "\(outboundFlight.origin) → \(outboundFlight.destination) / \(returnFlight.origin) → \(returnFlight.destination)"
         case "multi_city":
-            "\(outboundFlight.origin) → \(destination?.city ?? outboundFlight.destination) → \(returnFlight.destination)"
+            ([outboundFlight.origin] + (stays ?? []).map(\.city) + [returnFlight.destination])
+                .joined(separator: " → ")
         default:
             "\(outboundFlight.origin) → \(destination?.city ?? outboundFlight.destination)"
         }
@@ -473,7 +521,7 @@ final class TripSearchStore {
             minTripLengthDays: advanced.useProfileTripLength ? nil : advanced.minTripLengthDays,
             maxTripLengthDays: advanced.useProfileTripLength ? nil : advanced.maxTripLengthDays,
             maxBudget: budget,
-            maxGroundTransferHours: advanced.maxGroundTransferHours,
+            maxGroundTransferHours: advanced.useDefaultGroundTransfer ? nil : advanced.maxGroundTransferHours,
             tripPlan: tripPlan,
             routeStops: tripPlan == "multi_city" ? routePlaces.map(\.code) : nil,
             directOnly: Self.optionalPreference(advanced.directPreference, requiredValue: "direct"),

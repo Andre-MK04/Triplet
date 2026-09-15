@@ -3,6 +3,9 @@ import Observation
 
 protocol DashboardServicing: Sendable {
     func dashboard() async throws -> DashboardResponse
+    func pauseWatch(id: String) async throws -> SavedWatchSummary
+    func resumeWatch(id: String) async throws -> SavedWatchSummary
+    func deleteWatch(id: String) async throws
 }
 
 struct DashboardResponse: Decodable, Sendable {
@@ -59,6 +62,7 @@ final class DashboardStore {
     private(set) var dashboard: DashboardResponse?
     private(set) var isLoading = false
     private(set) var errorMessage: String?
+    private(set) var workingWatchID: String?
 
     private let service: any DashboardServicing
     private let reauthenticate: (@MainActor @Sendable () async -> Bool)?
@@ -90,6 +94,48 @@ final class DashboardStore {
             }
         } catch {
             errorMessage = readable(error)
+        }
+    }
+
+    func setWatch(_ watch: SavedWatchSummary, active: Bool) async {
+        guard workingWatchID == nil else { return }
+        workingWatchID = watch.id
+        errorMessage = nil
+        defer { workingWatchID = nil }
+        do {
+            _ = try await authenticated {
+                if active {
+                    return try await self.service.resumeWatch(id: watch.id)
+                }
+                return try await self.service.pauseWatch(id: watch.id)
+            }
+            await load(force: true)
+        } catch {
+            errorMessage = readable(error)
+        }
+    }
+
+    func deleteWatch(_ watch: SavedWatchSummary) async {
+        guard workingWatchID == nil else { return }
+        workingWatchID = watch.id
+        errorMessage = nil
+        defer { workingWatchID = nil }
+        do {
+            try await authenticated { try await self.service.deleteWatch(id: watch.id) }
+            await load(force: true)
+        } catch {
+            errorMessage = readable(error)
+        }
+    }
+
+    private func authenticated<T: Sendable>(
+        _ operation: @escaping @MainActor @Sendable () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await operation()
+        } catch APIError.unauthorized {
+            guard let reauthenticate, await reauthenticate() else { throw APIError.unauthorized }
+            return try await operation()
         }
     }
 

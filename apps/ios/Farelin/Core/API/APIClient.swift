@@ -37,7 +37,7 @@ protocol NativeAuthServicing: Sendable {
     func setAccessToken(_ token: String?) async
 }
 
-actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, TripDetailServicing {
+actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating {
     private let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
@@ -57,6 +57,45 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             method: "GET",
             authenticated: true,
             response: DashboardResponse.self
+        )
+    }
+
+    func createWatch(_ request: NativeSavedWatchRequest) async throws -> SavedWatchSummary {
+        try await send(
+            path: "me/saved-searches",
+            method: "POST",
+            body: request,
+            authenticated: true,
+            response: SavedWatchSummary.self
+        )
+    }
+
+    func pauseWatch(id: String) async throws -> SavedWatchSummary {
+        try await send(
+            path: "me/saved-searches/\(id)/pause",
+            method: "POST",
+            body: EmptyPayload(),
+            authenticated: true,
+            response: SavedWatchSummary.self
+        )
+    }
+
+    func resumeWatch(id: String) async throws -> SavedWatchSummary {
+        try await send(
+            path: "me/saved-searches/\(id)/resume",
+            method: "POST",
+            body: EmptyPayload(),
+            authenticated: true,
+            response: SavedWatchSummary.self
+        )
+    }
+
+    func deleteWatch(id: String) async throws {
+        _ = try await send(
+            path: "me/saved-searches/\(id)",
+            method: "DELETE",
+            authenticated: true,
+            response: MutationAcknowledgement.self
         )
     }
 
@@ -174,6 +213,33 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             authenticated: true,
             timeoutInterval: 60,
             response: ItineraryGenerationResponse.self
+        )
+    }
+
+    func countryCatalog() async throws -> CountryCatalogResponse {
+        try await send(
+            path: "countries",
+            method: "GET",
+            response: CountryCatalogResponse.self
+        )
+    }
+
+    func travelMap() async throws -> TravelMapResponse {
+        try await send(
+            path: "me/travel-map",
+            method: "GET",
+            authenticated: true,
+            response: TravelMapResponse.self
+        )
+    }
+
+    func updateCountry(_ code: String, update: CountryStateUpdate) async throws -> TravelMapCountry {
+        try await send(
+            path: "me/travel-map/countries/\(code)",
+            method: "PATCH",
+            body: update,
+            authenticated: true,
+            response: TravelMapCountry.self
         )
     }
 
@@ -343,3 +409,4 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
 
 private struct EmptyPayload: Encodable, Sendable {}
 private struct APIErrorEnvelope: Decodable, Sendable { let detail: String }
+private struct MutationAcknowledgement: Decodable, Sendable { let ok: Bool }

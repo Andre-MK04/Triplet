@@ -12,7 +12,7 @@ from app.models import TripSearchRequest
 from app.providers.travelpayouts.mapper import RoundTripFare
 from app.services.destination_scope import resolve_destination_scope
 from app.services.trip_scoring import ScoringContext
-from app.tools.travel_tools import nearest_matches
+from app.tools.travel_tools import nearest_matches, over_budget_matches
 
 
 def request(**overrides) -> TripSearchRequest:
@@ -91,3 +91,25 @@ def test_nearest_matches_never_reshapes_a_fare_to_look_like_a_match():
     }
     assert offered <= {("2026-09-17", 123.0), ("2026-09-25", 144.0)}
     assert all(t.nights not in range(6, 9) for t in trips)
+
+
+def test_open_search_returns_real_over_budget_fares_instead_of_an_empty_screen():
+    req = request(destinationAirports=None, maxBudget=80)
+
+    trips, note = over_budget_matches(
+        [RoundTripFare(
+            origin="VIE", destination="DUB", price=123, currency="EUR",
+            departureDate="2026-09-17", returnDate="2026-09-24",
+        )],
+        req,
+        ScoringContext(),
+        airports=[],
+        transfers=[],
+        flights=[],
+        per_destination_limit=1,
+    )
+
+    assert trips
+    assert trips[0].totalPrice == 123
+    assert "Over budget" in trips[0].tags
+    assert "within your €80 budget" in note

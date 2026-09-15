@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 enum FarelinTab: Hashable {
@@ -17,6 +18,7 @@ struct AuthenticatedAppView: View {
     @State private var dashboardStore: DashboardStore
     @State private var profileStore: TravelProfileStore
     @State private var searchStore: TripSearchStore
+    @State private var worldStore: MyWorldStore
     @State private var showingProfile = false
 
     init(
@@ -43,6 +45,12 @@ struct AuthenticatedAppView: View {
         )
         _searchStore = State(
             initialValue: TripSearchStore(
+                service: apiClient,
+                reauthenticate: { await session.refreshAccess() }
+            )
+        )
+        _worldStore = State(
+            initialValue: MyWorldStore(
                 service: apiClient,
                 reauthenticate: { await session.refreshAccess() }
             )
@@ -78,21 +86,29 @@ struct AuthenticatedAppView: View {
             DiscoverView(
                 store: searchStore,
                 originAirports: profileStore.draft?.originAirports ?? [],
+                accountEmail: user.email,
                 tripDetailService: apiClient,
+                watchService: apiClient,
+                onWatchSaved: { Task { await dashboardStore.load(force: true) } },
                 reauthenticate: { await session.refreshAccess() }
             )
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(FarelinTab.discover)
 
-            WatchesView(store: dashboardStore)
+            WatchesView(store: dashboardStore) {
+                selectedTab = .discover
+            }
                 .tabItem { Label("Watches", systemImage: "bell") }
                 .tag(FarelinTab.watches)
 
-            FeaturePreviewView(
-                title: "My World",
-                headline: "The places that made you.",
-                detail: "Your interactive globe and travel history will live here.",
-                symbol: "globe.europe.africa.fill"
+            MyWorldView(
+                store: worldStore,
+                homeCoordinate: homeCoordinate,
+                isActive: selectedTab == .world,
+                planTrip: { country in
+                    searchStore.query = "Find me a trip to \(country.name)"
+                    selectedTab = .discover
+                }
             )
             .tabItem { Label("My World", systemImage: "globe.europe.africa") }
             .tag(FarelinTab.world)
@@ -110,6 +126,14 @@ struct AuthenticatedAppView: View {
         .sheet(isPresented: $showingProfile) {
             TravelProfileView(store: profileStore, originLimit: originLimit)
         }
+    }
+
+    private var homeCoordinate: CLLocationCoordinate2D? {
+        guard
+            let latitude = profileStore.draft?.baseLatitude,
+            let longitude = profileStore.draft?.baseLongitude
+        else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
     private var profileLoadingState: some View {
@@ -134,67 +158,109 @@ struct AuthenticatedAppView: View {
     }
 }
 
-private struct FeaturePreviewView: View {
-    let title: String
-    let headline: String
-    let detail: String
-    let symbol: String
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                Image(systemName: symbol)
-                    .font(.system(size: 38, weight: .medium))
-                    .foregroundStyle(FarelinColor.mint)
-                Text(headline)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .tracking(-0.7)
-                Text(detail)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .lineSpacing(4)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(24)
-            .background(Color(.systemBackground))
-            .navigationTitle(title)
-        }
-    }
-}
-
 private struct WatchesView: View {
     let store: DashboardStore
+    let discoverTrips: () -> Void
+    @State private var pendingDeletion: SavedWatchSummary?
 
     var body: some View {
         NavigationStack {
             Group {
                 if let watches = store.dashboard?.savedSearches, !watches.isEmpty {
-                    List(watches) { watch in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(watch.name ?? "Trip watch")
-                                .font(.headline)
-                            Text("\(watch.originAirports.joined(separator: " + ")) → \(watch.destinationAirports?.joined(separator: " + ") ?? "Anywhere")")
-                                .font(.subheadline.monospaced())
-                            Text("\(watch.frequency.capitalized) · up to €\(watch.maxBudget, specifier: "%.0f")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    List {
+                        if let error = store.errorMessage {
+                            Label(error, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(FarelinColor.coral)
+                                .font(.subheadline)
+                        }
+                        ForEach(watches) { watch in
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(watch.isActive ? FarelinColor.mint : Color.secondary.opacity(0.45))
+                                .frame(width: 9, height: 9)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(watch.name ?? "Trip watch")
+                                    .font(.headline)
+                                Text("\(watch.originAirports.joined(separator: " + ")) → \(watch.destinationAirports?.joined(separator: " + ") ?? "Anywhere")")
+                                    .font(.subheadline.monospaced())
+                                Text("\(watch.isActive ? "Active" : "Paused") · \(watch.frequency.capitalized) · up to €\(watch.maxBudget, specifier: "%.0f")")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if store.workingWatchID == watch.id {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Menu {
+                                    Button(watch.isActive ? "Pause watch" : "Resume watch", systemImage: watch.isActive ? "pause" : "play") {
+                                        Task { await store.setWatch(watch, active: !watch.isActive) }
+                                    }
+                                    Button("Delete watch", systemImage: "trash", role: .destructive) {
+                                        pendingDeletion = watch
+                                    }
+                                } label: {
+                                    Image(systemName: "ellipsis.circle")
+                                        .font(.title3)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .accessibilityLabel("Actions for \(watch.name ?? "trip watch")")
+                            }
                         }
                         .padding(.vertical, 5)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) { pendingDeletion = watch } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            Button { Task { await store.setWatch(watch, active: !watch.isActive) } } label: {
+                                Label(watch.isActive ? "Pause" : "Resume", systemImage: watch.isActive ? "pause" : "play")
+                            }
+                            .tint(FarelinColor.mint)
+                        }
+                        }
                     }
                 } else if store.isLoading {
                     ProgressView("Loading watches…")
+                } else if let error = store.errorMessage {
+                    ContentUnavailableView {
+                        Label("Watches could not load", systemImage: "wifi.exclamationmark")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Try again") { Task { await store.load(force: true) } }
+                            .buttonStyle(.borderedProminent)
+                    }
                 } else {
-                    ContentUnavailableView(
-                        "No saved watches",
-                        systemImage: "bell.slash",
-                        description: Text("Saved searches from Farelin will appear here.")
-                    )
+                    ContentUnavailableView {
+                        Label("No saved watches", systemImage: "bell.slash")
+                    } description: {
+                        Text("Find a trip you like, then ask Farelin to keep watching fares from your airports.")
+                    } actions: {
+                        Button("Discover trips", action: discoverTrips)
+                            .buttonStyle(.borderedProminent)
+                    }
                 }
             }
             .navigationTitle("Watches")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Discover", systemImage: "magnifyingglass", action: discoverTrips)
+                }
+            }
             .task { await store.load() }
             .refreshable { await store.load(force: true) }
+            .alert("Delete this watch?", isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            )) {
+                Button("Cancel", role: .cancel) { pendingDeletion = nil }
+                Button("Delete", role: .destructive) {
+                    guard let watch = pendingDeletion else { return }
+                    pendingDeletion = nil
+                    Task { await store.deleteWatch(watch) }
+                }
+            } message: {
+                Text("Farelin will stop checking this search. This cannot be undone.")
+            }
         }
     }
 }
@@ -225,8 +291,14 @@ private struct AccountView: View {
                 }
                 Section("App") {
                     Button("Travel profile", systemImage: "slider.horizontal.3", action: editProfile)
+                    LabeledContent("Email", value: user.isVerified ? "Confirmed" : "Not confirmed")
                     LabeledContent("Environment", value: configuration.environment.rawValue.capitalized)
-                    LabeledContent("Version", value: "0.1.0")
+                    LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development")
+                }
+                Section("Help & privacy") {
+                    Link("Contact Farelin", destination: URL(string: "https://www.farelin.com/contact")!)
+                    Link("Privacy policy", destination: URL(string: "https://www.farelin.com/privacy")!)
+                    Link("Terms of service", destination: URL(string: "https://www.farelin.com/terms")!)
                 }
                 Section {
                     Button("Sign out", role: .destructive) {

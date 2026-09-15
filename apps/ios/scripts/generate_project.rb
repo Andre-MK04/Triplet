@@ -39,7 +39,7 @@ def add_tree(group, target, root, relative_path)
     case File.extname(entry)
     when ".swift"
       target.source_build_phase.add_file_reference(reference)
-    when ".xcassets"
+    when ".xcassets", ".geojson"
       target.resources_build_phase.add_file_reference(reference)
     end
   end

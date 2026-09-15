@@ -45,6 +45,26 @@ final class DashboardTests: XCTestCase {
         )
     }
 
+    func testWatchPauseResumeAndDeleteRefreshTheDashboard() async {
+        let service = MutatingDashboardService()
+        let store = DashboardStore(service: service)
+        await store.load()
+        guard let original = store.dashboard?.savedSearches.first else {
+            return XCTFail("Expected a saved watch")
+        }
+
+        await store.setWatch(original, active: false)
+        XCTAssertEqual(store.dashboard?.savedSearches.first?.isActive, false)
+        XCTAssertNil(store.errorMessage)
+
+        await store.setWatch(original, active: true)
+        XCTAssertEqual(store.dashboard?.savedSearches.first?.isActive, true)
+
+        await store.deleteWatch(original)
+        XCTAssertEqual(store.dashboard?.savedSearches.count, 0)
+        XCTAssertNil(store.workingWatchID)
+    }
+
     private static let dashboardJSON = """
     {
       "user": {
@@ -122,7 +142,48 @@ private actor FakeDashboardService: DashboardServicing {
         return response
     }
 
+    func pauseWatch(id: String) async throws -> SavedWatchSummary { throw APIError.unavailable }
+    func resumeWatch(id: String) async throws -> SavedWatchSummary { throw APIError.unavailable }
+    func deleteWatch(id: String) async throws { throw APIError.unavailable }
+
     func requestCount() -> Int { requests }
+}
+
+private actor MutatingDashboardService: DashboardServicing {
+    private var active = true
+    private var removed = false
+
+    func dashboard() async throws -> DashboardResponse {
+        let base = DashboardResponse.fixture
+        return DashboardResponse(
+            user: base.user,
+            billing: base.billing,
+            usage: base.usage,
+            savedSearches: removed ? [] : [watch],
+            savedSearchSummary: SavedSearchSummary(total: removed ? 0 : 1, active: active && !removed ? 1 : 0)
+        )
+    }
+
+    func pauseWatch(id: String) async throws -> SavedWatchSummary {
+        active = false
+        return watch
+    }
+
+    func resumeWatch(id: String) async throws -> SavedWatchSummary {
+        active = true
+        return watch
+    }
+
+    func deleteWatch(id: String) async throws { removed = true }
+
+    private var watch: SavedWatchSummary {
+        SavedWatchSummary(
+            id: "watch-1", name: "Nordic weekends", originAirports: ["CPH"],
+            destinationAirports: ["STO"], startDate: "2026-10-01", endDate: "2026-12-01",
+            maxBudget: 200, frequency: "weekly", isActive: active,
+            lastCheckedAt: nil, lastNotifiedAt: nil, lastBestPrice: nil
+        )
+    }
 }
 
 private extension DashboardResponse {

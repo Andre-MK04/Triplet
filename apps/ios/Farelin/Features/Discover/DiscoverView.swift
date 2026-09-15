@@ -3,11 +3,15 @@ import SwiftUI
 struct DiscoverView: View {
     let store: TripSearchStore
     let originAirports: [String]
+    let accountEmail: String
     let tripDetailService: any TripDetailServicing
+    let watchService: any NativeWatchCreating
+    let onWatchSaved: () -> Void
     let reauthenticate: (@MainActor @Sendable () async -> Bool)?
 
     @FocusState private var promptFocused: Bool
     @State private var searchMode = DiscoverSearchMode.ai
+    @State private var watchTrip: SearchTrip?
 
     private let examples = [
         "A warm food-focused week in October under €300",
@@ -49,6 +53,18 @@ struct DiscoverView: View {
                 try? await Task.sleep(for: .milliseconds(350))
                 guard !Task.isCancelled else { return }
                 await store.searchPlaces()
+            }
+            .sheet(item: $watchTrip) { trip in
+                WatchCreationSheet(
+                    trip: trip,
+                    parsed: store.response?.parsedRequest,
+                    fallbackOrigins: originAirports,
+                    accountEmail: accountEmail,
+                    service: watchService,
+                    reauthenticate: reauthenticate,
+                    onSaved: onWatchSaved
+                )
+                .presentationDetents([.medium, .large])
             }
         }
     }
@@ -507,15 +523,22 @@ struct DiscoverView: View {
                 Text("Not required").tag("not_required")
                 Text("Prefer included").tag("included")
             }
-            Stepper(
-                "Up to \(FarelinSearchFormat.duration(hours: store.advanced.maxGroundTransferHours)) ground transfer",
-                value: Binding(
-                    get: { store.advanced.maxGroundTransferHours },
-                    set: { store.advanced.maxGroundTransferHours = $0 }
-                ),
-                in: 0...12,
-                step: 0.5
-            )
+            Toggle("Use Farelin’s standard ground-transfer limit", isOn: Binding(
+                get: { store.advanced.useDefaultGroundTransfer },
+                set: { store.advanced.useDefaultGroundTransfer = $0 }
+            ))
+            .tint(FarelinColor.mint)
+            if !store.advanced.useDefaultGroundTransfer {
+                Stepper(
+                    "Up to \(FarelinSearchFormat.duration(hours: store.advanced.maxGroundTransferHours)) ground transfer",
+                    value: Binding(
+                        get: { store.advanced.maxGroundTransferHours },
+                        set: { store.advanced.maxGroundTransferHours = $0 }
+                    ),
+                    in: 0...12,
+                    step: 0.5
+                )
+            }
         }
     }
 
@@ -655,6 +678,7 @@ struct DiscoverView: View {
                     NativeTripCard(
                         trip: trip,
                         tripDetailService: tripDetailService,
+                        onSaveWatch: { watchTrip = trip },
                         reauthenticate: reauthenticate
                     )
                 }
@@ -775,6 +799,7 @@ private let advancedTravelStyles: [(key: String, label: String)] = [
 private struct NativeTripCard: View {
     let trip: SearchTrip
     let tripDetailService: any TripDetailServicing
+    let onSaveWatch: () -> Void
     let reauthenticate: (@MainActor @Sendable () async -> Bool)?
 
     var body: some View {
@@ -814,6 +839,11 @@ private struct NativeTripCard: View {
             }
 
             FlightSummaryRow(label: "Outbound", flight: trip.outboundFlight)
+            if trip.tripType == "multi_city", let segments = trip.segments {
+                Text("\(segments.filter { $0.kind == "flight" }.count) observed flight legs in this route. Open the trip to check each one.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if let transfer = trip.groundTransfer {
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "tram.fill")
@@ -823,7 +853,7 @@ private struct NativeTripCard: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            FlightSummaryRow(label: "Return", flight: trip.returnFlight)
+            FlightSummaryRow(label: trip.tripType == "multi_city" ? "Homebound" : "Return", flight: trip.returnFlight)
 
             DisclosureGroup("Why this works") {
                 VStack(alignment: .leading, spacing: 10) {
@@ -845,6 +875,18 @@ private struct NativeTripCard: View {
 
             Divider()
 
+            if trip.tripType == "multi_city" {
+                Text("Multi-city watches are not supported yet; Farelin will not save an incomplete route as an anywhere alert.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Button(action: onSaveWatch) {
+                    Label("Watch trips like this", systemImage: "bell.badge")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .tint(FarelinColor.mint)
+            }
+
             HStack(alignment: .center, spacing: 12) {
                 Text("Price may change. Confirm availability with the provider.")
                     .font(.caption2)
@@ -857,13 +899,13 @@ private struct NativeTripCard: View {
                         reauthenticate: reauthenticate
                     )
                 } label: {
-                    Text("View trip")
+                    Text(trip.tripType == "multi_city" ? "View all legs" : "View trip")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.bordered)
                 if let url = trip.checkPriceURL {
                     Link(destination: url) {
-                        Label("Check price", systemImage: "arrow.up.right")
+                        Label(trip.tripType == "multi_city" ? "Check first leg" : "Check price", systemImage: "arrow.up.right")
                             .font(.subheadline.weight(.semibold))
                     }
                     .buttonStyle(.borderedProminent)
@@ -878,6 +920,181 @@ private struct NativeTripCard: View {
 
     private func scoreColor(_ score: Int) -> Color {
         score >= 75 ? FarelinColor.mint : score >= 50 ? .orange : .secondary
+    }
+}
+
+private struct WatchCreationSheet: View {
+    let trip: SearchTrip
+    let parsed: ParsedTripSearch?
+    let fallbackOrigins: [String]
+    let accountEmail: String
+    let service: any NativeWatchCreating
+    let reauthenticate: (@MainActor @Sendable () async -> Bool)?
+    let onSaved: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var budgetText: String
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    init(
+        trip: SearchTrip,
+        parsed: ParsedTripSearch?,
+        fallbackOrigins: [String],
+        accountEmail: String,
+        service: any NativeWatchCreating,
+        reauthenticate: (@MainActor @Sendable () async -> Bool)?,
+        onSaved: @escaping () -> Void
+    ) {
+        self.trip = trip
+        self.parsed = parsed
+        self.fallbackOrigins = fallbackOrigins
+        self.accountEmail = accountEmail
+        self.service = service
+        self.reauthenticate = reauthenticate
+        self.onSaved = onSaved
+        _budgetText = State(initialValue: String(Int((parsed?.maxBudget ?? trip.totalPrice).rounded())))
+    }
+
+    private var startDate: String {
+        parsed?.startDate ?? String(trip.outboundFlight.departureDateTime.prefix(10))
+    }
+
+    private var endDate: String {
+        parsed?.endDate ?? String(trip.returnFlight.departureDateTime.prefix(10))
+    }
+
+    private var origins: [String] {
+        let selected = parsed?.originAirports ?? fallbackOrigins
+        return selected.isEmpty ? [trip.outboundFlight.origin] : selected
+    }
+
+    private var destinations: [String] {
+        var codes = [trip.outboundFlight.destination]
+        if trip.tripType == "open_jaw" { codes.append(trip.returnFlight.origin) }
+        return Array(Set(codes)).sorted()
+    }
+
+    private var budget: Double? {
+        guard let amount = Double(budgetText), (20...5000).contains(amount) else { return nil }
+        return amount
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("KEEP WATCHING")
+                            .font(.caption2.monospaced().weight(.semibold))
+                            .tracking(1.2)
+                            .foregroundStyle(FarelinColor.mint)
+                        Text("Trips like this, not this exact fare.")
+                            .font(.title2.bold())
+                        Text("Farelin will look for observed fares to \(destinations.joined(separator: " + ")) from your selected airports. It won't reserve this price or route.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        watchRow("Origins", origins.joined(separator: " · "))
+                        watchRow("Destinations", destinations.joined(separator: " · "))
+                        watchRow("Dates", "\(startDate) to \(endDate)")
+                        watchRow("Length", "\(parsed?.minTripLengthDays ?? trip.tripLengthDays)–\(parsed?.maxTripLengthDays ?? trip.tripLengthDays) days")
+                        watchRow("Checks", "Weekly · email to \(accountEmail)")
+                    }
+                    .farelinCard()
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Alert when flight total is below (€)")
+                            .font(.subheadline.weight(.semibold))
+                        TextField("Budget, €20–€5,000", text: $budgetText)
+                            .keyboardType(.decimalPad)
+                            .padding(12)
+                            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+                        if budget == nil {
+                            Text("Enter a flight budget between €20 and €5,000.")
+                                .font(.caption)
+                                .foregroundStyle(FarelinColor.coral)
+                        }
+                    }
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(FarelinColor.coral)
+                    }
+
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        if isSaving { ProgressView().tint(FarelinColor.ink) }
+                        else { Label("Save weekly watch", systemImage: "bell.badge") }
+                    }
+                    .buttonStyle(FarelinPrimaryButtonStyle())
+                    .disabled(isSaving || budget == nil || origins.isEmpty || startDate > endDate)
+
+                    Text("An alert can only be sent to a confirmed account email. Fares are observations; check the final price with the provider.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(20)
+            }
+            .navigationTitle("Save a watch")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } }
+            }
+        }
+    }
+
+    private func watchRow(_ title: String, _ value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(title).foregroundStyle(.secondary).frame(width: 95, alignment: .leading)
+            Text(value).fontWeight(.medium)
+        }
+        .font(.subheadline)
+    }
+
+    private func save() async {
+        guard let budget else { return }
+        isSaving = true
+        errorMessage = nil
+        defer { isSaving = false }
+        let request = NativeSavedWatchRequest(
+            email: accountEmail,
+            name: "Trips to \(trip.destination?.city ?? destinations.joined(separator: " + "))",
+            originAirports: origins,
+            destinationAirports: destinations,
+            startDate: startDate,
+            endDate: endDate,
+            minTripLengthDays: parsed?.minTripLengthDays ?? trip.tripLengthDays,
+            maxTripLengthDays: parsed?.maxTripLengthDays ?? trip.tripLengthDays,
+            maxBudget: budget,
+            maxGroundTransferHours: 4,
+            tripStyle: trip.tripType == "open_jaw" ? "two nearby cities" : "one city",
+            frequency: "weekly",
+            triggerMode: "below_budget"
+        )
+        do {
+            _ = try await service.createWatch(request)
+        } catch APIError.unauthorized {
+            guard let reauthenticate, await reauthenticate() else {
+                errorMessage = APIError.unauthorized.errorDescription
+                return
+            }
+            do {
+                _ = try await service.createWatch(request)
+            } catch {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? "Could not save this watch."
+                return
+            }
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Could not save this watch."
+            return
+        }
+        onSaved()
+        dismiss()
     }
 }
 
@@ -949,19 +1166,47 @@ private struct TripDetailView: View {
 
     private var flightPlan: some View {
         VStack(alignment: .leading, spacing: 12) {
-            detailTitle("Flights")
-            FlightSummaryRow(label: "Outbound", flight: store.trip.outboundFlight)
-            if let transfer = store.trip.groundTransfer {
-                Label {
-                    Text("\(transfer.fromCity) → \(transfer.toCity) · about \(FarelinSearchFormat.duration(hours: transfer.durationHours)) by \(transfer.mode) · estimated \(FarelinSearchFormat.money(transfer.estimatedCost, currency: "EUR"))")
-                        .font(.caption)
-                } icon: {
-                    Image(systemName: "tram.fill")
+            detailTitle(store.trip.tripType == "multi_city" ? "Every leg" : "Flights")
+            if store.trip.tripType == "multi_city", let segments = store.trip.segments, !segments.isEmpty {
+                ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                    if let flight = segment.flight {
+                        VStack(alignment: .leading, spacing: 7) {
+                            FlightSummaryRow(label: "Flight \(index + 1)", flight: flight)
+                            if let link = segment.bookingUrl.flatMap(URL.init(string:)), link.scheme == "https" {
+                                Link("Check this leg with provider", destination: link)
+                                    .font(.caption.weight(.semibold))
+                            }
+                        }
+                    } else if let transfer = segment.transfer {
+                        Label {
+                            Text("\(transfer.fromCity) → \(transfer.toCity) · about \(FarelinSearchFormat.duration(hours: transfer.durationHours)) by \(transfer.mode) · estimated \(FarelinSearchFormat.money(transfer.estimatedCost, currency: "EUR"))")
+                                .font(.caption)
+                        } icon: {
+                            Image(systemName: "tram.fill")
+                        }
+                        .foregroundStyle(.secondary)
+                        .farelinCard()
+                    }
                 }
-                .foregroundStyle(.secondary)
-                .farelinCard()
+                if let groundEstimate = store.trip.groundEstimate, groundEstimate > 0 {
+                    Text("Ground travel is not included in the observed flight total. Roughly \(FarelinSearchFormat.money(groundEstimate, currency: "EUR")) extra; confirm actual transport costs.")
+                        .font(.caption)
+                        .foregroundStyle(FarelinColor.coral)
+                }
+            } else {
+                FlightSummaryRow(label: "Outbound", flight: store.trip.outboundFlight)
+                if let transfer = store.trip.groundTransfer {
+                    Label {
+                        Text("\(transfer.fromCity) → \(transfer.toCity) · about \(FarelinSearchFormat.duration(hours: transfer.durationHours)) by \(transfer.mode) · estimated \(FarelinSearchFormat.money(transfer.estimatedCost, currency: "EUR"))")
+                            .font(.caption)
+                    } icon: {
+                        Image(systemName: "tram.fill")
+                    }
+                    .foregroundStyle(.secondary)
+                    .farelinCard()
+                }
+                FlightSummaryRow(label: "Return", flight: store.trip.returnFlight)
             }
-            FlightSummaryRow(label: "Return", flight: store.trip.returnFlight)
         }
     }
 

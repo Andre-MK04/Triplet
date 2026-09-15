@@ -482,6 +482,39 @@ def nearest_matches(
     return [], None
 
 
+def over_budget_matches(
+    round_trip_fares,
+    request: TripSearchRequest,
+    scoring: ScoringContext,
+    airports,
+    transfers,
+    flights,
+    per_destination_limit: int,
+) -> tuple[list, str | None]:
+    """Return honest fare-backed options when an open search's budget hides all of them."""
+    paired = build_trips(
+        request,
+        airports=airports,
+        flights=flights,
+        transfers=transfers,
+        scoring=scoring,
+        enforce_budget=False,
+    )
+    bundles = build_round_trip_options(
+        round_trip_fares,
+        request,
+        scoring,
+        enforce_budget=False,
+    )
+    trips = merge_trip_options(paired, bundles, per_destination_limit=per_destination_limit)
+    if not trips:
+        return [], None
+    return trips[:RELAXED_RESULT_LIMIT], (
+        f"No observed trips were within your €{request.maxBudget:g} budget. "
+        "These are the closest real fares Farelin found; each over-budget option is clearly marked."
+    )
+
+
 class SearchTripsTool(Tool):
     name = "search_trips"
     description = "Search deterministic same-city and open-jaw trip options."
@@ -548,6 +581,22 @@ class SearchTripsTool(Tool):
                 bundle_trips,
                 per_destination_limit=scope.options_per_destination,
             )
+
+            if not trips and scope.is_anywhere:
+                # A budget is useful for ranking a broad search, but an empty
+                # screen is not useful. Reuse the exact same provider-backed
+                # fares without the hard budget filter and label every result
+                # honestly as over budget. This makes no extra provider calls
+                # and never fabricates a cheaper price.
+                trips, relaxation_note = over_budget_matches(
+                    round_trip_fares,
+                    request,
+                    scoring,
+                    airports,
+                    transfers,
+                    flight_result.flights,
+                    scope.options_per_destination,
+                )
 
             if not trips and scope.is_targeted:
                 trips, relaxation_note = nearest_matches(

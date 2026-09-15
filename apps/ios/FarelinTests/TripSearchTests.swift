@@ -16,6 +16,66 @@ final class TripSearchTests: XCTestCase {
         XCTAssertEqual(response.providerMetadata?.cachedResultsUsed, true)
     }
 
+    func testNativeWatchRequestUsesOnlyPersistedScopeAndWeeklyFrequency() throws {
+        let request = NativeSavedWatchRequest(
+            email: "tester@example.invalid",
+            name: "Stockholm trips",
+            originAirports: ["CPH"],
+            destinationAirports: ["ARN"],
+            startDate: "2026-10-01",
+            endDate: "2026-12-31",
+            minTripLengthDays: 4,
+            maxTripLengthDays: 7,
+            maxBudget: 300,
+            maxGroundTransferHours: 4,
+            tripStyle: "one city",
+            frequency: "weekly",
+            triggerMode: "below_budget"
+        )
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+        XCTAssertEqual(body["frequency"] as? String, "weekly")
+        XCTAssertEqual(body["destinationAirports"] as? [String], ["ARN"])
+        XCTAssertEqual(body["maxBudget"] as? Double, 300)
+        XCTAssertNil(body["destinationCountries"])
+        XCTAssertNil(body["routeStops"])
+    }
+
+    func testMultiCityResponseKeepsEveryPricedFlightLegAndStop() throws {
+        var envelope = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(Self.searchJSON.utf8)) as? [String: Any]
+        )
+        var trips = try XCTUnwrap(envelope["trips"] as? [[String: Any]])
+        var trip = trips[0]
+        let outbound = try XCTUnwrap(trip["outboundFlight"] as? [String: Any])
+        let homebound = try XCTUnwrap(trip["returnFlight"] as? [String: Any])
+        trip["tripType"] = "multi_city"
+        trip["stays"] = [
+            ["code": "STO", "city": "Stockholm", "country": "Sweden", "countryCode": "SE",
+             "arrivalDate": "2026-10-16", "departureDate": "2026-10-18", "nights": 2],
+            ["code": "HEL", "city": "Helsinki", "country": "Finland", "countryCode": "FI",
+             "arrivalDate": "2026-10-18", "departureDate": "2026-10-20", "nights": 2],
+        ]
+        trip["segments"] = [
+            ["kind": "flight", "origin": "CPH", "destination": "ARN", "originCity": "Copenhagen",
+             "destinationCity": "Stockholm", "departureDate": "2026-10-16", "flight": outbound],
+            ["kind": "flight", "origin": "ARN", "destination": "HEL", "originCity": "Stockholm",
+             "destinationCity": "Helsinki", "departureDate": "2026-10-18", "flight": outbound],
+            ["kind": "flight", "origin": "HEL", "destination": "CPH", "originCity": "Helsinki",
+             "destinationCity": "Copenhagen", "departureDate": "2026-10-20", "flight": homebound],
+        ]
+        trip["groundEstimate"] = NSNull()
+        trips[0] = trip
+        envelope["trips"] = trips
+
+        let response = try JSONDecoder().decode(
+            FarelinAISearchResponse.self,
+            from: JSONSerialization.data(withJSONObject: envelope)
+        )
+
+        XCTAssertEqual(response.trips[0].segments?.filter { $0.kind == "flight" }.count, 3)
+        XCTAssertEqual(response.trips[0].routeTitle, "CPH → Stockholm → Helsinki → CPH")
+    }
+
     func testSearchUsesProfileOriginsAndKeepsServerResults() async {
         let service = FakeTripSearchService(response: .fixture)
         let store = TripSearchStore(service: service)
@@ -87,6 +147,7 @@ final class TripSearchTests: XCTestCase {
 
         let request = await service.lastAdvancedRequest()
         XCTAssertEqual(request?.tripPlan, "return")
+        XCTAssertNil(request?.maxGroundTransferHours)
         XCTAssertNil(store.errorMessage)
     }
 
@@ -471,6 +532,7 @@ private extension SearchTrip {
         return SearchTrip(
             id: "trip", tripType: "same_city", outboundFlight: outbound,
             returnFlight: inbound, groundTransfer: nil,
+            segments: nil, stays: nil, flightCost: nil, groundEstimate: nil,
             price: SearchPriceInfo(
                 amount: 210, currency: "EUR",
                 kind: isEstimate ? "estimated_multi_city" : "cached_return",

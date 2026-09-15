@@ -603,6 +603,36 @@ advanced search. Advanced search calls `POST /trips/advanced-search`, does not
 consume the monthly AI allowance, and sends only explicit overrides. The API
 resolves all omitted values from the signed-in travel profile and returns a
 `sourceMap` so the app can distinguish profile defaults from per-search choices.
+The advanced form sends Farelin's default ground-transfer allowance only when
+the traveler explicitly changes it. Multi-city cards show every priced flight
+leg and keep ground-transfer estimates separate from the observed flight total.
+When an anywhere search has observed fares that exceed the budget, the backend
+may show those same observations tagged **Over budget**; it does not fabricate
+fares or promise to find flights where the provider returned none.
+
+The signed-in iPhone tabs now include Today, Discover, Watches, My World, and
+Account. Watches can be paused, resumed, or deactivated using the same
+ownership-checked API routes as the web app. From a return or open-jaw trip
+card, the user can save a **weekly** watch for similar destinations with an
+editable flight budget; it is not a reservation of that displayed fare. The
+current watch schema cannot retain an ordered multi-city route, so the native
+client explicitly declines to save a misleading multi-city watch. Pro daily
+watch creation and watch editing remain web-only for now.
+
+My World uses the authenticated `/countries` and `/me/travel-map` API. Its
+MapKit globe supports drag, pinch, country tapping, a searchable country list,
+wishlist route arcs from the profile base, and optional slow rotation. Rotation
+stops when the tab is hidden, when the user interacts, in Low Power Mode, and
+when Reduce Motion is enabled. The bundled [Natural Earth 110m](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/) public-domain
+GeoJSON draws larger country boundaries; tiny islands and microstates missing
+from that resolution remain selectable in the full backend country list. The
+importer maps France and Norway using Natural Earth's three-letter country
+code where its two-letter property is absent. If the resource cannot load,
+the country list still works. Keep `NaturalEarthCountries.geojson` in the app
+resources when regenerating the Xcode project.
+Before App Store submission, review MapKit's network/privacy behavior and the
+App Privacy declaration for this native view. My World uses the profile's
+saved base coordinates; the client does not request the phone's GPS location.
 
 Native email confirmation uses the same signed-in API environment as the app:
 
