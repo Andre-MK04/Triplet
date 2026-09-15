@@ -2,9 +2,9 @@
 
 Turns a chosen deal + the traveller's profile into a feasible, personalised
 day-by-day plan. Honesty rules mirror the rest of Triplet: suggestions are ideas
-to verify, costs are labelled estimates/ranges (never exact or guaranteed), and
-the plan is built strictly around the real arrival/departure times and nights so
-it never schedules anything before landing or after the flight home.
+to verify, costs are labelled estimates/ranges (never exact or guaranteed).
+Some providers supply only dates, not verified flight times; those trips cannot
+be planned to an exact arrival or departure hour.
 
 Generated once per trip suggestion and cached on the row, so re-viewing is free.
 """
@@ -65,6 +65,22 @@ def generate_itinerary(trip: dict, profile: dict | None, ai_enabled: bool) -> It
     provider = build_ai_provider()  # raises AIProviderConfigError if no key
     raw = provider.complete_json(system, user)
     plan = _parse_plan(raw)
+    if trip.get("fareKind") == "round_trip_bundle":
+        # Provider supplies only a price and dates. Placeholder 09:00/18:00
+        # values in internal Flight objects are not real flight times. Even if
+        # the model ignored that rule, replace first/last activities with safe
+        # travel-day guidance until actual flight details are confirmed.
+        if plan.days:
+            plan.days[0].items = [ItineraryItem(
+                title="Arrival and settle in", description="Check your actual landing time with the provider, then allow time for airport transfer and check-in. Add activities only once your flight is confirmed.",
+                category="travel", estimatedCost="Airport transfer: estimate varies; check the local operator",
+            )]
+        if len(plan.days) > 1:
+            plan.days[-1].items = [ItineraryItem(
+                title="Travel home", description="Check your actual return departure with the provider and leave enough time to reach the airport. Do not schedule a fixed activity on this travel day yet.",
+                category="travel", estimatedCost="Airport transfer: estimate varies; check the local operator",
+            )]
+        plan.disclaimers.append("This observed round-trip fare has dates only; flight times, baggage and airport transfers must be confirmed before following this plan.")
     plan.generatedAt = datetime.utcnow().isoformat() + "Z"
     # Always append the standing verification disclaimer.
     disclaimer = "These are suggestions — confirm opening times, prices and availability before you go."
@@ -81,6 +97,7 @@ def _build_prompts(trip: dict, profile: dict | None) -> tuple[str, str]:
     dest_city = place_city(dest_code) or dest_code
     dest_country = place_country(dest_code) or ""
     open_jaw = trip.get("tripType") == "open_jaw" or (return_from and return_from != dest_code)
+    times_known = trip.get("fareKind") != "round_trip_bundle"
 
     interests = []
     comfort = []
@@ -94,10 +111,11 @@ def _build_prompts(trip: dict, profile: dict | None) -> tuple[str, str]:
         "arriveCity": dest_city,
         "arriveAirport": dest_code,
         "country": dest_country,
-        "arrival": outbound.get("arrivalDateTime"),
+        "arrival": outbound.get("arrivalDateTime") if times_known else str(outbound.get("departureDateTime", ""))[:10],
         "flyHomeFromCity": (place_city(return_from) or return_from) if open_jaw else dest_city,
         "flyHomeFromAirport": return_from,
-        "departureHome": inbound.get("departureDateTime"),
+        "departureHome": inbound.get("departureDateTime") if times_known else str(inbound.get("departureDateTime", ""))[:10],
+        "flightTimesVerified": times_known,
         "nights": trip.get("nights"),
         "currency": outbound.get("currency", "EUR"),
         "openJaw": open_jaw,
@@ -110,8 +128,8 @@ def _build_prompts(trip: dict, profile: dict | None) -> tuple[str, str]:
     system = (
         f"You are {settings.app_name}'s trip planner. Produce a concise, feasible day-by-day plan for the trip below, "
         "tailored to the traveller's interests. STRICT RULES:\n"
-        "- Respect the exact arrival and departure date-times: schedule nothing before arrival on the first "
-        "day or after the flight home on the last day, and leave time to reach the airport.\n"
+        "- If flightTimesVerified is true, respect the exact arrival and departure date-times: schedule nothing before arrival on the first day or after the flight home on the last day.\n"
+        "- If flightTimesVerified is false, only travel DATES are known: do not infer an arrival/departure hour from placeholder flight objects. Reserve the first and last day for travel, airport transfer and check-in until exact flights are confirmed.\n"
         "- Keep it realistic for the number of nights and for getting around by foot/public transport.\n"
         "- Tailor strongly to the traveller's interests (e.g. food -> notable local dishes, markets and food "
         "areas; nature -> specific hikes/parks/viewpoints; culture -> museums, architecture, neighbourhoods).\n"

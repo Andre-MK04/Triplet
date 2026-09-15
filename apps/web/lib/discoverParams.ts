@@ -39,6 +39,7 @@ export type DiscoverSearchState = {
   tripStyle: TripStyle;
   tripPlan: TripPlan;
   directOnly: boolean;
+  travelStyles: string[];
 };
 
 /** Short, readable, and stable — these appear in links people keep. */
@@ -61,6 +62,7 @@ const KEYS = {
   excludeEurope: "noEurope",
   unvisitedOnly: "unvisited",
   sort: "sort",
+  travelStyles: "mood",
 } as const;
 
 const IATA = /^[A-Z]{3}$/;
@@ -69,6 +71,7 @@ const NAME = /^[\p{L} .'-]{2,60}$/u;
 
 const TRIP_STYLES: TripStyle[] = ["one city", "two nearby cities", "surprise me"];
 const TRIP_PLANS: TripPlan[] = ["return", "multi_city", "open_jaw"];
+const TRAVEL_STYLES = new Set(["beach", "food", "culture", "nature", "nightlife", "cheap_adventure", "long_haul_dream", "weekend_city_break"]);
 
 /**
  * Ceilings, so a hand-edited link cannot make the app do unreasonable work.
@@ -191,6 +194,9 @@ export function parseDiscoverSearchParams(
   const unvisited = boolean(params.get(KEYS.unvisitedOnly));
   if (unvisited !== null) next.unvisitedOnly = unvisited;
 
+  const moods = params.get(KEYS.travelStyles)?.split(",").filter((style) => TRAVEL_STYLES.has(style)) ?? [];
+  if (moods.length) next.travelStyles = [...new Set(moods)].slice(0, 9);
+
   return next;
 }
 
@@ -220,6 +226,7 @@ export function serializeDiscoverSearchParams(
   list(KEYS.destinationCountries, state.destinationCountries, defaults.destinationCountries);
   list(KEYS.destinationRegions, state.destinationRegions, defaults.destinationRegions);
   list(KEYS.destinationContinents, state.destinationContinents, defaults.destinationContinents);
+  list(KEYS.travelStyles, state.travelStyles.filter((style) => TRAVEL_STYLES.has(style)).slice(0, 9), defaults.travelStyles);
 
   scalar(KEYS.startDate, state.startDate, defaults.startDate);
   scalar(KEYS.endDate, state.endDate, defaults.endDate);

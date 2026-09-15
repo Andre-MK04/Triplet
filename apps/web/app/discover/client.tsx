@@ -15,6 +15,9 @@ import { ResultsToolbar } from "../../components/ResultsToolbar";
 import { ScanningRoutes } from "../../components/ScanningRoutes";
 import { ShareSearch } from "../../components/ShareSearch";
 import { TripRow } from "../../components/TripRow";
+import { QuickSearchControls } from "../../components/QuickSearchControls";
+import { OpportunityRail } from "../../components/OpportunityRail";
+import { useOpportunities } from "../../hooks/useOpportunities";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
@@ -89,6 +92,7 @@ type AdvancedForm = {
   tripStyle: TripStyle;
   tripPlan: TripPlan;
   directOnly: boolean;
+  travelStyles: string[];
 };
 
 function inputDate(date: Date): string {
@@ -128,6 +132,7 @@ const defaultForm: AdvancedForm = {
   tripStyle: "surprise me",
   tripPlan: "return",
   directOnly: false,
+  travelStyles: [],
 };
 
 export function DiscoverClient() {
@@ -145,8 +150,11 @@ export function DiscoverClient() {
   const reducedMotion = useReducedMotion();
   const showWelcome = searchParams.get("welcome") === "1";
   const autoSearchedQuery = useRef<string | null>(null);
+  const explicitSearchFields = useRef(new Set<keyof AdvancedForm>());
 
   const [refineOpen, setRefineOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(searchParams.get("ask") === "1" || Boolean(searchParams.get("q")));
+  const opportunities = useOpportunities(user?.id ?? null);
   const [aiExplained, setAiExplained] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
@@ -184,6 +192,7 @@ export function DiscoverClient() {
     if (!previous) return;
     setTrips(previous.trips);
     setAiMessage(previous.aiMessage);
+    if (previous.answeredQuery) setAskOpen(true);
     setAiSummary(previous.aiSummary);
     setAiMissingFields(previous.aiMissingFields);
     setRelaxationNote(previous.relaxationNote);
@@ -191,7 +200,10 @@ export function DiscoverClient() {
     setLastPayload(previous.lastPayload);
     setDestinationSelections(previous.destinationSelections);
     setOriginLabels(previous.originLabels);
-    if (previous.form) setForm(previous.form as AdvancedForm);
+    if (previous.form) {
+      setForm({ ...defaultForm, ...(previous.form as AdvancedForm) });
+      for (const field of Object.keys(previous.form) as (keyof AdvancedForm)[]) explicitSearchFields.current.add(field);
+    }
     setHasSearched(true);
     setRestoredAge(ageSince(previous.savedAt));
     // Mark the deep-link query as already answered so returning to
@@ -206,6 +218,7 @@ export function DiscoverClient() {
     if (!incomingQuery || autoSearchedQuery.current === incomingQuery) return;
     autoSearchedQuery.current = incomingQuery;
     setAiMessage(incomingQuery);
+    setAskOpen(true);
     void performAiSearch(incomingQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per incoming query
   }, [incomingQuery]);
@@ -213,22 +226,38 @@ export function DiscoverClient() {
   // A shared link wins over everything: someone opening it asked for that
   // search specifically, so it must not be overwritten by this browser's saved
   // origins or by a travel profile arriving a moment later.
-  const sharedSearch = useRef(false);
   useEffect(() => {
-    const restored = parseDiscoverSearchParams(
-      new URLSearchParams(window.location.search),
-      defaultForm,
-    );
-    if (JSON.stringify(restored) === JSON.stringify(defaultForm)) return;
-    sharedSearch.current = true;
-    setForm((current) => ({ ...current, ...restored }));
+    const params = new URLSearchParams(window.location.search);
+    const restored = parseDiscoverSearchParams(params, defaultForm);
+    const queryKeys: Partial<Record<keyof AdvancedForm, string>> = {
+      originAirports: "from", destinationAirports: "to", destinationCountries: "countries",
+      destinationRegions: "regions", destinationContinents: "continents", returnOriginAirports: "backTo",
+      startDate: "start", endDate: "end", minTripLengthDays: "minDays", maxTripLengthDays: "maxDays",
+      maxBudget: "budget", maxGroundTransferHours: "transfer", tripStyle: "style",
+      tripPlan: "plan", directOnly: "direct", excludeEurope: "noEurope",
+      unvisitedOnly: "unvisited", travelStyles: "mood",
+    };
+    const updates: Partial<AdvancedForm> = {};
+    for (const [field, key] of Object.entries(queryKeys) as [keyof AdvancedForm, string][]) {
+      if (!params.has(key)) continue;
+      // Ignore invalid list/date values that fell back to empty defaults.
+      const value = restored[field];
+      if (Array.isArray(value) && value.length === 0) continue;
+      if (typeof value === "string" && !value) continue;
+      if (["startDate", "endDate"].includes(field) && params.get(key) !== value) continue;
+      if (typeof value === "number" && params.get(key) !== String(value)) continue;
+      explicitSearchFields.current.add(field);
+      // Keys are checked against the form allowlist above.
+      Object.assign(updates, { [field]: value });
+    }
+    if (Object.keys(updates).length) setForm((current) => ({ ...current, ...updates }));
   }, []);
 
   // Restore what this browser chose last time, before anything is searched.
   // A signed-in profile still wins: the effect below overwrites this once it
   // arrives, and it is the more deliberate statement of the two.
   useEffect(() => {
-    if (sharedSearch.current) return;
+    if (explicitSearchFields.current.has("originAirports")) return;
     const saved = readSavedOrigins();
     if (saved.length === 0) return;
     setForm((current) =>
@@ -240,19 +269,19 @@ export function DiscoverClient() {
   useEffect(() => {
     if (!user) return;
     watch.setEmail(user.email);
-    if (sharedSearch.current) return;
     apiGet<TravelProfile>("/me/travel-profile")
       .then((profile) => {
         if (!profile.isComplete) return;
         setForm((current) => ({
           ...current,
-          originAirports: profile.originAirports,
-          minTripLengthDays: profile.preferredTripLengthMin,
-          maxTripLengthDays: profile.preferredTripLengthMax,
-          maxBudget: BUDGET_TO_AMOUNT[profile.budgetComfortZone],
-          directOnly: profile.comfortRules.includes("direct_only"),
+          originAirports: explicitSearchFields.current.has("originAirports") ? current.originAirports : profile.originAirports,
+          minTripLengthDays: explicitSearchFields.current.has("minTripLengthDays") ? current.minTripLengthDays : profile.preferredTripLengthMin,
+          maxTripLengthDays: explicitSearchFields.current.has("maxTripLengthDays") ? current.maxTripLengthDays : profile.preferredTripLengthMax,
+          maxBudget: explicitSearchFields.current.has("maxBudget") ? current.maxBudget : BUDGET_TO_AMOUNT[profile.budgetComfortZone],
+          directOnly: explicitSearchFields.current.has("directOnly") ? current.directOnly : profile.comfortRules.includes("direct_only"),
           tripStyle:
-            profile.openJawWillingness === "simple_returns_only" ? "one city" : current.tripStyle,
+            !explicitSearchFields.current.has("tripStyle") && profile.openJawWillingness === "simple_returns_only" ? "one city" : current.tripStyle,
+          travelStyles: explicitSearchFields.current.has("travelStyles") ? current.travelStyles : profile.preferredTripTypes,
         }));
       })
       .catch(() => undefined);
@@ -277,6 +306,7 @@ export function DiscoverClient() {
       tripStyle: form.tripStyle,
       tripPlan: form.tripPlan,
       directOnly: form.directOnly,
+      travelStyles: form.travelStyles,
     }),
     [form],
   );
@@ -400,7 +430,7 @@ export function DiscoverClient() {
     event.preventDefault();
     // One button, two engines: a described trip goes through the parser, an
     // empty box means "use exactly what I picked".
-    if (aiMessage.trim().length >= 8) {
+    if (askOpen && aiMessage.trim().length >= 8) {
       void performAiSearch(aiMessage);
       return;
     }
@@ -479,6 +509,7 @@ export function DiscoverClient() {
         ? current.originAirports.filter((airport) => airport !== code)
         : [...current.originAirports, code];
       rememberOrigins(originAirports);
+      explicitSearchFields.current.add("originAirports");
       return { ...current, originAirports };
     });
   }
@@ -491,6 +522,7 @@ export function DiscoverClient() {
       if (!canAddOrigin(originLimit, current.originAirports.length)) return current;
       const originAirports = [...current.originAirports, airport.iataCode];
       rememberOrigins(originAirports);
+      explicitSearchFields.current.add("originAirports");
       return { ...current, originAirports };
     });
   }
@@ -552,6 +584,8 @@ export function DiscoverClient() {
             same one. Renders nothing the vast majority of the time. */}
         <FareCheckPrompt />
 
+        {!hasSearched && user ? <OpportunityRail {...opportunities} /> : null}
+
         {showWelcome ? (
           <div className="mb-6">
             <Notice tone="success">
@@ -560,12 +594,40 @@ export function DiscoverClient() {
           </div>
         ) : null}
 
-        {/* One search. Describe the trip, say where you'd fly from and what
-            shape it should be; everything else has a sensible default and
-            lives behind "Refine". */}
+        {/* Structured exploration costs no AI search. Ask Farelin only when
+            explicitly opened; a hidden old prompt cannot spend credits. */}
         <section className="border-y border-line py-6">
           <form onSubmit={runSearch} className="space-y-6">
             <div>
+              <OriginPicker
+                selected={form.originAirports}
+                labels={originLabels}
+                onToggle={toggleAirport}
+                onAdd={addOrigin}
+                limit={originLimit}
+              />
+              <QuickSearchControls
+                value={form}
+                onChange={(changes) => {
+                  for (const field of Object.keys(changes) as (keyof AdvancedForm)[]) explicitSearchFields.current.add(field);
+                  setForm((current) => ({ ...current, ...changes }));
+                }}
+              />
+              {form.destinationCountries.length || form.destinationRegions.length || form.destinationContinents.length || form.destinationAirports.length ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3 border-l-2 border-mint/50 pl-3 text-sm text-cloud">
+                  <span>Destination: {[
+                    ...form.destinationCountries, ...form.destinationRegions,
+                    ...form.destinationContinents, ...form.destinationAirports,
+                  ].join(" · ")}</span>
+                  <button type="button" onClick={clearDestinations} className="min-h-11 text-xs text-mint underline">Clear destination</button>
+                </div>
+              ) : null}
+            </div>
+            <button type="button" aria-expanded={askOpen} onClick={() => setAskOpen((open) => !open)}
+              className="min-h-11 font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
+              {askOpen ? "Hide AI request −" : "Describe a trip to Farelin AI +"}
+            </button>
+            {askOpen ? <div>
               {/* The box reads like a parser but is answered by a language
                   model, and a traveller deciding how to phrase a request
                   deserves to know which. Named here, explained beneath. */}
@@ -611,21 +673,7 @@ export function DiscoverClient() {
                   placeholder={PLACEHOLDER_FOR_PLAN[form.tripPlan]}
                 />
               </div>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-              <OriginPicker
-                selected={form.originAirports}
-                labels={originLabels}
-                onToggle={toggleAirport}
-                onAdd={addOrigin}
-                limit={originLimit}
-              />
-              <TripPlanChoice
-                value={form.tripPlan}
-                onChange={(tripPlan) => setForm((current) => ({ ...current, tripPlan }))}
-              />
-            </div>
+            </div> : null}
 
             {form.tripPlan !== "return" ? (
               <p className="border-l-2 border-mint/40 pl-3 text-xs leading-relaxed text-mist">
@@ -642,10 +690,10 @@ export function DiscoverClient() {
                 aria-expanded={refineOpen}
                 className="min-h-11 font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
               >
-                {refineOpen ? "Hide details −" : "Dates, budget, destination +"}
+                {refineOpen ? "Hide details −" : "More options: destination, route, precise dates +"}
               </button>
               <Button type="submit" size="lg" disabled={isLoading || form.originAirports.length === 0}>
-                {isLoading ? "Searching…" : "Find trips"}
+                {isLoading ? "Exploring…" : askOpen && aiMessage.trim().length >= 8 ? "Ask Farelin" : "Explore trips"}
               </Button>
             </div>
 
@@ -658,6 +706,7 @@ export function DiscoverClient() {
                   className="overflow-hidden"
                 >
                   <div className="space-y-5 border-t border-line pt-6">
+                    <TripPlanChoice value={form.tripPlan} onChange={(tripPlan) => { explicitSearchFields.current.add("tripPlan"); setForm((current) => ({ ...current, tripPlan })); }} />
                     <div>
                       <div className="mb-2 flex items-center justify-between">
                         <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mist">
@@ -723,7 +772,7 @@ export function DiscoverClient() {
                           <input
                             type="checkbox"
                             checked={form.directOnly}
-                            onChange={(event) => setForm({ ...form, directOnly: event.target.checked })}
+                            onChange={(event) => { explicitSearchFields.current.add("directOnly"); setForm({ ...form, directOnly: event.target.checked }); }}
                             className="h-4 w-4 accent-[#7ddfc3]"
                           />
                           Direct flights only
@@ -736,7 +785,7 @@ export function DiscoverClient() {
                         <Input
                           type="date"
                           value={form.startDate}
-                          onChange={(event) => setForm({ ...form, startDate: event.target.value })}
+                          onChange={(event) => { explicitSearchFields.current.add("startDate"); setForm({ ...form, startDate: event.target.value }); }}
                           required
                         />
                       </Field>
@@ -744,7 +793,7 @@ export function DiscoverClient() {
                         <Input
                           type="date"
                           value={form.endDate}
-                          onChange={(event) => setForm({ ...form, endDate: event.target.value })}
+                          onChange={(event) => { explicitSearchFields.current.add("endDate"); setForm({ ...form, endDate: event.target.value }); }}
                           required
                         />
                       </Field>
@@ -755,12 +804,13 @@ export function DiscoverClient() {
                             min={1}
                             max={21}
                             value={form.minTripLengthDays}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              explicitSearchFields.current.add("minTripLengthDays");
                               setForm({
                                 ...form,
                                 minTripLengthDays: Math.min(Number(event.target.value), form.maxTripLengthDays),
-                              })
-                            }
+                              });
+                            }}
                             className="w-full"
                             aria-label="Minimum trip length"
                           />
@@ -769,12 +819,13 @@ export function DiscoverClient() {
                             min={1}
                             max={30}
                             value={form.maxTripLengthDays}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              explicitSearchFields.current.add("maxTripLengthDays");
                               setForm({
                                 ...form,
                                 maxTripLengthDays: Math.max(Number(event.target.value), form.minTripLengthDays),
-                              })
-                            }
+                              });
+                            }}
                             className="w-full"
                             aria-label="Maximum trip length"
                           />
@@ -786,7 +837,7 @@ export function DiscoverClient() {
                           min={30}
                           max={5000}
                           value={form.maxBudget}
-                          onChange={(event) => setForm({ ...form, maxBudget: Number(event.target.value) })}
+                          onChange={(event) => { explicitSearchFields.current.add("maxBudget"); setForm({ ...form, maxBudget: Number(event.target.value) }); }}
                           required
                         />
                       </Field>
@@ -797,13 +848,14 @@ export function DiscoverClient() {
             </AnimatePresence>
           </form>
 
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-5">
+          {askOpen ? <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-5">
             {EXAMPLE_PROMPTS.map((prompt) => (
               <button
                 key={prompt.text}
                 type="button"
                 onClick={() => {
                   setAiMessage(prompt.text);
+                  setAskOpen(true);
                   setForm((current) => ({ ...current, tripPlan: prompt.plan }));
                 }}
                 className="font-mono text-xs text-mist-dim transition-colors hover:text-mint"
@@ -811,7 +863,7 @@ export function DiscoverClient() {
                 {prompt.text}
               </button>
             ))}
-          </div>
+          </div> : null}
         </section>
         {/* Results */}
         <section className="mt-8 space-y-4" aria-live="polite">
@@ -1021,34 +1073,13 @@ export function DiscoverClient() {
           ) : null}
 
           {!isLoading && hasSearched && trips.length === 0 && !error ? (
-            <EmptyState icon="🛫" title="No trips matched this search">
+            <EmptyState title="No trips matched this search">
               {emptyStateMessage(lastPayload)}
             </EmptyState>
           ) : null}
 
-          {!isLoading && !hasSearched ? (
-            <EmptyState title="Where could you go?">
-              <span className="block">
-                Farelin builds complete trips from real fares — out and back, a chain of cities, or in one
-                city and home from another. Try one of these:
-              </span>
-              <span className="mt-4 flex flex-col items-center gap-2">
-                {EXAMPLE_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt.text}
-                    type="button"
-                    onClick={() => {
-                      setAiMessage(prompt.text);
-                      setForm((current) => ({ ...current, tripPlan: prompt.plan }));
-                      void performAiSearch(prompt.text, prompt.plan);
-                    }}
-                    className="font-mono text-xs text-mint transition-colors hover:text-cloud"
-                  >
-                    → {prompt.text}
-                  </button>
-                ))}
-              </span>
-            </EmptyState>
+          {!isLoading && !hasSearched && form.originAirports.length === 0 ? (
+            <p className="border-t border-line py-8 text-sm text-mist">Choose a departure airport above to explore observed trips. AI is optional.</p>
           ) : null}
         </section>
       </div>

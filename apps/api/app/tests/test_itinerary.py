@@ -199,3 +199,35 @@ def test_itinerary_prompt_includes_constraints_and_interests():
     assert "arrival" in system.lower() and "estimate" in system.lower()
     assert "Copenhagen" in user  # destination city resolved from geography
     assert "Food" in user  # interest label passed through
+
+
+def test_date_only_bundle_itinerary_never_uses_placeholder_clock_times(monkeypatch):
+    import json
+
+    trip = {
+        "fareKind": "round_trip_bundle", "tripType": "same_city", "nights": 2,
+        "outboundFlight": {"origin": "VIE", "destination": "CPH",
+                           "departureDateTime": "2026-08-05T09:00:00", "arrivalDateTime": "2026-08-05T12:00:00"},
+        "returnFlight": {"origin": "CPH", "destination": "VIE",
+                         "departureDateTime": "2026-08-07T18:00:00"},
+    }
+    _, user = itinerary_service._build_prompts(trip, None)
+    facts = json.loads(user.split("\n", 1)[1])
+    assert facts["arrival"] == "2026-08-05"
+    assert facts["departureHome"] == "2026-08-07"
+    assert facts["flightTimesVerified"] is False
+
+    class FakePlanner:
+        def complete_json(self, system, user):
+            return json.dumps({"summary": "Copenhagen", "days": [
+                {"label": "Day 1", "items": [{"title": "Morning museum", "description": "At 9am", "estimatedCost": "€20"}]},
+                {"label": "Day 2", "items": [{"title": "City", "description": "Walk", "estimatedCost": "Free"}]},
+                {"label": "Day 3", "items": [{"title": "Afternoon tour", "description": "At 4pm", "estimatedCost": "€25"}]},
+            ]})
+
+    monkeypatch.setattr(itinerary_service, "build_ai_provider", lambda: FakePlanner())
+    plan = itinerary_service.generate_itinerary(trip, None, ai_enabled=True)
+    assert plan.days[0].items[0].title == "Arrival and settle in"
+    assert plan.days[-1].items[0].title == "Travel home"
+    assert plan.days[1].items[0].title == "City"
+    assert any("dates only" in disclaimer for disclaimer in plan.disclaimers)

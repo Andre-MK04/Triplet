@@ -3,6 +3,9 @@ import SwiftUI
 
 struct MyWorldView: View {
     let store: MyWorldStore
+    let opportunities: OpportunityStore
+    let tripDetailService: any TripDetailServicing
+    let reauthenticate: (@MainActor @Sendable () async -> Bool)?
     let homeCoordinate: CLLocationCoordinate2D?
     let isActive: Bool
     let planTrip: (CountryCatalogEntry) -> Void
@@ -35,6 +38,7 @@ struct MyWorldView: View {
             .navigationTitle("My World")
             .refreshable { await store.load(force: true) }
             .task { await store.load() }
+            .task { await opportunities.load() }
             .task(id: autoRotate && isActive) {
                 guard autoRotate, isActive, !reduceMotion, !ProcessInfo.processInfo.isLowPowerModeEnabled else { return }
                 while !Task.isCancelled {
@@ -59,6 +63,10 @@ struct MyWorldView: View {
                     CountrySheet(
                         metadata: metadata,
                         country: store.selectedCountry,
+                        trips: opportunities.feed?.trips.filter { $0.destination?.countryCode == metadata.code } ?? [],
+                        boardLoaded: opportunities.feed != nil,
+                        tripDetailService: tripDetailService,
+                        reauthenticate: reauthenticate,
                         busy: store.updatingCode == metadata.code,
                         update: { change in await store.updateSelected(change) },
                         planTrip: {
@@ -275,6 +283,10 @@ private struct WorldStat: View {
 private struct CountrySheet: View {
     let metadata: CountryCatalogEntry
     let country: TravelMapCountry?
+    let trips: [SearchTrip]
+    let boardLoaded: Bool
+    let tripDetailService: any TripDetailServicing
+    let reauthenticate: (@MainActor @Sendable () async -> Bool)?
     let busy: Bool
     let update: (CountryStateUpdate) async -> Void
     let planTrip: () -> Void
@@ -321,6 +333,45 @@ private struct CountrySheet: View {
                     }
                     .padding(.horizontal, 16)
                     .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 20))
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("OBSERVED RETURNS")
+                            .font(.caption2.monospaced().weight(.semibold))
+                            .foregroundStyle(FarelinColor.mint)
+                        if trips.isEmpty {
+                            Text(boardLoaded
+                                 ? "No return fares to this country are in your current opportunity board. This is not proof that there are no flights; explore a wider search."
+                                 : "Your personal observed-fare board is still loading or unavailable. Explore a wider search below.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("\(trips.count) observed \(trips.count == 1 ? "trip" : "trips") from your airports. Check final prices with the provider.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(trips.prefix(3)) { trip in
+                                NavigationLink {
+                                    TripDetailView(trip: trip, service: tripDetailService, reauthenticate: reauthenticate)
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading) {
+                                            Text(trip.routeTitle).font(.subheadline.weight(.semibold))
+                                            Text("\(FarelinSearchFormat.shortDate(trip.outboundFlight.departureDateTime))–\(FarelinSearchFormat.shortDate(trip.returnFlight.departureDateTime))")
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        Text(FarelinSearchFormat.priceHeadline(trip)).font(.subheadline.weight(.semibold))
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                if let url = trip.checkPriceURL {
+                                    Link("Check price with provider ↗", destination: url)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(FarelinColor.mint)
+                                }
+                            }
+                        }
+                    }
+                    .farelinCard()
 
                     if let country, !country.visits.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {

@@ -96,6 +96,38 @@ class CachedDealsRepository:
         ).all()
         return [_to_fare(row) for row in rows]
 
+    def opportunity_fares(
+        self,
+        origins: list[str],
+        *,
+        max_rows: int = 500,
+        today: date | None = None,
+        now: datetime | None = None,
+    ) -> tuple[list[RoundTripFare], bool]:
+        """One bounded, provider-free read for a personalized discovery feed.
+
+        Only dated returns that have not departed and remain inside the cache
+        retention window qualify. ``is_stale`` refers to the provider's fare
+        sighting, not merely when our scheduler fetched it.
+        """
+        today = today or date.today()
+        now = now or datetime.utcnow()
+        codes = list(dict.fromkeys(code.strip().upper() for code in origins if code.strip()))
+        if not codes:
+            return [], False
+        rows = self.db.scalars(
+            select(CachedRoundTripDB)
+            .where(CachedRoundTripDB.origin_code.in_(codes))
+            .where(CachedRoundTripDB.departure_date >= today)
+            .where(CachedRoundTripDB.return_date.is_not(None))
+            .where(CachedRoundTripDB.observed_at >= now - timedelta(hours=retention_hours()))
+            .order_by(CachedRoundTripDB.price, CachedRoundTripDB.departure_date)
+            .limit(min(max(max_rows, 1), 500))
+        ).all()
+        sighting_cutoff = now - timedelta(hours=serve_ttl_hours())
+        is_stale = any(row.price_seen_at is None or row.price_seen_at < sighting_cutoff for row in rows)
+        return [_to_fare(row) for row in rows], is_stale
+
     def country_ranking(self, origins: list[str], ttl_hours: int | None = None) -> tuple[str, ...]:
         """Countries we have recently seen real fares to, cheapest first.
 

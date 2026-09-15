@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from app.auth.service import auth_user_response
 from app.billing.service import billing_status
 from app.billing.usage import assert_origin_airports_allowed, assert_saved_search_allowed
 from app.database import get_db
+from app.deals.opportunities import OpportunityFeed, build_opportunity_feed
 from app.db.models import UserDB, UserTravelProfileDB
 from app.models.travel_profile import (
     TravelProfileResponse,
@@ -29,6 +30,7 @@ from app.models.travel_profile import (
 )
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
 from app.services.flight_search_service import FlightProviderNotImplementedError, UnknownFlightProviderError
+from app.security import RateLimitCategory, check_rate_limit
 from app.tools.registry import ToolValidationError
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -68,6 +70,23 @@ def get_dashboard(
             "active": len([search for search in searches if search.isActive]),
         },
     }
+
+
+@router.get("/opportunities", response_model=OpportunityFeed)
+def get_my_opportunities(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> OpportunityFeed:
+    """A private, bounded database read; never a provider or AI call."""
+    check_rate_limit(RateLimitCategory.CHEAP, request)
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        return build_opportunity_feed(db, db.get(UserTravelProfileDB, user.id), user.id)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Trip opportunities are temporarily unavailable.") from exc
 
 
 @router.get("/export")

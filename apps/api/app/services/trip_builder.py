@@ -433,7 +433,10 @@ def build_round_trip_options(
             exclude_europe=request.excludeEurope,
         ):
             continue
-        if request.directOnly and (fare.stops or 0) > 0:
+        # City-directions has no verified per-leg stop breakdown. Even a
+        # zero aggregate transfers field cannot establish that BOTH legs meet
+        # a hard direct-only search. Use verified one-way offers instead.
+        if request.directOnly:
             continue
         if not destination_allowed_by_travel_map(destination, request, scoring):
             continue
@@ -510,7 +513,7 @@ def build_round_trip_options(
             expiresAt=fare.expiresAt,
         )
         trip = TripOption(
-            id=f"rt-{fare.origin}-{destination}-{departure.isoformat()}",
+            id=f"rt-{fare.origin}-{destination}-{departure.isoformat()}-{(return_date or departure).isoformat()}",
             tripType="same_city",
             outboundFlight=outbound,
             returnFlight=inbound,

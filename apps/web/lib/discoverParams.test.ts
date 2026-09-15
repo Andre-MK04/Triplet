@@ -8,6 +8,7 @@ import {
 } from "./discoverParams";
 
 const defaults: DiscoverSearchState = {
+  travelStyles: [],
   originAirports: [],
   destinationAirports: [],
   destinationCountries: [],
@@ -42,6 +43,7 @@ describe("sharing a structured search", () => {
       maxBudget: 900,
       tripPlan: "return",
       directOnly: true,
+      travelStyles: ["nature", "food"],
     };
 
     const params = serializeDiscoverSearchParams(search, defaults);
@@ -94,6 +96,11 @@ describe("a URL is untrusted input", () => {
   it("rejects an enum it does not recognise", () => {
     expect(parse("plan=teleport").tripPlan).toBe(defaults.tripPlan);
     expect(parse("style=luxury").tripStyle).toBe(defaults.tripStyle);
+  });
+
+  it("only shares validated travel moods", () => {
+    expect(parse("mood=food,unknown,beach,food").travelStyles).toEqual(["food", "beach"]);
+    expect(serializeDiscoverSearchParams({ ...defaults, travelStyles: ["nature"] }, defaults).get("mood")).toBe("nature");
   });
 
   it("repairs a reversed trip-length range instead of returning nothing", () => {

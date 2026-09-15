@@ -3,6 +3,29 @@ import XCTest
 
 @MainActor
 final class TripSearchTests: XCTestCase {
+    func testOpportunityFeedUsesObservedTripsWithoutRequestingAISearch() async throws {
+        let search = try JSONSerialization.jsonObject(with: Data(Self.searchJSON.utf8)) as? [String: Any]
+        let trips = try XCTUnwrap(search?["trips"])
+        let data = try JSONSerialization.data(withJSONObject: [
+            "trips": trips,
+            "originAirports": ["CPH"],
+            "source": "cached_database",
+            "isReady": true,
+            "isStale": true,
+        ])
+        let feed = try JSONDecoder().decode(NativeOpportunityFeed.self, from: data)
+        let service = CountingOpportunityService(feed: feed)
+        let store = OpportunityStore(service: service)
+
+        await store.load()
+        await store.load()
+
+        XCTAssertEqual(store.feed?.trips.first?.routeTitle, "CPH → Stockholm")
+        XCTAssertEqual(store.feed?.source, "cached_database")
+        XCTAssertTrue(store.feed?.isStale == true)
+        let callCount = await service.calls()
+        XCTAssertEqual(callCount, 1)
+    }
     func testAISearchResponseDecodesBackendShape() throws {
         let response = try JSONDecoder().decode(
             FarelinAISearchResponse.self,
@@ -351,6 +374,20 @@ final class TripSearchTests: XCTestCase {
       }
     }
     """
+}
+
+private actor CountingOpportunityService: OpportunityServicing {
+    let feed: NativeOpportunityFeed
+    private var count = 0
+
+    init(feed: NativeOpportunityFeed) { self.feed = feed }
+
+    func opportunities() async throws -> NativeOpportunityFeed {
+        count += 1
+        return feed
+    }
+
+    func calls() -> Int { count }
 }
 
 private actor FakeTripSearchService: TripSearchServicing {

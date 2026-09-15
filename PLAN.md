@@ -1,4 +1,120 @@
-# Farelin Native iOS Plan
+# Farelin product plan
+
+## Current cross-platform redesign workstream (2026-09)
+
+Handoff: Farelin already has Next.js, FastAPI, a scheduled cached-fare board,
+structured/AI search, trip details, watches, a travel map, and a SwiftUI iPhone
+client. Keep those contracts. The new product hierarchy is structured,
+budget-first discovery → trip inspection → external price check; Earth is a
+secondary path and Ask Farelin is a contextual shortcut. Stage A is next:
+show origin-specific, observed opportunities before either app asks for a
+prompt. Continue with Stage B fast controls, then details/Earth and supporting
+flows. Preserve the user's Xcode window-state file; it is not source code.
+
+Decision: extend the existing cached database and trip builder into a
+read-only personalized feed, then reuse the existing search route for quick
+controls. Rejected: querying Travelpayouts on every home view (cost/rate
+limits), hardcoded inspirational fares (dishonest), or replacing FastAPI and
+SwiftUI with a new stack (high regression risk). The public board remains
+explicitly labelled sample origins; the signed-in feed uses only profile
+airports. A cold cache is an honest empty state, not a fabricated deal.
+
+### Stage A — opportunity first (implemented and simulator-verified)
+
+Visible result: web and iPhone show observed opportunities from a user's own
+airports on opening, without spending an AI search or calling the provider.
+
+1. Goal: expose bounded origin-specific cached round trips with individual
+   price-observation times. Where: cached deals repository, a protected
+   `GET /me/opportunities`, backend tests. Verify: seeded Postgres test returns
+   only the owner's origins; no provider call; empty/stale responses are labelled;
+   `pytest -q`. Fence: no fake live label, per-request provider search, or public
+   caching of personalized data.
+2. Goal: put the feed above search in web Discover/home and native Discover.
+   Where: Next.js Discover/home, SwiftUI Discover, shared opportunity DTOs.
+   Verify: real seeded fares open their trip or provider link; signed-out web
+   still labels Central European examples; `npm test`, `npm run build`,
+   `xcodebuild test`. Fence: no default to someone else's airports and no
+   synthetic flight times presented as actual times.
+
+### Stage B — fast structured discovery (implemented initial quick controls)
+
+Visible result: a user can choose origins, a date window, flight budget,
+length and travel mood, then see trips without using AI quota.
+
+1. Goal: make structured controls primary; keep advanced route shapes behind
+   progressive disclosure. Where: web Discover, native Discover, URL/state
+   helpers. Verify: one tap on a budget/date chip updates visible constraints;
+   search reaches `/trips/search` or `/trips/advanced-search`, not `/ai/search`;
+   back navigation retains results. Fence: do not infer actual weather from a
+   destination-style tag.
+2. Goal: move Ask Farelin to a secondary action that reveals editable parsed
+   constraints and then the same trip cards. Where: web/native Discover UI.
+   Verify: AI search still works once; editing an interpretation re-runs a
+   structured search without another AI charge. Fence: no chatbot home screen
+   or invented prices.
+
+### Stage C — destination inspection and Earth (date-only bundles and country inspection implemented; visual overlay pending)
+
+Visible result: a fare card and a selected country both lead to inspectable,
+provider-checkable trips with the same freshness language.
+
+1. Goal: raise price/date/airport hierarchy in cards and details; show only
+   evidence-backed alternative airports/dates. Where: web/native trip rows and
+   detail. Verify: cached bundle shows date-only where times are unknown;
+   alternatives link to real returned fares. Fence: no invented usual-price or
+   weather figures.
+2. Goal: attach country opportunity counts/prices to Earth selections; reuse
+   MapKit/Three geometry and travel-map state. Where: feed-derived geography
+   adapter, web World, native My World. Verify: tapping a country reaches the
+   fare list for that country; unavailable countries say insufficient data.
+   Fence: the globe remains optional, not the only search control.
+
+### Stage D — saved intent, progressive profile, voice and polish
+
+Visible result: a trip/search can become a truthful saved watch; onboarding
+reaches the feed sooner; optional speech fills search controls without turning
+into a conversation.
+
+1. Goal: align saved-watch scope with supported schema; shorten initial profile
+questions and offer later preference prompts. Where: web/native onboarding,
+watches. Verify: a watch created on one client appears on the other; unsupported
+ordered multi-city watch is refused clearly. Fence: no destructive migration
+or silent country/region-to-anywhere watch conversion.
+2. Goal: research and implement on-device speech permission/privacy flow only
+where platform APIs and App Store disclosures are verified. Where: native voice
+action, privacy copy. Verify: permission denial, dictation, and edit-before-
+search paths; no audio sent to arbitrary services. Fence: voice optional and
+no automatic metered search on a partial transcript.
+3. Goal: finish responsive, Dynamic Type, VoiceOver, Reduce Motion, keyboard,
+loading/empty/error states. Where: shared design tokens and screen tests.
+   Verify: 360/390/768/1024/1440px web checks and iOS simulator/a11y checks.
+   Fence: no blanket cards/gradients or dead controls.
+
+Risks and tripwires: if profile origins have no cached rows, show a clear cold
+cache state and the sample board separately rather than borrowing its prices;
+if a provider fare lacks flight times, cards show dates only; if MapKit/Three
+costs frame time on a real phone, reduce geometry/rotation before adding more
+effects. Revisit this plan at each visible stage boundary and record changes.
+
+2026-09-15 progress: private `GET /me/opportunities` is a capped Postgres
+read of dated cached returns from profile airports only, with provider sighting
+times distinct from refresh stamps. Home and Discover on web and native
+Discover show that personal board before asking for a search. Structured
+date/budget/length/mood controls are primary; AI remains explicit and
+secondary. Bundle cards suppress internally synthesized clock times, leg
+prices, stops and baggage claims, and scoring skips unsupported clock/bag/
+stop components. Itinerary generation also ignores placeholder clock times
+and reserves date-only bundle travel days. Backend/web suites passed (752
+Python, 151 web); 44 iPhone
+simulator tests passed on iOS 26.1. Country sheets/panels now show real
+board fares when available. Still to build: geometry-linked opportunity overlays,
+evidence-backed alternative dates, photo/media research, optional voice,
+and deeper watch/onboarding refinements. Cold-cache states stay honest.
+Local browser checks on web home and Discover at 360, 390, 768, 1024 and
+1440px showed viewport width equals document width (no horizontal overflow);
+the 390px landing/search first folds were visually reviewed. Provider-backed
+and signed-in production UI still need manual staging QA.
 
 ## Handoff block
 

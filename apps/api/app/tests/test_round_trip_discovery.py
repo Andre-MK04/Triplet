@@ -58,6 +58,31 @@ def test_build_round_trips_keeps_global_destinations_and_filters_date_window():
     assert cph.totalPrice == 118
 
 
+def test_cached_bundle_scoring_does_not_treat_synthesized_leg_details_as_observed():
+    fares = [RoundTripFare(origin="VIE", destination="CPH", price=118,
+                           departureDate="2026-08-05", returnDate="2026-08-10", stops=0)]
+    trip = build_round_trip_options(fares, request(includeBaggage=True))[0]
+    labels = {part.label for part in trip.dealScoreBreakdown}
+    assert "Direct both ways" not in labels
+    assert "Baggage not included" not in labels
+    assert "Early outbound departure" not in labels
+    assert "Late return arrival" not in labels
+
+
+def test_date_only_bundle_cannot_satisfy_hard_direct_only_rule():
+    fare = RoundTripFare(origin="VIE", destination="CPH", price=118,
+                         departureDate="2026-08-05", returnDate="2026-08-10", stops=0)
+    assert build_round_trip_options([fare], request(directOnly=True)) == []
+
+
+def test_round_trip_variants_have_distinct_ids_when_return_dates_differ():
+    fares = [RoundTripFare(origin="VIE", destination="CPH", price=118,
+                           departureDate="2026-08-05", returnDate=day)
+             for day in ("2026-08-09", "2026-08-10")]
+    trips = build_round_trip_options(fares, request())
+    assert len({trip.id for trip in trips}) == 2
+
+
 def test_build_round_trips_filters_by_global_continent():
     fares = [
         RoundTripFare(origin="VIE", destination="JFK", price=520, departureDate="2026-08-05", returnDate="2026-08-13"),

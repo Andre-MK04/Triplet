@@ -154,6 +154,7 @@ export type TripStyle = "one city" | "two nearby cities" | "surprise me";
 export type TripPlan = "return" | "multi_city" | "open_jaw";
 
 export type TripSearchPayload = {
+  travelStyles?: string[];
   originAirports: string[];
   destinationAirports?: string[] | null;
   destinationCountries?: string[];
@@ -518,4 +519,12 @@ export type FeaturedDeals = {
   isStale?: boolean;
   /** False before the scheduler has ever built a board. */
   isReady?: boolean;
+};
+
+export type OpportunityFeed = {
+  trips: TripOption[];
+  originAirports: string[];
+  source: "cached_database";
+  isReady: boolean;
+  isStale: boolean;
 };

@@ -610,7 +610,34 @@ When an anywhere search has observed fares that exceed the budget, the backend
 may show those same observations tagged **Over budget**; it does not fabricate
 fares or promise to find flights where the provider returned none.
 
-The signed-in iPhone tabs now include Today, Discover, Watches, My World, and
+Farelin now opens Discover on iPhone with observed opportunities from the
+signed-in user's profile airports. `GET /me/opportunities` reads at most 500
+future-dated cached return rows from PostgreSQL, ranks them into at most 12
+distinct trip ideas, and calls neither the language model nor Travelpayouts.
+The same private, uncached API powers the web home and Discover opportunity
+board. A cold cache is shown as empty, never filled with a different user's
+or demo origins. Both clients now put structured date/budget/length choices
+first and offer AI as a separate route. This feed does not imply exhaustive
+inventory: Travelpayouts observations remain indicative and provider prices
+must be checked before purchase. Cached round-trip fares have known dates and
+one observed total, not verified departure clock times, baggage or per-leg
+prices; cards suppress those internal placeholder values. Deeper destination
+alternatives and geography overlays are planned in `PLAN.md`.
+Hard direct-only searches do not treat date-only round-trip bundles as
+verified direct flights; they need provider offers with per-leg details.
+Selecting a country in My World on either client now surfaces observed
+round-trip opportunities from the same private board when available. The
+personal board is limited to twelve trip ideas, so an empty country panel
+does not mean that the country has no flights; a wider structured Discover
+search remains available. The map itself has not been recolored by fare
+availability, and no weather or image data is claimed.
+For cached date-only round trips, AI itineraries now hide the internal
+placeholder flight times and conservatively reserve the first and last
+days for travel/check-in until the real provider flight schedule is known.
+Activities, transfer prices and opening hours remain suggestions to verify,
+not checked reservations or exact quotes.
+
+The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be paused, resumed, or deactivated using the same
 ownership-checked API routes as the web app. From a return or open-jaw trip
 card, the user can save a **weekly** watch for similar destinations with an

@@ -62,14 +62,15 @@ def calculate_deal_score(
         else:
             add("Long ground transfer", -25)
 
-    if trip.outboundFlight.departureDateTime.hour < 6:
-        add("Early outbound departure", -8)
-    if trip.outboundFlight.arrivalDateTime.hour >= 23:
-        add("Late outbound arrival", -8)
-    if trip.returnFlight.departureDateTime.hour < 6:
-        add("Early return departure", -8)
-    if trip.returnFlight.arrivalDateTime.hour >= 23:
-        add("Late return arrival", -8)
+    if trip.fareKind != "round_trip_bundle":
+        if trip.outboundFlight.departureDateTime.hour < 6:
+            add("Early outbound departure", -8)
+        if trip.outboundFlight.arrivalDateTime.hour >= 23:
+            add("Late outbound arrival", -8)
+        if trip.returnFlight.departureDateTime.hour < 6:
+            add("Early return departure", -8)
+        if trip.returnFlight.arrivalDateTime.hour >= 23:
+            add("Late return arrival", -8)
 
     route_distance = distance_km(trip.outboundFlight.origin, trip.outboundFlight.destination) or 0
     if route_distance >= 3500:
@@ -89,7 +90,7 @@ def calculate_deal_score(
         else:
             add("Two cities but a hard transfer", -8)
 
-    if request.includeBaggage and (
+    if trip.fareKind != "round_trip_bundle" and request.includeBaggage and (
         not trip.outboundFlight.baggageIncluded or not trip.returnFlight.baggageIncluded
     ):
         add("Baggage not included", -10)
@@ -97,7 +98,8 @@ def calculate_deal_score(
     history_used = add_price_history_component(trip, context, add)
     if not history_used:
         add_distance_band_component(trip, route_distance, add)
-    add_stops_component(trip, route_distance, add)
+    if trip.fareKind != "round_trip_bundle":
+        add_stops_component(trip, route_distance, add)
     add_confidence_component(trip, add)
 
     # Quality is everything above; freshness and relative cheapness are blended
@@ -297,19 +299,19 @@ def calculate_fit_score(
     rules = set(profile.comfort_rules or [])
     outbound_stops = trip.outboundFlight.stops
     return_stops = trip.returnFlight.stops
-    if "direct_only" in rules and outbound_stops is not None and return_stops is not None:
+    if trip.fareKind != "round_trip_bundle" and "direct_only" in rules and outbound_stops is not None and return_stops is not None:
         if outbound_stops + return_stops > 0:
             add("Breaks your direct-only rule", -18)
-    if "max_one_stop" in rules and outbound_stops is not None and return_stops is not None:
+    if trip.fareKind != "round_trip_bundle" and "max_one_stop" in rules and outbound_stops is not None and return_stops is not None:
         if max(outbound_stops, return_stops) > 1:
             add("More stops than your max-one-stop rule", -12)
-    if "no_departures_before_6am" in rules and (
+    if trip.fareKind != "round_trip_bundle" and "no_departures_before_6am" in rules and (
         trip.outboundFlight.departureDateTime.hour < 6 or trip.returnFlight.departureDateTime.hour < 6
     ):
         add("Departure before 6am", -8)
-    if "no_returns_after_midnight" in rules and trip.returnFlight.arrivalDateTime.hour >= 23:
+    if trip.fareKind != "round_trip_bundle" and "no_returns_after_midnight" in rules and trip.returnFlight.arrivalDateTime.hour >= 23:
         add("Return lands very late", -8)
-    if "cabin_bag_included" in rules and (
+    if trip.fareKind != "round_trip_bundle" and "cabin_bag_included" in rules and (
         not trip.outboundFlight.baggageIncluded or not trip.returnFlight.baggageIncluded
     ):
         add("Cabin bag may cost extra", -5)

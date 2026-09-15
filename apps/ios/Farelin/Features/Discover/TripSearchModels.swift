@@ -286,6 +286,57 @@ protocol TripSearchServicing: Sendable {
     func searchPlaces(_ query: String) async throws -> [FlightPlaceResult]
 }
 
+struct NativeOpportunityFeed: Decodable, Sendable {
+    let trips: [SearchTrip]
+    let originAirports: [String]
+    let source: String
+    let isReady: Bool
+    let isStale: Bool
+}
+
+protocol OpportunityServicing: Sendable {
+    func opportunities() async throws -> NativeOpportunityFeed
+}
+
+/// Reads only the signed-in user's observed-price cache. No AI or provider calls.
+@MainActor
+@Observable
+final class OpportunityStore {
+    private(set) var feed: NativeOpportunityFeed?
+    private(set) var isLoading = false
+    private(set) var errorMessage: String?
+    private let service: any OpportunityServicing
+    private let reauthenticate: (@MainActor @Sendable () async -> Bool)?
+
+    init(service: any OpportunityServicing, reauthenticate: (@MainActor @Sendable () async -> Bool)? = nil) {
+        self.service = service
+        self.reauthenticate = reauthenticate
+    }
+
+    func load() async {
+        guard feed == nil && !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            feed = try await service.opportunities()
+            errorMessage = nil
+        } catch APIError.unauthorized {
+            if await reauthenticate?() == true {
+                do {
+                    feed = try await service.opportunities()
+                    errorMessage = nil
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            } else {
+                errorMessage = APIError.unauthorized.localizedDescription
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
 protocol TripDetailServicing: Sendable {
     func tripSuggestion(id: String) async throws -> TripSuggestionResponse
     func generateItinerary(suggestionID: String) async throws -> ItineraryGenerationResponse

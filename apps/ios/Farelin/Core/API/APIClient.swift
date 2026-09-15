@@ -37,7 +37,7 @@ protocol NativeAuthServicing: Sendable {
     func setAccessToken(_ token: String?) async
 }
 
-actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating {
+actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, OpportunityServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating {
     private let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
@@ -174,6 +174,10 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             authenticated: true,
             response: FarelinAISearchResponse.self
         )
+    }
+
+    func opportunities() async throws -> NativeOpportunityFeed {
+        try await send(path: "me/opportunities", method: "GET", authenticated: true, response: NativeOpportunityFeed.self)
     }
 
     func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {

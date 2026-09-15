@@ -14,10 +14,11 @@ struct AuthenticatedAppView: View {
     let session: AuthSession
     let user: AuthUser
     let apiClient: APIClient
-    @State private var selectedTab = FarelinTab.dashboard
+    @State private var selectedTab = FarelinTab.discover
     @State private var dashboardStore: DashboardStore
     @State private var profileStore: TravelProfileStore
     @State private var searchStore: TripSearchStore
+    @State private var opportunityStore: OpportunityStore
     @State private var worldStore: MyWorldStore
     @State private var showingProfile = false
 
@@ -49,6 +50,10 @@ struct AuthenticatedAppView: View {
                 reauthenticate: { await session.refreshAccess() }
             )
         )
+        _opportunityStore = State(initialValue: OpportunityStore(
+            service: apiClient,
+            reauthenticate: { await session.refreshAccess() }
+        ))
         _worldStore = State(
             initialValue: MyWorldStore(
                 service: apiClient,
@@ -77,14 +82,9 @@ struct AuthenticatedAppView: View {
 
     private var appTabs: some View {
         TabView(selection: $selectedTab) {
-            DashboardView(user: user, store: dashboardStore) {
-                selectedTab = .discover
-            }
-            .tabItem { Label("Today", systemImage: "sparkles") }
-            .tag(FarelinTab.dashboard)
-
             DiscoverView(
                 store: searchStore,
+                opportunities: opportunityStore,
                 originAirports: profileStore.draft?.originAirports ?? [],
                 accountEmail: user.email,
                 tripDetailService: apiClient,
@@ -95,6 +95,12 @@ struct AuthenticatedAppView: View {
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(FarelinTab.discover)
 
+            DashboardView(user: user, store: dashboardStore) {
+                selectedTab = .discover
+            }
+            .tabItem { Label("Today", systemImage: "sparkles") }
+            .tag(FarelinTab.dashboard)
+
             WatchesView(store: dashboardStore) {
                 selectedTab = .discover
             }
@@ -103,6 +109,9 @@ struct AuthenticatedAppView: View {
 
             MyWorldView(
                 store: worldStore,
+                opportunities: opportunityStore,
+                tripDetailService: apiClient,
+                reauthenticate: { await session.refreshAccess() },
                 homeCoordinate: homeCoordinate,
                 isActive: selectedTab == .world,
                 planTrip: { country in

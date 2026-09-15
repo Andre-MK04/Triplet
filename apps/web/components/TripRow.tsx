@@ -34,11 +34,11 @@ function telemetry(flight: Flight): string {
   return flight.airline ? `${stops} · ${flight.airline}` : stops;
 }
 
-function LegLine({ label, flight, showPrice }: { label: string; flight: Flight; showPrice: boolean }) {
+function LegLine({ label, flight, showPrice, timesKnown }: { label: string; flight: Flight; showPrice: boolean; timesKnown: boolean }) {
   return (
     <p className="mono-num font-mono text-xs text-cloud">
       <span className="text-mist-dim">{label}</span> {flight.origin} → {flight.destination} ·{" "}
-      {legDate(flight.departureDateTime)} {legTime(flight.departureDateTime)} · {telemetry(flight)}
+      {legDate(flight.departureDateTime)}{timesKnown ? ` ${legTime(flight.departureDateTime)} · ${telemetry(flight)}` : " · exact flight details unavailable"}
       {/* Bundled round trips have one real total; per-leg prices would be misleading. */}
       {showPrice ? ` · ${formatPrice(flight.price, flight.currency)}` : ""}
     </p>
@@ -123,7 +123,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
           </span>
         </span>
 
-        <span className="hidden font-mono text-xs text-cloud sm:block">{telemetry(trip.outboundFlight)}</span>
+        <span className="hidden font-mono text-xs text-cloud sm:block">{trip.fareKind === "round_trip_bundle" ? "Details at provider" : telemetry(trip.outboundFlight)}</span>
 
         <span className="flex gap-3">
           <ScoreDial value={dealValue} tone="gold" size={44} label="Deal" />
@@ -203,6 +203,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                         label={`${index + 1}`}
                         flight={segment.flight}
                         showPrice={trip.fareKind !== "round_trip_bundle"}
+                        timesKnown={trip.fareKind !== "round_trip_bundle"}
                       />
                       {segment.bookingUrl ? (
                         <a
@@ -229,7 +230,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
             </ol>
           ) : (
           <div className="space-y-1.5">
-            <LegLine label="OUT" flight={trip.outboundFlight} showPrice={trip.fareKind !== "round_trip_bundle"} />
+            <LegLine label="OUT" flight={trip.outboundFlight} showPrice={trip.fareKind !== "round_trip_bundle"} timesKnown={trip.fareKind !== "round_trip_bundle"} />
             {trip.groundTransfer ? (
               <p className="font-mono text-xs text-mist">
                 <span className="text-mist-dim">VIA</span> {trip.groundTransfer.fromCity} →{" "}
@@ -240,7 +241,7 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
                   : ""}
               </p>
             ) : null}
-            <LegLine label="RET" flight={trip.returnFlight} showPrice={trip.fareKind !== "round_trip_bundle"} />
+            <LegLine label="RET" flight={trip.returnFlight} showPrice={trip.fareKind !== "round_trip_bundle"} timesKnown={trip.fareKind !== "round_trip_bundle"} />
           </div>
           )}
 
@@ -249,6 +250,9 @@ export function TripRow({ trip, onSaveAlert }: { trip: TripOption; onSaveAlert?:
               Flights {formatPrice(trip.flightCost ?? trip.totalPrice)} · overland roughly{" "}
               {formatPrice(trip.groundEstimate)} on top, arranged by you.
             </p>
+          ) : null}
+          {trip.fareKind === "round_trip_bundle" ? (
+            <p className="mt-3 max-w-2xl text-xs text-gold">This observed round-trip fare supplies dates and a total, not verified flight times, stops or baggage. Check the exact flights and final price with the provider.</p>
           ) : null}
 
           {badge ? (
