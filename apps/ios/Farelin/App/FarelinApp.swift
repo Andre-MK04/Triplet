@@ -41,8 +41,18 @@ struct FarelinApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing"),
+               ProcessInfo.processInfo.arguments.contains("-ui-testing-discover") {
+                UITestDiscoverScreen()
+            } else {
+                RootView(configuration: configuration, session: session, apiClient: apiClient)
+                    .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
+            }
+            #else
             RootView(configuration: configuration, session: session, apiClient: apiClient)
                 .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
+            #endif
         }
     }
 }

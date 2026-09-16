@@ -647,6 +647,15 @@ Origin overrides, exact dates, and comfort rules sit inside an expandable
 refinement section. This is a presentation change, not a new search engine or
 AI call. All observed prices still retain their indicative/last-checked labels.
 
+Completed native searches now focus the results and hide the long composer.
+**Edit search** restores the same choices without submitting another request.
+An empty Explore search can prepare 30 additional days for review, preserving
+the route, budget, duration and comfort settings; the user must tap Find trips
+again. AI failures offer an explicit switch to unmetered structured Explore
+without pretending the failed prompt has been parsed. The high budget shortcut
+is labelled **Up to €5k**, matching its actual server-side limit. Scroll motion
+respects Reduce Motion and usable results receive a light success haptic.
+
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using
 ownership-checked API routes. Search results can save watches for return,

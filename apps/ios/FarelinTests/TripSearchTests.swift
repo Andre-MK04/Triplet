@@ -3,6 +3,85 @@ import XCTest
 
 @MainActor
 final class TripSearchTests: XCTestCase {
+    func testEditingResultsPreservesDraftAndDoesNotSubmitAgain() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.query = "A quiet weekend in Scandinavia"
+        store.advanced.destinations = [.scandinavia]
+        store.advanced.budgetText = "200"
+        let draft = store.advanced
+        await store.search(origins: ["CPH"])
+        store.clearResults()
+        XCTAssertNil(store.response)
+        XCTAssertEqual(store.advanced, draft)
+        XCTAssertEqual(store.query, "A quiet weekend in Scandinavia")
+        let advancedRequest = await service.lastAdvancedRequest()
+        XCTAssertNil(advancedRequest)
+        let counts = await service.callCounts()
+        XCTAssertEqual(counts.ai, 1)
+        XCTAssertEqual(counts.advanced, 0)
+    }
+
+    func testWiderDatesPrepareDraftWithoutChangingOtherChoicesOrCallingProvider() async throws {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.useProfileOrigins = false
+        store.advanced.selectedOrigins = ["CPH", "MMX"]
+        store.advanced.destinations = [.stockholm, .helsinki]
+        store.advanced.tripPlan = "multi_city"
+        store.advanced.budgetText = "400"
+        store.advanced.directPreference = "direct"
+        store.advanced.useProfileDates = false
+        let original = store.advanced
+        XCTAssertTrue(store.canReviewWiderDates)
+        XCTAssertTrue(store.prepareWiderDateWindow())
+        var expected = original
+        expected.endDate = try XCTUnwrap(Calendar(identifier: .gregorian).date(byAdding: .day, value: 30, to: original.endDate))
+        XCTAssertEqual(store.advanced, expected)
+        let aiRequest = await service.lastRequest()
+        let advancedRequest = await service.lastAdvancedRequest()
+        XCTAssertNil(aiRequest)
+        XCTAssertNil(advancedRequest)
+        XCTAssertFalse(store.isSearching)
+    }
+
+    func testWiderDatesUseResolvedProfileDatesFromResults() async throws {
+        let response = try JSONDecoder().decode(FarelinAISearchResponse.self, from: Data(Self.searchJSON.utf8))
+        let store = TripSearchStore(service: FakeTripSearchService(response: response))
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+        let parsed = try XCTUnwrap(store.response?.parsedRequest)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        XCTAssertTrue(store.prepareWiderDateWindow())
+        XCTAssertFalse(store.advanced.useProfileDates)
+        XCTAssertEqual(formatter.string(from: store.advanced.startDate), parsed.startDate)
+        let oldEnd = try XCTUnwrap(formatter.date(from: parsed.endDate))
+        XCTAssertEqual(store.advanced.endDate, Calendar(identifier: .gregorian).date(byAdding: .day, value: 30, to: oldEnd))
+        XCTAssertNil(store.response)
+    }
+
+    func testWiderDatesDoNotGuessWhenProfileHasNotBeenResolved() {
+        let store = TripSearchStore(service: FakeTripSearchService(response: .fixture))
+        let draft = store.advanced
+        XCTAssertFalse(store.prepareWiderDateWindow())
+        XCTAssertFalse(store.canReviewWiderDates)
+        XCTAssertEqual(store.advanced, draft)
+    }
+
+    func testWiderDatesNeverConvertAnAIRequestIntoDifferentStructuredFilters() async {
+        let store = TripSearchStore(service: FakeTripSearchService(response: .fixture))
+        store.query = "A direct flight to Japan in November"
+        store.advanced.useProfileDates = false
+        await store.search(origins: ["CPH"])
+        let draft = store.advanced
+        XCTAssertTrue(store.lastSearchUsedAI)
+        XCTAssertFalse(store.canReviewWiderDates)
+        XCTAssertFalse(store.prepareWiderDateWindow())
+        XCTAssertNotNil(store.response)
+        XCTAssertEqual(store.advanced, draft)
+    }
+
     func testOpportunityFeedUsesObservedTripsWithoutRequestingAISearch() async throws {
         let search = try JSONSerialization.jsonObject(with: Data(Self.searchJSON.utf8)) as? [String: Any]
         let trips = try XCTUnwrap(search?["trips"])
@@ -465,17 +544,21 @@ private actor FakeTripSearchService: TripSearchServicing {
     private let response: FarelinAISearchResponse
     private var request: FarelinAISearchRequest?
     private var advancedRequest: FarelinAdvancedSearchRequest?
+    private var aiCalls = 0
+    private var advancedCalls = 0
 
     init(response: FarelinAISearchResponse) {
         self.response = response
     }
 
     func searchTrips(_ request: FarelinAISearchRequest) async throws -> FarelinAISearchResponse {
+        aiCalls += 1
         self.request = request
         return response
     }
 
     func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {
+        advancedCalls += 1
         advancedRequest = request
         return response
     }
@@ -486,6 +569,7 @@ private actor FakeTripSearchService: TripSearchServicing {
 
     func lastRequest() -> FarelinAISearchRequest? { request }
     func lastAdvancedRequest() -> FarelinAdvancedSearchRequest? { advancedRequest }
+    func callCounts() -> (ai: Int, advanced: Int) { (aiCalls, advancedCalls) }
 }
 
 private actor SlowCountingTripSearchService: TripSearchServicing {

@@ -163,7 +163,8 @@ unavailable and prices indicative, never guaranteed.
 - Account export contains only own data; deletion removes linked notification rows
   and revokes sessions; failure leaves account/billing access intact.
 
-The separate retention-focused UX pass comes after these functional gates.
+Retention-focused simulator UX work can proceed alongside owner configuration;
+it does not replace the physical-device and signed-distribution release gates.
 
 ## Verification receipt — September 16, 2026
 
@@ -199,6 +200,14 @@ Deployment receipt for `9aca6b5`: GitHub reports successful Vercel, staging API,
 production API and alerts-worker deployments. Staging `/ready` reports ready;
 native-provider status is available and push status rejects unauthenticated access.
 Backend, frontend, dependency audit and secret/database CI jobs passed.
+
+Follow-up receipt for `e2c773b`: CI run 35099842363 completed successfully,
+including native simulator tests/builds, and all four deployment statuses are
+successful. The subsequent Discover usability pass passed 77 native tests
+(four isolated UI tests) and both Release simulator configurations locally.
+Its DEBUG-only Discover fixture has no real account, fare provider or AI service
+and is stripped from Release builds. Search-to-edit UI testing confirms visible
+results and retained budget; date widening is an explicit draft, not a retry.
 
 Still unverified externally: Apple/Google account configuration, real Resend
 inbox delivery, APNs physical-device acceptance,

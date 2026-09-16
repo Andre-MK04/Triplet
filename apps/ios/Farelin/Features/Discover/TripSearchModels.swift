@@ -398,6 +398,7 @@ final class TripSearchStore {
     private(set) var placeResults: [FlightPlaceResult] = []
     private(set) var isSearchingPlaces = false
     private(set) var isSearching = false
+    private(set) var lastSearchUsedAI = false
     private(set) var progressMessage = "Understanding your request…"
     private(set) var errorMessage: String?
 
@@ -560,6 +561,7 @@ final class TripSearchStore {
         }
         guard !isSearching else { return nil }
 
+        lastSearchUsedAI = true
         isSearching = true
         response = nil
         errorMessage = nil
@@ -641,6 +643,7 @@ final class TripSearchStore {
         let regions = scopedDestinations.filter { $0.kind == "region" }.map(\.code)
         let continents = scopedDestinations.filter { $0.kind == "continent" }.map(\.code)
 
+        lastSearchUsedAI = false
         isSearching = true
         response = nil
         errorMessage = nil
@@ -694,6 +697,44 @@ final class TripSearchStore {
     func clearResults() {
         response = nil
         errorMessage = nil
+    }
+
+    /// Prepares an explicit date override for review, without submitting a search
+    /// or changing the user's route, budget, duration or comfort choices.
+    @discardableResult
+    func prepareWiderDateWindow() -> Bool {
+        guard let window = widenedDateWindow() else { return false }
+        advanced.useProfileDates = false
+        advanced.startDate = window.start
+        advanced.endDate = window.end
+        clearResults()
+        return true
+    }
+
+    var canReviewWiderDates: Bool { widenedDateWindow() != nil }
+
+    private func widenedDateWindow() -> (start: Date, end: Date)? {
+        guard !isSearching, !lastSearchUsedAI else { return nil }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.isLenient = false
+        let start: Date
+        let end: Date
+        if let parsed = response?.parsedRequest {
+            guard let parsedStart = formatter.date(from: parsed.startDate),
+                  let parsedEnd = formatter.date(from: parsed.endDate),
+                  parsedEnd >= parsedStart else { return nil }
+            start = parsedStart
+            end = parsedEnd
+        } else {
+            guard !advanced.useProfileDates, advanced.endDate >= advanced.startDate else { return nil }
+            start = advanced.startDate
+            end = advanced.endDate
+        }
+        guard let widerEnd = formatter.calendar.date(byAdding: .day, value: 30, to: end) else { return nil }
+        return (start, widerEnd)
     }
 
     private func startProgressMessages() -> Task<Void, Never> {

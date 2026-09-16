@@ -26,57 +26,88 @@ struct DiscoverView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
-                    introduction
-                    if store.response == nil && !store.isSearching && store.errorMessage == nil {
-                        opportunityPreview
-                        if showObservedBoard { opportunityBoard }
+            ScrollViewReader { scroll in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 18) {
+                        introduction
+                        if store.response == nil && !store.isSearching && store.errorMessage == nil {
+                            opportunityPreview
+                            if showObservedBoard { opportunityBoard }
+                        }
+                        if store.response == nil {
+                            Picker("Search mode", selection: $searchMode) {
+                                Text("Ask Farelin").tag(DiscoverSearchMode.ai)
+                                Text("Explore").tag(DiscoverSearchMode.advanced)
+                            }
+                            .pickerStyle(.segmented)
+                            .disabled(store.isSearching)
+                            .accessibilityIdentifier("discover-mode")
+                            searchComposer
+                        }
+                        VStack(alignment: .leading, spacing: 18) {
+                            if store.isSearching {
+                                searchingState
+                            } else if let error = store.errorMessage {
+                                errorState(error)
+                            } else if let response = store.response {
+                                resultActions
+                                results(response)
+                            } else {
+                                startingState
+                            }
+                        }
+                        .id("discover-outcome")
                     }
-                    Picker("Search mode", selection: $searchMode) {
-                        Text("Ask Farelin").tag(DiscoverSearchMode.ai)
-                        Text("Explore").tag(DiscoverSearchMode.advanced)
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("discover-mode")
-                    searchComposer
-                    if store.isSearching {
-                        searchingState
-                    } else if let error = store.errorMessage {
-                        errorState(error)
-                    } else if let response = store.response {
-                        results(response)
-                    } else {
-                        startingState
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 36)
+                }
+                .onChange(of: store.isSearching) { wasSearching, searching in
+                    guard wasSearching && !searching else { return }
+                    promptFocused = false
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                        scroll.scrollTo("discover-outcome", anchor: .top)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 36)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .background(Color(.systemBackground))
-            .navigationTitle("Discover")
-            .task { await opportunities.load() }
-            .onChange(of: store.query) { _, newValue in
-                if !newValue.isEmpty { searchMode = .ai }
-            }
-            .task(id: store.placeQuery) {
-                guard searchMode == .advanced else { return }
-                try? await Task.sleep(for: .milliseconds(350))
-                guard !Task.isCancelled else { return }
-                await store.searchPlaces()
-            }
-            .sheet(item: $watchTrip) { trip in
-                WatchCreationSheet(
-                    trip: trip,
-                    parsed: store.response?.parsedRequest,
-                    fallbackOrigins: originAirports,
-                    accountEmail: accountEmail,
-                    service: watchService,
-                    reauthenticate: reauthenticate,
-                    onSaved: onWatchSaved
-                )
-                .presentationDetents([.medium, .large])
+                .onChange(of: store.response == nil) { _, isEmpty in
+                    guard isEmpty && !store.isSearching else { return }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                        scroll.scrollTo("discover-composer", anchor: .top)
+                    }
+                }
+                .onChange(of: searchMode) { _, _ in
+                    guard !store.isSearching else { return }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                        scroll.scrollTo("discover-composer", anchor: .top)
+                    }
+                }
+                .sensoryFeedback(.success, trigger: store.response != nil) { _, hasResults in
+                    hasResults && !(store.response?.trips.isEmpty ?? true)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .background(Color(.systemBackground))
+                .navigationTitle("Discover")
+                .task { await opportunities.load() }
+                .onChange(of: store.query) { _, newValue in
+                    if !newValue.isEmpty { searchMode = .ai }
+                }
+                .task(id: store.placeQuery) {
+                    guard searchMode == .advanced else { return }
+                    try? await Task.sleep(for: .milliseconds(350))
+                    guard !Task.isCancelled else { return }
+                    await store.searchPlaces()
+                }
+                .sheet(item: $watchTrip) { trip in
+                    WatchCreationSheet(
+                        trip: trip,
+                        parsed: store.response?.parsedRequest,
+                        fallbackOrigins: originAirports,
+                        accountEmail: accountEmail,
+                        service: watchService,
+                        reauthenticate: reauthenticate,
+                        onSaved: onWatchSaved
+                    )
+                    .presentationDetents([.medium, .large])
+                }
             }
         }
     }
@@ -185,6 +216,24 @@ struct DiscoverView: View {
             } else {
                 advancedSearchComposer
             }
+        }
+        .id("discover-composer")
+    }
+
+    private var resultActions: some View {
+        HStack(spacing: 12) {
+            Label("Your trip search", systemImage: "checkmark.circle")
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+            Button {
+                store.clearResults()
+            } label: {
+                Label("Edit search", systemImage: "slider.horizontal.3")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.vertical, 12)
+            }
+            .accessibilityHint("Keeps your search choices. Does not run another search.")
+            .accessibilityIdentifier("discover-edit-search")
         }
     }
 
@@ -325,7 +374,7 @@ struct DiscoverView: View {
                 forBudget(100)
                 forBudget(200)
                 forBudget(400)
-                quickButton("No cap", selected: store.advanced.budgetText == "5000") {
+                quickButton("Up to €5k", selected: store.advanced.budgetText == "5000") {
                     store.advanced.budgetText = "5000"
                 }
             }
@@ -790,6 +839,16 @@ struct DiscoverView: View {
                 }
             }
             .buttonStyle(.bordered)
+            if searchMode == .ai {
+                Button("Use Explore instead — no AI search") {
+                    store.clearResults()
+                    searchMode = .advanced
+                }
+                .font(.subheadline)
+                Text("Explore uses the controls you choose there, not the unparsed prompt.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .farelinCard()
@@ -850,7 +909,25 @@ struct DiscoverView: View {
             ContentUnavailableView {
                 Label("No observed fares found", systemImage: "airplane.arrival")
             } description: {
-                Text("Try a wider date window, a higher budget, or a less specific destination.")
+                Text("There are no usable fare observations for this search right now. Try different dates or a broader destination. Check availability and final prices with the provider.")
+            } actions: {
+                VStack(spacing: 10) {
+                    Button("Edit search") { store.clearResults() }
+                        .buttonStyle(.borderedProminent)
+                    if store.canReviewWiderDates {
+                        Button("Review 30 more days") {
+                            if !store.prepareWiderDateWindow() { store.clearResults() }
+                        }
+                        .buttonStyle(.bordered)
+                        Text("Keeps your route, budget and trip length. Review dates before searching again.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if store.lastSearchUsedAI {
+                        Text("Editing does not use an AI search. Sending another request may count toward your allowance.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .farelinCard()
         } else {

@@ -1,5 +1,34 @@
 # Farelin product plan
 
+## Native usability pass — search to next action (2026-09-16)
+
+Handoff: release-foundation CI run 35099842363 and all four deployment statuses
+for e2c773b succeeded. Apple credentials, signing and physical-device QA remain
+owner gates. User approved continuing usability development; simulator work can
+proceed without claiming those release gates are complete.
+
+Decision: improve the existing Discover flow, not its search engine. Rejected:
+a navigation rewrite (regression risk) and automatic relaxed/AI retries (hidden
+costs and changed intent). No engagement tracking or forced notifications.
+
+- [x] A — focus completed results and collapse the composer; Edit search restores
+  the same draft. Where: DiscoverView. Verify native build/tests and simulator
+  search -> results -> edit. Fence: never resubmit on scroll or edit.
+- [x] B — actionable empty states with an explicit wider-date draft for Explore.
+  Where: TripSearchStore/DiscoverView/TripSearchTests. Verify widening preserves
+  route, budget, duration and comfort; no backend call until Find trips. Fence:
+  no fabricated fares, automatic AI usage, or invisible scope relaxation.
+
+Tripwires: invalid parsed dates -> keep original draft and offer manual editing;
+reduced motion -> no animated scroll; failing native CI -> correct before release.
+
+Verification: 77 native tests passed, including four isolated UI tests. Search
+results are visible without returning through the composer, Edit preserves the
+selected budget, and wider-date preparation preserves all other draft fields.
+Both production Release and Staging Release simulator builds passed. No backend
+contracts changed and no provider/AI calls were used for the UI fixture.
+
+
 ## Native release essentials (2026-09-16)
 
 Handoff: preserve the existing SwiftUI app and FastAPI services. The September
