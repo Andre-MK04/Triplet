@@ -17,6 +17,12 @@ struct DiscoverView: View {
     @State private var watchTrip: SearchTrip?
     @State private var showPrecision = false
     @State private var showObservedBoard = false
+    @State private var revealStep = 0
+    @State private var budgetCheckpoint = 3.0
+    @State private var durationNights = 6.0
+    @State private var allowNearbyLengths = true
+    @State private var showCustomDates = false
+    private let budgetPoints = [50, 100, 150, 200, 300, 400, 600, 800, 1000, 1500]
 
     private let examples = [
         "A warm food-focused week in October under €300",
@@ -26,9 +32,9 @@ struct DiscoverView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { scroll in
+            Group {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 18) {
                         introduction
                         if store.response == nil && !store.isSearching && store.errorMessage == nil {
                             opportunityPreview
@@ -61,24 +67,11 @@ struct DiscoverView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 36)
                 }
-                .onChange(of: store.isSearching) { wasSearching, searching in
-                    guard wasSearching && !searching else { return }
-                    promptFocused = false
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                        scroll.scrollTo("discover-outcome", anchor: .top)
-                    }
-                }
-                .onChange(of: store.response == nil) { _, isEmpty in
-                    guard isEmpty && !store.isSearching else { return }
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                        scroll.scrollTo("discover-composer", anchor: .top)
-                    }
-                }
-                .onChange(of: searchMode) { _, _ in
-                    guard !store.isSearching else { return }
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                        scroll.scrollTo("discover-composer", anchor: .top)
-                    }
+                // Compose/results have independent scroll lifetimes. Never
+                // animate to a height-dependent anchor while removing a form.
+                .id("\(searchMode)-\(store.response != nil)")
+                .onChange(of: store.isSearching) { _, searching in
+                    if !searching { promptFocused = false }
                 }
                 .sensoryFeedback(.success, trigger: store.response != nil) { _, hasResults in
                     hasResults && !(store.response?.trips.isEmpty ?? true)
@@ -124,7 +117,7 @@ struct DiscoverView: View {
             Text(
                 searchMode == .ai
                     ? "Describe the trip naturally. Farelin uses your profile unless you override it here."
-                    : "Choose only what matters for this trip. Anything untouched comes from your travel profile."
+                    : "Your profile fills anything you skip."
             )
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -287,21 +280,23 @@ struct DiscoverView: View {
                     .stroke(promptFocused ? FarelinColor.mint : Color(.separator), lineWidth: 1)
             }
 
-            FlowLayout(spacing: 8) {
-                    ForEach(examples, id: \.self) { example in
+            VStack(spacing: 8) {
+                    ForEach(Array(examples.enumerated()), id: \.offset) { index, example in
                         Button {
                             store.useExample(example)
                             promptFocused = true
                         } label: {
                             Text(example)
                                 .font(.caption)
-                                .lineLimit(1)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
                                 .padding(.horizontal, 12)
-                                .padding(.vertical, 9)
-                                .background(Color(.tertiarySystemBackground), in: Capsule())
-                                .overlay { Capsule().stroke(Color(.separator).opacity(0.5)) }
+                                .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+                                .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 13))
+                                .overlay { RoundedRectangle(cornerRadius: 13).stroke(Color(.separator).opacity(0.5)) }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("prompt-example-\(index)")
                     }
             }
 
@@ -321,16 +316,19 @@ struct DiscoverView: View {
     private var advancedSearchComposer: some View {
         VStack(alignment: .leading, spacing: 15) {
             quickSearchControls
+            if revealStep >= 4 {
             Divider()
             advancedTripShape
+            }
+            if revealStep >= 5 {
             advancedDestinations
             DisclosureGroup(isExpanded: $showPrecision) {
                 VStack(alignment: .leading, spacing: 17) {
                     advancedOrigins
-                    advancedDatesAndLength
-                    advancedPreferences
+                    connectionControls
                     Button("Reset to profile defaults") {
-                        store.resetAdvancedOverrides()
+                        resetComposerDefaults()
+                        revealStep = 0
                     }
                     .font(.caption.weight(.semibold))
                 }
@@ -339,10 +337,8 @@ struct DiscoverView: View {
                 Label("Refine airports, places & comfort", systemImage: "slider.horizontal.3")
                     .font(.subheadline.weight(.semibold))
             }
-            .tint(FarelinColor.mint)
+            .tint(FarelinColor.action)
             .accessibilityIdentifier("discover-precision")
-
-            profileSourceLabel("Untouched settings use your travel profile")
 
             Button {
                 promptFocused = false
@@ -353,50 +349,139 @@ struct DiscoverView: View {
             .buttonStyle(FarelinPrimaryButtonStyle())
             .disabled(store.isSearching)
             .accessibilityIdentifier("advanced-search")
+            }
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: revealStep)
         .farelinCard()
     }
 
     private var quickSearchControls: some View {
         VStack(alignment: .leading, spacing: 14) {
-            FarelinSectionLabel(title: "THE ESSENTIALS", accented: true)
-            Text("Set a window and budget; your profile fills the rest.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack {
+                FarelinSectionLabel(title: "THE ESSENTIALS", accented: true)
+                Spacer()
+                Button("Use my defaults") {
+                    resetComposerDefaults()
+                    revealStep = 5
+                }
+                .font(.caption.weight(.semibold))
+            }
             Text("WHEN").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                quickButton("Soon", selected: dateWindowIs(7, 45)) { setDateWindow(7, 45) }
-                quickButton("Next 3 months", selected: dateWindowIs(21, 90)) { setDateWindow(21, 90) }
-                quickButton("Flexible", selected: dateWindowIs(7, 270)) { setDateWindow(7, 270) }
+                quickButton("Soon", selected: dateWindowIs(7, 45)) { setDateWindow(7, 45); advance(to: 1) }
+                quickButton("Next 3 months", selected: dateWindowIs(21, 90)) { setDateWindow(21, 90); advance(to: 1) }
+                quickButton("Flexible", selected: dateWindowIs(7, 270)) { setDateWindow(7, 270); advance(to: 1) }
             }
+            Button("Choose dates") { showCustomDates.toggle() }
+                .font(.caption.weight(.semibold))
+            if showCustomDates {
+                DatePicker("From", selection: Binding(get: { store.advanced.startDate }, set: {
+                    store.advanced.startDate = $0
+                    store.advanced.endDate = max(store.advanced.endDate, $0)
+                    store.advanced.useProfileDates = false
+                }), in: Date.now..., displayedComponents: .date)
+                DatePicker("Until", selection: Binding(get: { store.advanced.endDate }, set: {
+                    store.advanced.endDate = $0
+                    store.advanced.useProfileDates = false
+                }), in: store.advanced.startDate..., displayedComponents: .date)
+                Button("Use these dates") { store.advanced.useProfileDates = false; advance(to: 1) }
+            }
+            if revealStep >= 1 {
             Text("FLIGHT BUDGET").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                forBudget(100)
-                forBudget(200)
-                forBudget(400)
-                quickButton("Up to €5k", selected: store.advanced.budgetText == "5000") {
-                    store.advanced.budgetText = "5000"
+            HStack {
+                Text(store.advanced.flexibleBudget ? "Flexible" : store.advanced.budgetText.isEmpty ? "Profile default" : "Up to €\(store.advanced.budgetText)")
+                    .font(.title3.weight(.semibold)).contentTransition(.numericText())
+                    .accessibilityIdentifier("explore-budget-value")
+                Spacer()
+                Button("Flexible") {
+                    store.advanced.budgetText = ""
+                    store.advanced.flexibleBudget = true
+                    advance(to: 2)
                 }
+                .font(.subheadline.weight(.semibold))
+                .accessibilityIdentifier("explore-flexible-budget")
             }
+            Slider(value: Binding(get: { budgetCheckpoint }, set: {
+                budgetCheckpoint = $0.rounded()
+                store.advanced.budgetText = String(budgetPoints[Int(budgetCheckpoint)])
+                store.advanced.flexibleBudget = false
+            }), in: 0...Double(budgetPoints.count - 1), step: 1, onEditingChanged: {
+                if !$0 { chooseBudget() }
+            })
+            .tint(FarelinColor.action)
+            .accessibilityLabel("Flight budget")
+            .accessibilityValue(store.advanced.flexibleBudget ? "Flexible" : "\(budgetPoints[Int(budgetCheckpoint)]) euros")
+            .accessibilityIdentifier("explore-budget-slider")
+            HStack {
+                ForEach(budgetPoints, id: \.self) { point in
+                    Circle().fill(FarelinColor.action.opacity(0.45)).frame(width: 4, height: 4)
+                    if point != budgetPoints.last { Spacer() }
+                }
+            }.padding(.horizontal, 7).accessibilityHidden(true)
+            HStack { Text("€50"); Spacer(); Text("€1,500") }
+                .font(.caption2).foregroundStyle(.secondary)
+            Button("Use this budget") { chooseBudget() }.font(.caption.weight(.semibold))
+            }
+            if revealStep >= 2 {
             Text("HOW LONG").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                quickLength("2–3 nights", min: 2, max: 3)
-                quickLength("4–7 nights", min: 4, max: 7)
-                quickLength("8–14 nights", min: 8, max: 14)
+            Text(store.advanced.useProfileTripLength ? "Profile length" : "\(Int(durationNights)) nights")
+                .font(.title3.weight(.semibold)).contentTransition(.numericText())
+                .accessibilityIdentifier("explore-duration-value")
+            Slider(value: Binding(get: { durationNights }, set: {
+                durationNights = $0.rounded()
+                applyLength()
+            }), in: 1...30, step: 1, onEditingChanged: { if !$0 { advance(to: 3) } })
+                .tint(FarelinColor.action)
+                .accessibilityLabel("Trip duration")
+                .accessibilityIdentifier("explore-duration-slider")
+            Toggle("Allow one night either way", isOn: $allowNearbyLengths)
+                .font(.subheadline).tint(FarelinColor.action)
+                .onChange(of: allowNearbyLengths) { _, _ in applyLength() }
+            Button("Use this length") { applyLength(); advance(to: 3) }.font(.caption.weight(.semibold))
             }
+            if revealStep >= 3 {
             Text("TRAVEL MOOD").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
             FlowLayout(spacing: 8) {
                     ForEach([("beach", "Beach"), ("food", "Food"), ("nature", "Nature"),
                              ("culture", "Culture"), ("cheap_adventure", "Adventure")], id: \.0) { mood in
                         moodButton(mood.1, selected: store.advanced.travelStyles.contains(mood.0)) {
                             store.toggleTravelStyle(mood.0)
+                            advance(to: 4)
                         }
                     }
             }
-            Text("Travel mood ranks places; it does not claim actual weather.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            Button("Use profile mood") {
+                store.advanced.travelStyles = []
+                advance(to: 4)
+            }.font(.caption.weight(.semibold))
+            }
         }
+        .sensoryFeedback(.selection, trigger: revealStep)
+        .sensoryFeedback(.selection, trigger: budgetCheckpoint)
+    }
+
+    private func advance(to step: Int) { revealStep = max(revealStep, step) }
+
+    private func resetComposerDefaults() {
+        store.resetAdvancedOverrides()
+        budgetCheckpoint = 3
+        durationNights = 6
+        allowNearbyLengths = true
+        showCustomDates = false
+        showPrecision = false
+    }
+
+    private func chooseBudget() {
+        store.advanced.budgetText = String(budgetPoints[Int(budgetCheckpoint)])
+        store.advanced.flexibleBudget = false
+        advance(to: 2)
+    }
+
+    private func applyLength() {
+        let nights = Int(durationNights)
+        store.advanced.useProfileTripLength = false
+        store.advanced.minTripLengthDays = max(1, nights - (allowNearbyLengths ? 1 : 0))
+        store.advanced.maxTripLengthDays = min(30, nights + (allowNearbyLengths ? 1 : 0))
     }
 
     private func quickButton(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -458,9 +543,6 @@ struct DiscoverView: View {
     private var advancedTripShape: some View {
         VStack(alignment: .leading, spacing: 12) {
             advancedHeading("Trip shape", source: "search")
-            Text("Choose how the journey should begin and end.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
 
             HStack(spacing: 8) {
                 tripShapeButton(
@@ -495,6 +577,7 @@ struct DiscoverView: View {
         return Button {
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
                 store.advanced.tripPlan = value
+                advance(to: 5)
             }
         } label: {
             VStack(spacing: 7) {
@@ -675,83 +758,16 @@ struct DiscoverView: View {
         }
     }
 
-    private var advancedDatesAndLength: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            advancedHeading("When", source: store.advanced.useProfileDates ? "profile" : "search")
-            Toggle("Use my profile date window", isOn: Binding(
-                get: { store.advanced.useProfileDates },
-                set: { store.advanced.useProfileDates = $0 }
-            ))
-            .tint(FarelinColor.mint)
-            if !store.advanced.useProfileDates {
-                DatePicker("Earliest departure", selection: Binding(
-                    get: { store.advanced.startDate },
-                    set: { store.advanced.startDate = $0 }
-                ), in: Date.now..., displayedComponents: .date)
-                DatePicker("Latest departure", selection: Binding(
-                    get: { store.advanced.endDate },
-                    set: { store.advanced.endDate = $0 }
-                ), in: store.advanced.startDate..., displayedComponents: .date)
-            }
-
-            advancedHeading("Trip length", source: store.advanced.useProfileTripLength ? "profile" : "search")
-            Toggle("Use my preferred trip length", isOn: Binding(
-                get: { store.advanced.useProfileTripLength },
-                set: { store.advanced.useProfileTripLength = $0 }
-            ))
-            .tint(FarelinColor.mint)
-            if !store.advanced.useProfileTripLength {
-                Stepper("At least \(store.advanced.minTripLengthDays) days", value: Binding(
-                    get: { store.advanced.minTripLengthDays },
-                    set: {
-                        store.advanced.minTripLengthDays = $0
-                        store.advanced.maxTripLengthDays = max(store.advanced.maxTripLengthDays, $0)
-                    }
-                ), in: 1...30)
-                Stepper("At most \(store.advanced.maxTripLengthDays) days", value: Binding(
-                    get: { store.advanced.maxTripLengthDays },
-                    set: { store.advanced.maxTripLengthDays = $0 }
-                ), in: store.advanced.minTripLengthDays...30)
-            }
-        }
-    }
-
-    private var advancedPreferences: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            advancedHeading("Trip preferences", source: "search")
-            TextField("Maximum flight budget (optional)", text: Binding(
-                get: { store.advanced.budgetText },
-                set: { store.advanced.budgetText = $0 }
-            ))
-            .keyboardType(.decimalPad)
-            .padding(12)
-            .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 13))
-            .overlay { RoundedRectangle(cornerRadius: 13).stroke(Color(.separator).opacity(0.5)) }
-
-            Text("Travel style")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-            FlowLayout(spacing: 8) {
-                ForEach(advancedTravelStyles, id: \.key) { style in
-                    Button {
-                        store.toggleTravelStyle(style.key)
-                    } label: {
-                        selectableChip(style.label, selected: store.advanced.travelStyles.contains(style.key))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            if store.advanced.travelStyles.isEmpty {
-                profileSourceLabel("Using profile travel styles")
-            }
-
+    private var connectionControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
             Picker("Connections", selection: Binding(
                 get: { store.advanced.directPreference },
                 set: { store.advanced.directPreference = $0 }
             )) {
                 Text("Profile default").tag("profile")
-                Text("Connections are okay").tag("connections")
-                Text("Direct flights only").tag("direct")
+                Text("Direct only").tag("direct")
+                Text("Maximum one stop").tag("one_stop")
+                Text("Any connections").tag("connections")
             }
             Picker("Cabin bag", selection: Binding(
                 get: { store.advanced.baggagePreference },
@@ -759,23 +775,7 @@ struct DiscoverView: View {
             )) {
                 Text("Profile default").tag("profile")
                 Text("Not required").tag("not_required")
-                Text("Prefer included").tag("included")
-            }
-            Toggle("Use Farelin’s standard ground-transfer limit", isOn: Binding(
-                get: { store.advanced.useDefaultGroundTransfer },
-                set: { store.advanced.useDefaultGroundTransfer = $0 }
-            ))
-            .tint(FarelinColor.mint)
-            if !store.advanced.useDefaultGroundTransfer {
-                Stepper(
-                    "Up to \(FarelinSearchFormat.duration(hours: store.advanced.maxGroundTransferHours)) ground transfer",
-                    value: Binding(
-                        get: { store.advanced.maxGroundTransferHours },
-                        set: { store.advanced.maxGroundTransferHours = $0 }
-                    ),
-                    in: 0...12,
-                    step: 0.5
-                )
+                Text("Included").tag("included")
             }
         }
     }
@@ -785,7 +785,7 @@ struct DiscoverView: View {
             Text(title)
                 .font(.headline)
             Spacer()
-            profileSourceLabel(source == "search" ? "Overridden for this search" : source == "profile" ? "Using profile default" : "Farelin default")
+            profileSourceLabel(source == "search" ? "This search" : source == "profile" ? "Profile" : "Default")
         }
     }
 
@@ -1114,7 +1114,7 @@ private struct NativeTripCard: View {
             if ["multi_city", "open_jaw"].contains(trip.tripType), let segments = trip.segments, !segments.isEmpty {
                 FarelinSectionLabel(title: "YOUR ROUTE")
                 ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                    RouteSegmentRow(index: index, segment: segment)
+                    RouteSegmentRow(index: index, segment: segment, showPriceLink: trip.checkPriceURL == nil)
                 }
                 if let estimate = trip.transportTotalEstimate, (trip.groundEstimate ?? 0) > 0 {
                     Text("Estimated transport total \(FarelinSearchFormat.money(estimate, currency: trip.outboundFlight.currency)) including ground travel. Ground prices and schedules are unverified.")
@@ -1188,35 +1188,37 @@ private struct NativeTripCard: View {
                 }
                 .tint(FarelinColor.mint)
 
-            HStack(alignment: .center, spacing: 12) {
-                Text("Price may change. Confirm availability with the provider.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                NavigationLink {
-                    TripDetailView(
-                        trip: trip,
-                        service: tripDetailService,
-                        reauthenticate: reauthenticate
-                    )
-                } label: {
-                    Text(trip.tripType == "multi_city" ? "View all legs" : "View trip")
-                        .font(.subheadline.weight(.semibold))
-                }
-                .buttonStyle(.bordered)
-                if let url = trip.checkPriceURL {
-                    Link(destination: url) {
-                        Label("Check price", systemImage: "arrow.up.right")
-                            .font(.subheadline.weight(.semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(FarelinColor.mint)
-                    .foregroundStyle(FarelinColor.ink)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { detailAction; priceAction }
+                VStack(alignment: .leading, spacing: 10) { detailAction; priceAction }
             }
-        }
+            Text("Price may change. Check with the provider.")
+                .font(.caption2).foregroundStyle(.secondary)
         }
         .farelinCard()
         .accessibilityElement(children: .contain)
+    }
+
+    private var detailAction: some View {
+        NavigationLink {
+            TripDetailView(trip: trip, service: tripDetailService, reauthenticate: reauthenticate)
+        } label: {
+            Text("View trip").font(.subheadline.weight(.semibold))
+                .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+        }.buttonStyle(.bordered)
+    }
+
+    @ViewBuilder private var priceAction: some View {
+        if let url = trip.checkPriceURL {
+            Link(destination: url) {
+                Label("Check price", systemImage: "arrow.up.right")
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(FarelinColor.mint).foregroundStyle(FarelinColor.ink)
+            .accessibilityIdentifier("trip-check-price")
+        }
     }
 
     private func scoreColor(_ score: Int) -> Color {
@@ -1419,6 +1421,7 @@ private struct WatchCreationSheet: View {
         request.travelStyles = parsed?.travelStyles ?? []
         request.directOnly = parsed?.directOnly
         request.includeBaggage = parsed?.includeBaggage
+        request.maxStops = parsed?.maxStops
         if !request.destinationCountries.isEmpty || !request.destinationRegions.isEmpty || !request.destinationContinents.isEmpty {
             request = requestWithArea(request)
         } else if request.tripPlan == "multi_city", request.routeStops == nil {
@@ -1458,7 +1461,8 @@ private struct WatchCreationSheet: View {
             destinationCountries: request.destinationCountries, destinationRegions: request.destinationRegions,
             destinationContinents: request.destinationContinents, tripPlan: request.tripPlan,
             routeStops: request.routeStops, returnOriginAirports: request.returnOriginAirports,
-            travelStyles: request.travelStyles, directOnly: request.directOnly, includeBaggage: request.includeBaggage
+            travelStyles: request.travelStyles, directOnly: request.directOnly, includeBaggage: request.includeBaggage,
+            maxStops: request.maxStops
         )
     }
 }
@@ -1535,7 +1539,7 @@ struct TripDetailView: View {
             detailTitle(store.trip.tripType == "multi_city" ? "Every leg" : "Flights")
             if ["multi_city", "open_jaw"].contains(store.trip.tripType), let segments = store.trip.segments, !segments.isEmpty {
                 ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                    RouteSegmentRow(index: index, segment: segment)
+                    RouteSegmentRow(index: index, segment: segment, showPriceLink: store.trip.checkPriceURL == nil)
                 }
                 if let groundEstimate = store.trip.groundEstimate, groundEstimate > 0 {
                     Text("Ground travel is not included in the observed flight total. Roughly \(FarelinSearchFormat.money(groundEstimate, currency: "EUR")) extra; confirm actual transport costs.")
@@ -1687,7 +1691,8 @@ struct TripDetailView: View {
                 .foregroundStyle(.secondary)
             if let url = store.trip.checkPriceURL {
                 Link(destination: url) {
-                    Label("Check final price with provider", systemImage: "arrow.up.right")
+                    Label("Check trip prices", systemImage: "arrow.up.right")
+                        .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(FarelinPrimaryButtonStyle())
@@ -1782,6 +1787,7 @@ private struct TripBadge: View {
 private struct RouteSegmentRow: View {
     let index: Int
     let segment: SearchTripSegment
+    var showPriceLink = true
 
     private var statusLabel: String {
         guard segment.kind == "flight" else { return "Ground travel · estimate" }
@@ -1814,11 +1820,11 @@ private struct RouteSegmentRow: View {
                         .font(.subheadline.bold())
                 }
             }
-            if segment.kind == "flight", let text = segment.bookingUrl,
+            if showPriceLink, segment.kind == "flight", let text = segment.bookingUrl,
                let url = URL(string: text), url.scheme == "https", url.host != nil, url.user == nil, url.password == nil {
                 Link("Check \(segment.origin) → \(segment.destination)", destination: url)
                     .font(.caption.weight(.semibold)).tint(FarelinColor.mint)
-            } else if segment.kind == "flight" {
+            } else if showPriceLink, segment.kind == "flight" {
                 Text("Provider link unavailable for this flight.").font(.caption).foregroundStyle(.secondary)
             }
         }

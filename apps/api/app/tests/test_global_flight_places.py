@@ -162,7 +162,7 @@ def test_global_round_trip_builds_metadata_link_and_preserves_price_honesty(monk
     assert trip.destination.countryCode == "US"
     assert trip.outboundFlight.confidenceLevel == "indicative"
     assert trip.outboundFlight.observedAt == fare.observedAt
-    assert "segments%5B1%5D%5Borigin_iata%5D=JFK" in trip.bookingUrl
+    assert "/search/VIE0110JFK10101?" in trip.bookingUrl
 
 
 def test_wishlist_changes_fit_but_not_deal_score():
@@ -185,7 +185,7 @@ def test_wishlist_changes_fit_but_not_deal_score():
     assert "Wishlist" in wishlist.tags
 
 
-def test_indexed_aviasales_link_supports_return_and_open_jaw(monkeypatch):
+def test_compact_aviasales_link_supports_return_and_open_jaw(monkeypatch):
     monkeypatch.setattr("app.providers.travelpayouts.affiliate_links.settings.travelpayouts_marker", "triplet")
     url = build_aviasales_itinerary_url(
         [
@@ -194,10 +194,7 @@ def test_indexed_aviasales_link_supports_return_and_open_jaw(monkeypatch):
         ]
     )
     query = parse_qs(urlparse(url).query)
-    assert query["segments[0][origin_iata]"] == ["VIE"]
-    assert query["segments[0][destination_iata]"] == ["JFK"]
-    assert query["segments[1][origin_iata]"] == ["NRT"]
-    assert query["segments[1][destination_iata]"] == ["VIE"]
+    assert "/search/VIE0110JFK-NRT1210VIE1?" in url
     assert query["marker"] == ["triplet"]
 
 
@@ -228,5 +225,5 @@ def test_global_open_jaw_builds_with_honest_self_transfer_and_itinerary_link(tri
     assert trip.tripType == "open_jaw"
     assert trip.groundTransfer.mode == "ground/self-transfer"
     assert trip.destination.countryCode == "US"
-    assert "segments%5B1%5D%5Borigin_iata%5D=NRT" in trip.bookingUrl
+    assert "/search/VIE0110JFK-NRT1210VIE1?" in trip.bookingUrl
     assert any("not a protected flight connection" in warning for warning in trip.warnings)

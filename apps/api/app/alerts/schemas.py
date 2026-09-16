@@ -37,6 +37,7 @@ class CreateSavedSearchRequest(BaseModel):
     maxGroundTransferHours: float = Field(ge=0, le=12)
     tripStyle: TripStyle
     directOnly: bool | None = None
+    maxStops: int | None = Field(default=None, ge=0, le=3)
     includeBaggage: bool | None = None
     frequency: Frequency = "daily"
     #: None means "use the account's preference, or any". Kept optional so an
@@ -85,6 +86,7 @@ class UpdateSavedSearchRequest(BaseModel):
     maxGroundTransferHours: float | None = Field(default=None, ge=0, le=12)
     tripStyle: TripStyle | None = None
     directOnly: bool | None = None
+    maxStops: int | None = Field(default=None, ge=0, le=3)
     includeBaggage: bool | None = None
     frequency: Frequency | None = None
     triggerMode: TriggerMode | None = None
@@ -126,6 +128,7 @@ class SavedSearchResponse(BaseModel):
     maxGroundTransferHours: float
     tripStyle: str
     directOnly: bool | None = None
+    maxStops: int | None = Field(default=None, ge=0, le=3)
     includeBaggage: bool | None = None
     frequency: str
     triggerMode: str | None = None

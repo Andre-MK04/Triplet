@@ -35,7 +35,7 @@ from app.tools.schemas import SearchTripsOutput
 logger = logging.getLogger(__name__)
 WATCH_CRITERIA_KEYS = ("destinationCountries", "destinationRegions", "destinationContinents",
                        "excludeEurope", "unvisitedOnly", "tripPlan", "routeStops",
-                       "returnOriginAirports", "travelStyles")
+                       "returnOriginAirports", "travelStyles", "maxStops")
 
 
 class AlertPermissionError(PermissionError):
@@ -407,6 +407,10 @@ class SavedSearchService:
         if request.triggerMode is not None:
             row.trigger_mode = request.triggerMode
         criteria = dict(row.search_criteria or {})
+        # Older clients only expose a direct-only toggle. Turning it off must
+        # also clear the equivalent zero-stop rule unless a new cap is explicit.
+        if request.directOnly is False and "maxStops" not in request.model_fields_set and criteria.get("maxStops") == 0:
+            criteria["maxStops"] = None
         for key in WATCH_CRITERIA_KEYS:
             if key in request.model_fields_set:
                 value = getattr(request, key)
@@ -816,7 +820,8 @@ def saved_search_to_response(
         destinationAirports=row.destination_airports,
         **{key: (row.search_criteria or {}).get(key, default) for key, default in (
             ("destinationCountries", []), ("destinationRegions", []), ("destinationContinents", []),
-            ("tripPlan", "return"), ("routeStops", None), ("returnOriginAirports", None), ("travelStyles", []))},
+            ("tripPlan", "return"), ("routeStops", None), ("returnOriginAirports", None), ("travelStyles", []),
+            ("maxStops", None))},
         destinationIntent=saved_search_to_trip_request(row).destinationIntent.model_dump(),
         startDate=row.start_date,
         endDate=row.end_date,

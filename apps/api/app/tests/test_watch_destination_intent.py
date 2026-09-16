@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import select
 
-from app.alerts.schemas import CreateSavedSearchRequest
+from app.alerts.schemas import CreateSavedSearchRequest, UpdateSavedSearchRequest
 from app.alerts.service import SavedSearchService, saved_search_to_trip_request
 from app.db.models import SavedSearchDB, UserDB
 
@@ -23,7 +23,7 @@ def test_watch_preserves_destination_intent_and_canonical_origins(db_session, sc
         startDate=date.today() + timedelta(days=7), endDate=date.today() + timedelta(days=90),
         minTripLengthDays=4, maxTripLengthDays=7, maxBudget=400, maxGroundTransferHours=6,
         tripStyle="surprise me", tripPlan="multi_city", frequency="weekly",
-        travelStyles=["nature"], directOnly=True, **scope,
+        travelStyles=["nature"], directOnly=True, maxStops=1, **scope,
     )
     service = SavedSearchService(db_session)
     response = service.create_user_saved_search(user, request)
@@ -33,6 +33,8 @@ def test_watch_preserves_destination_intent_and_canonical_origins(db_session, sc
     assert restored.tripPlan == "multi_city"
     assert restored.travelStyles == ["nature"]
     assert restored.directOnly is True
+    assert restored.maxStops == 1
+    assert response.maxStops == 1
     assert restored.maxTripLengthDays == 7
     assert response.frequency == "weekly"
     for key, value in scope.items():
@@ -45,9 +47,19 @@ def test_watch_preserves_destination_intent_and_canonical_origins(db_session, sc
             assert context.user_id == user.id
             assert arguments["destinationIntent"] == response.destinationIntent
             assert arguments["originAirports"] == ["CPH", "MMX"]
+            assert arguments["maxStops"] == 1
             for key, value in scope.items():
                 assert arguments[key] == value
             return {"trips": []}
 
     service.registry = CaptureRegistry()
     assert service.preview_user_saved_search(user, row.id).matchingTrips == []
+    updated = service.update_user_saved_search(user, row.id, UpdateSavedSearchRequest(maxStops=2))
+    assert updated.maxStops == 2
+    assert saved_search_to_trip_request(row).maxStops == 2
+    cleared = service.update_user_saved_search(user, row.id, UpdateSavedSearchRequest(maxStops=None))
+    assert cleared.maxStops is None
+    service.update_user_saved_search(user, row.id, UpdateSavedSearchRequest(directOnly=True, maxStops=0))
+    service.update_user_saved_search(user, row.id, UpdateSavedSearchRequest(directOnly=False))
+    assert saved_search_to_trip_request(row).maxStops is None
+    assert saved_search_to_trip_request(row).directOnly is False

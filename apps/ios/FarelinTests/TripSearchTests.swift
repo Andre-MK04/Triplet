@@ -3,6 +3,59 @@ import XCTest
 
 @MainActor
 final class TripSearchTests: XCTestCase {
+    func testFlexibleBudgetAndOneStopAreSentToExistingEngine() async throws {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.flexibleBudget = true
+        store.advanced.directPreference = "one_stop"
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+        let captured = await service.lastAdvancedRequest()
+        let request = try XCTUnwrap(captured)
+        XCTAssertTrue(request.flexibleBudget)
+        XCTAssertNil(request.maxBudget)
+        XCTAssertEqual(request.maxStops, 1)
+        XCTAssertEqual(request.directOnly, false)
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any]
+        XCTAssertEqual(json?["flexibleBudget"] as? Bool, true)
+        XCTAssertEqual(json?["maxStops"] as? Int, 1)
+    }
+
+    func testCombinedProviderSearchIncludesAllFlightsButNotGround() throws {
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(Self.searchJSON.utf8)) as? [String: Any])
+        var trip = try XCTUnwrap((root["trips"] as? [[String: Any]])?.first)
+        let original = try XCTUnwrap(trip["outboundFlight"] as? [String: Any])
+        let legs = [("CPH", "ATH", "2026-10-07"), ("ATH", "SKP", "2026-10-15"), ("SOF", "CPH", "2026-11-21")]
+        var segments: [[String: Any]] = []
+        for (index, leg) in legs.enumerated() {
+            var flight = original
+            flight["origin"] = leg.0
+            flight["destination"] = leg.1
+            flight["departureDateTime"] = leg.2 + "T09:00:00"
+            flight["bookingUrl"] = "https://www.aviasales.com/search/CPH0710ATH1?marker=747408"
+            segments.append(["kind": "flight", "origin": leg.0, "destination": leg.1,
+                             "originCity": leg.0, "destinationCity": leg.1,
+                             "departureDate": leg.2, "flight": flight])
+            if index == 1 {
+                segments.append(["kind": "ground", "origin": "SKP", "destination": "SOF",
+                                 "originCity": "Skopje", "destinationCity": "Sofia", "departureDate": "2026-10-17"])
+            }
+        }
+        trip["tripType"] = "multi_city"
+        trip["provider"] = "travelpayouts"
+        trip["segments"] = segments
+        root["trips"] = [trip]
+        var response = try JSONDecoder().decode(FarelinAISearchResponse.self, from: JSONSerialization.data(withJSONObject: root))
+        let url = try XCTUnwrap(response.trips.first?.checkPriceURL)
+        XCTAssertEqual(url.path, "/search/CPH0710ATH1510SKP-SOF2111CPH1")
+        XCTAssertTrue(url.absoluteString.contains("currency=eur"))
+        XCTAssertTrue(url.absoluteString.contains("marker=747408"))
+        segments[1]["departureDate"] = "2026-10-06"
+        trip["segments"] = segments
+        root["trips"] = [trip]
+        response = try JSONDecoder().decode(FarelinAISearchResponse.self, from: JSONSerialization.data(withJSONObject: root))
+        XCTAssertNil(response.trips.first?.checkPriceURL, "Invalid chronology must not create a broken provider link")
+    }
+
     func testEditingResultsPreservesDraftAndDoesNotSubmitAgain() async {
         let service = FakeTripSearchService(response: .fixture)
         let store = TripSearchStore(service: service)

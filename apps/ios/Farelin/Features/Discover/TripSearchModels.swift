@@ -35,6 +35,7 @@ struct ParsedTripSearch: Decodable, Sendable {
     let maxGroundTransferHours: Double?
     let directOnly: Bool?
     let includeBaggage: Bool?
+    var maxStops: Int? = nil
 }
 
 struct NativeSavedWatchRequest: Encodable, Sendable {
@@ -60,6 +61,7 @@ struct NativeSavedWatchRequest: Encodable, Sendable {
     var travelStyles: [String] = []
     var directOnly: Bool? = nil
     var includeBaggage: Bool? = nil
+    var maxStops: Int? = nil
 }
 
 protocol NativeWatchCreating: Sendable {
@@ -81,7 +83,9 @@ struct SavedFareSummary: Decodable, Identifiable, Sendable {
     let trip: SearchTrip?
 
     var checkPriceURL: URL? {
-        guard let checkPriceUrl, let url = URL(string: checkPriceUrl), url.scheme == "https" else { return nil }
+        if let trip, let url = trip.checkPriceURL { return url }
+        guard let checkPriceUrl, let url = URL(string: checkPriceUrl), url.scheme == "https",
+              url.host != nil, url.user == nil, url.password == nil else { return nil }
         return url
     }
 }
@@ -123,6 +127,8 @@ struct FarelinAdvancedSearchRequest: Encodable, Sendable, Equatable {
     let directOnly: Bool?
     let includeBaggage: Bool?
     let travelStyles: [String]?
+    var flexibleBudget: Bool = false
+    var maxStops: Int? = nil
 }
 
 struct AdvancedSearchDraft: Equatable, Sendable {
@@ -136,6 +142,7 @@ struct AdvancedSearchDraft: Equatable, Sendable {
     var minTripLengthDays = 3
     var maxTripLengthDays = 8
     var budgetText = ""
+    var flexibleBudget = false
     var tripPlan = "return"
     var travelStyles: [String] = []
     var directPreference = "profile"
@@ -277,12 +284,58 @@ struct SearchTrip: Decodable, Identifiable, Sendable {
     }
 
     var checkPriceURL: URL? {
-        // A chain is a set of separately priced tickets, not a single quote.
-        if tripType == "multi_city" || (tripType == "open_jaw" && !(segments ?? []).isEmpty) { return nil }
+        // One provider search for all flight legs. This is not one protected
+        // fare quote; ground crossings remain the traveller's arrangement.
+        if tripType == "multi_city" || (tripType == "open_jaw" && !(segments ?? []).isEmpty) {
+            guard provider == "travelpayouts" else { return nil }
+            return FarelinProviderSearchLink.combined(trip: self)
+        }
         return [bookingUrl, outboundFlight.bookingUrl, outboundFlight.deepLink, outboundFlight.affiliateUrl]
             .compactMap { $0 }
             .compactMap(URL.init(string:))
             .first { $0.scheme == "https" && $0.host != nil && $0.user == nil && $0.password == nil }
+    }
+}
+
+enum FarelinProviderSearchLink {
+    static func combined(trip: SearchTrip) -> URL? {
+        let legs = (trip.segments ?? []).filter { $0.kind == "flight" }
+        guard (2...7).contains(legs.count), legs.allSatisfy({ $0.flight != nil }) else { return nil }
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(secondsFromGMT: 0)
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.isLenient = false
+        let output = DateFormatter()
+        output.locale = parser.locale
+        output.timeZone = parser.timeZone
+        output.dateFormat = "ddMM"
+        var route = ""
+        var previousDestination: String?
+        var previousDate: Date?
+        for leg in legs {
+            let origin = leg.origin.uppercased(), destination = leg.destination.uppercased()
+            guard [origin, destination].allSatisfy({ code in
+                code.utf8.count == 3 && code.utf8.allSatisfy { (65...90).contains($0) }
+            }), origin != destination,
+                  let date = parser.date(from: String(leg.departureDate.prefix(10))),
+                  previousDate == nil || date >= previousDate! else { return nil }
+            if route.isEmpty { route = origin }
+            else if previousDestination != origin { route += "-" + origin }
+            route += output.string(from: date) + destination
+            previousDestination = destination
+            previousDate = date
+        }
+        var url = URLComponents(string: "https://www.aviasales.com/search/\(route)1")!
+        url.queryItems = [URLQueryItem(name: "currency", value: trip.outboundFlight.currency.lowercased())]
+        let source = legs.first?.bookingUrl ?? legs.first?.flight?.bookingUrl ?? trip.outboundFlight.bookingUrl
+        if let source, let components = URLComponents(string: source),
+           components.host == "www.aviasales.com" || components.host == "aviasales.com",
+           let marker = components.queryItems?.first(where: { $0.name == "marker" })?.value,
+           !marker.isEmpty, marker.count <= 30, marker.utf8.allSatisfy({ (48...57).contains($0) }) {
+            url.queryItems?.append(URLQueryItem(name: "marker", value: marker))
+        }
+        return url.url
     }
 }
 
@@ -665,7 +718,9 @@ final class TripSearchStore {
             routeStops: tripPlan == "multi_city" && !isScopedJourney ? routePlaces.map(\.code) : nil,
             directOnly: Self.optionalPreference(advanced.directPreference, requiredValue: "direct"),
             includeBaggage: Self.optionalPreference(advanced.baggagePreference, requiredValue: "included"),
-            travelStyles: advanced.travelStyles.isEmpty ? nil : advanced.travelStyles
+            travelStyles: advanced.travelStyles.isEmpty ? nil : advanced.travelStyles,
+            flexibleBudget: advanced.flexibleBudget,
+            maxStops: advanced.directPreference == "one_stop" ? 1 : (advanced.directPreference == "direct" ? 0 : nil)
         )
     }
 

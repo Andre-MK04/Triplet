@@ -142,8 +142,8 @@ def advanced_search(
     # No hard budget means broad discovery, not an invisible profile cap. The
     # engine still requires a numeric ceiling, so 5000 is an internal safety
     # bound; hardBudgetApplied tells clients not to present it as the user's cap.
-    hard_budget = resolved.values["maxBudget"] is not None
-    engine_budget = float(resolved.values["maxBudget"] or 5000)
+    hard_budget = not request.flexibleBudget and resolved.values["maxBudget"] is not None
+    engine_budget = float(resolved.values["maxBudget"] or 5000) if hard_budget else 5000
     search_request = TripSearchRequest(
         originAirports=origins,
         destinationAirports=(
@@ -167,6 +167,7 @@ def advanced_search(
         tripPlan=trip_plan,
         routeStops=[code.upper() for code in request.routeStops] if request.routeStops else None,
         directOnly=bool(resolved.values["directOnly"]),
+        maxStops=request.maxStops,
         includeBaggage=bool(resolved.values["includeBaggage"]),
         travelStyles=list(resolved.values["travelStyles"]),
     )
@@ -178,6 +179,9 @@ def advanced_search(
     _validate_destination_scopes(search_request)
     result = search_trips(search_request, http_request, db, user)
     source_map = dict(resolved.sourceMap)
+    if request.flexibleBudget:
+        source_map["maxBudget"] = "search"
+    source_map["maxStops"] = "search" if request.maxStops is not None else "default"
     for field_name in (
         "destinationAirports",
         "destinationCountries",

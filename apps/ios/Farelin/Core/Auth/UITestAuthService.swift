@@ -35,10 +35,19 @@ struct UITestDiscoverScreen: View {
     }
 
     var body: some View {
+        TabView {
         DiscoverView(store: store, opportunities: opportunities, originAirports: ["CPH"],
                      accountEmail: "ui-test@example.invalid", tripDetailService: service,
                      watchService: service, fareService: service, onWatchSaved: {}, reauthenticate: nil)
             .tint(FarelinColor.action)
+            .tabItem { Label("Discover", systemImage: "magnifyingglass") }
+            Text("UI test").tabItem { Label("Today", systemImage: "sparkles") }
+            Text("UI test").tabItem { Label("Watches", systemImage: "bell") }
+            Text("UI test").tabItem { Label("My World", systemImage: "globe") }
+            Text("UI test").tabItem { Label("Account", systemImage: "person") }
+        }
+        .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("-ui-testing-dark") ? .dark : nil)
+        .dynamicTypeSize(ProcessInfo.processInfo.arguments.contains("-ui-testing-large-text") ? .accessibility3 : .large)
     }
 }
 
@@ -48,7 +57,14 @@ private actor UITestDiscoverService: TripSearchServicing, OpportunityServicing,
     func searchPlaces(_ query: String) -> [FlightPlaceResult] { [] }
     func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {
         try await Task.sleep(for: .milliseconds(150))
-        return FarelinAISearchResponse(message: "", parsedRequest: nil, trips: [],
+        let trips = ProcessInfo.processInfo.arguments.contains("-ui-testing-results")
+            ? (0..<6).map { Self.trip(index: $0) } : []
+        let parsed = trips.isEmpty ? nil : ParsedTripSearch(originAirports: ["CPH"], destinationAirports: nil,
+            destinationCountries: [], destinationRegions: [], destinationContinents: [],
+            startDate: "2026-10-07", endDate: "2026-12-15", minTripLengthDays: 4,
+            maxTripLengthDays: 7, maxBudget: 400, tripPlan: "return", travelStyles: ["food"],
+            routeStops: nil, returnOriginAirports: nil, maxGroundTransferHours: 4, directOnly: false, includeBaggage: false)
+        return FarelinAISearchResponse(message: trips.isEmpty ? "" : "Found six observed trip options from your structured search.", parsedRequest: parsed, trips: trips,
             relaxationNote: nil, missingFields: [], providerMetadata: nil, sourceMap: nil, hardBudgetApplied: nil)
     }
     func opportunities() -> NativeOpportunityFeed {
@@ -60,5 +76,26 @@ private actor UITestDiscoverService: TripSearchServicing, OpportunityServicing,
     func savedFares() -> [SavedFareSummary] { [] }
     func saveFare(suggestionId: String) throws -> SavedFareSummary { throw APIError.unavailable }
     func deleteSavedFare(id: String) throws { throw APIError.unavailable }
+
+    private static func trip(index: Int) -> SearchTrip {
+        let out = SearchFlight(id: "out-\(index)", origin: "CPH", destination: "ARN",
+            departureDateTime: "2026-10-16T09:00:00Z", arrivalDateTime: "2026-10-16T10:15:00Z",
+            airline: "SK", price: 105, currency: "EUR", bookingUrl: "https://example.invalid/check",
+            deepLink: nil, affiliateUrl: nil, stops: 0, durationMinutes: 75, isLive: false,
+            confidenceLevel: "indicative", observedAt: "2026-09-14T10:00:00Z")
+        let back = SearchFlight(id: "back-\(index)", origin: "ARN", destination: "CPH",
+            departureDateTime: "2026-10-18T19:00:00Z", arrivalDateTime: "2026-10-18T20:15:00Z",
+            airline: "SK", price: 105, currency: "EUR", bookingUrl: "https://example.invalid/check",
+            deepLink: nil, affiliateUrl: nil, stops: 0, durationMinutes: 75, isLive: false,
+            confidenceLevel: "indicative", observedAt: "2026-09-14T10:00:00Z")
+        return SearchTrip(id: "ui-trip-\(index)", tripType: "same_city", outboundFlight: out,
+            returnFlight: back, groundTransfer: nil, segments: nil, stays: nil, flightCost: nil,
+            groundEstimate: nil, transportTotalEstimate: nil, durationMatch: nil, price: nil,
+            totalPrice: 210, tripLengthDays: 2, nights: 2, score: 80, dealScore: 80, fitScore: 85,
+            suggestionId: nil, fareKind: "round_trip_bundle", explanation: "UI test fixture.",
+            warnings: [], tags: ["food"], bookingUrl: "https://example.invalid/check",
+            provider: "ui_test", destination: SearchDestination(code: "STO", city: "Stockholm",
+                country: "Sweden", countryCode: "SE", continent: "Europe"))
+    }
 }
 #endif

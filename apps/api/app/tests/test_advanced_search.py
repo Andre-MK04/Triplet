@@ -99,6 +99,42 @@ def test_advanced_search_requires_authentication():
     assert response.status_code == 401
 
 
+def test_flexible_budget_overrides_profile_ceiling_and_one_stop_is_explicit(db_session):
+    user = _user_with_profile(db_session)
+    profile = db_session.scalar(select(UserTravelProfileDB).where(UserTravelProfileDB.user_id == user.id))
+    profile.absolute_max_budget = 100
+    db_session.commit()
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    app.dependency_overrides[get_current_user_required] = lambda: user
+    try:
+        response = TestClient(app).post("/trips/advanced-search", json={
+            "flexibleBudget": True, "directOnly": False, "maxStops": 1,
+            "startDate": "2026-07-01", "endDate": "2026-08-31",
+        })
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["hardBudgetApplied"] is False
+    assert body["sourceMap"]["maxBudget"] == "search"
+    assert body["parsedRequest"]["maxStops"] == 1
+    assert body["parsedRequest"]["directOnly"] is False
+    assert not db_session.scalars(select(UsageCounterDB).where(UsageCounterDB.user_id == user.id)).all()
+
+
+def test_hard_stop_limit_rejects_unknown_and_excess_connections():
+    from app.models.trip import TripSearchRequest
+    request = TripSearchRequest(originAirports=["CPH"], startDate="2026-10-01",
+                                endDate="2026-10-31", maxBudget=400, maxStops=1,
+                                minTripLengthDays=4, maxTripLengthDays=7,
+                                maxGroundTransferHours=4, tripStyle="surprise me")
+    assert request.allows_stops(0)
+    assert request.allows_stops(1)
+    assert not request.allows_stops(2)
+    assert not request.allows_stops(None)
+    assert not request.allows_stops(-1)
+
+
 def test_advanced_multi_city_requires_ordered_stops(db_session):
     user = _user_with_profile(db_session)
     app.dependency_overrides[get_db] = _override_db(db_session)

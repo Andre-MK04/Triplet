@@ -641,10 +641,11 @@ not checked reservations or exact quotes.
 Native Discover now keeps the first fold short: a compact fare sighting, the
 structured Explore/Ask Farelin switch, and the essentials composer lead the
 screen. The full observed board expands only when its fare sighting is tapped.
-Trip shape and destination choice are always
-accessible; non-return trips label their ordered destination input clearly.
-Origin overrides, exact dates, and comfort rules sit inside an expandable
-refinement section. This is a presentation change, not a new search engine or
+Explore progressively reveals When, a snapped budget slider, a duration slider,
+travel mood, trip shape and destinations. **Use my defaults** skips the choices
+without silently replacing profile settings. Exact dates stay in When; origin
+overrides, direct/maximum-one-stop and cabin bag rules stay in refinement.
+Non-return trips accept ordered cities or a broad region. This is not a new search engine or
 AI call. All observed prices still retain their indicative/last-checked labels.
 
 Completed native searches now focus the results and hide the long composer.
@@ -652,9 +653,15 @@ Completed native searches now focus the results and hide the long composer.
 An empty Explore search can prepare 30 additional days for review, preserving
 the route, budget, duration and comfort settings; the user must tap Find trips
 again. AI failures offer an explicit switch to unmetered structured Explore
-without pretending the failed prompt has been parsed. The high budget shortcut
-is labelled **Up to €5k**, matching its actual server-side limit. Scroll motion
-respects Reduce Motion and usable results receive a light success haptic.
+without pretending the failed prompt has been parsed. **Flexible** explicitly
+removes the profile's hard budget for that search; €5,000 remains an internal
+discovery safety bound, not an advertised user limit. Compose/results have
+separate scroll lifetimes rather than a layout-dependent animated scroll anchor.
+Motion respects Reduce Motion and choices receive light selection haptics.
+Multi-city/open-jaw cards open one Aviasales search for all flight legs (up to
+seven), omitting ground crossings. This is not one protected quote; prices and
+separate-ticket/ground warnings remain. Prompt suggestions have equal widths;
+price actions stack when larger text needs more room.
 
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using

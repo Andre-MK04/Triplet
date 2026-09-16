@@ -167,7 +167,7 @@ def _cheapest_fare_per_date(
         usable = [
             fare
             for fare in fares_by_leg.get((leg.origin, leg.destination), [])
-            if not (request.directOnly and (fare.stops or 0) > 0)
+            if request.allows_stops(fare.stops)
         ]
         recent = [fare for fare in usable if fare.observedAt and fare.observedAt >= cutoff]
         best = _cheapest_by_date(recent) or _cheapest_by_date(usable)
@@ -414,9 +414,11 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
         return None
 
     stays = _stays(route)
-    # Separate one-way observations are not a single multi-city quote. Expose
-    # each flight's matching route/date URL through the canonical segments.
-    booking_url = None
+    # One provider search for all flights, not a protected single fare quote.
+    booking_url = build_aviasales_itinerary_url([
+        ItinerarySegment(segment.origin, segment.destination, segment.departureDate)
+        for segment in segments if segment.kind == "flight"
+    ])
     trip_type = "open_jaw" if request.tripPlan == "open_jaw" else "multi_city"
 
     trip = TripOption(

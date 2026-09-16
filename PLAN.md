@@ -1,5 +1,52 @@
 # Farelin product plan
 
+## Progressive native Explore revision (2026-09-16)
+
+Handoff: user reported blank advanced-search viewport, cramped price CTA and
+overwhelming controls. Preserve server-owned preferences, origin limits and AI
+metering. Keep the user's Xcode window-state file untouched.
+
+Decision: progressive sections within the existing composer, not separate
+full-screen steps. Budget uses snapped checkpoints plus an explicit Flexible
+choice; duration uses a normal slider. Retain a one-tap profile-default path.
+Rejected: automatic search after each slider move (costs/changed intent), and
+a rigid wizard that prevents revisiting earlier choices. A combined provider
+link is a new search, not an observed protected ticket or guaranteed total.
+
+- [x] A — investigate long-result scroll/layout bugs with isolated tabbed UI
+  fixtures. Where: Discover and UI tests. Verify repeat search/edit in dark mode,
+  compact and large text. Fence: no real account/provider charges for reproduction.
+- [x] B — progressive When/budget/duration/mood/shape controls and concise
+  refinement. Where: Discover/draft models. Verify reveal, sliders, defaults,
+  edit preservation, explicit flexible budget and max-one-stop server filtering.
+  Fence: no silent profile override or client-only comfort enforcement.
+- [x] C — one combined provider action with exact flight routes/dates, omitting
+  ground legs. Where: affiliate builder, itinerary builder and native cards/detail.
+  Verify official provider prefill and route/date tests, no wrapped CTA.
+  Fence: retain separate-ticket/ground warnings; do not claim a single fare quote.
+- [x] D — verify, document and return to roadmap. Native tests + both Release
+  builds, backend suite, secret scan. External signing/APNs gates stay explicit.
+
+Tripwires: blank viewport not reproduced -> report that boundary honestly and
+test lifecycle changes without claiming original proof; provider prefill differs
+-> inspect provider-generated URL rather than invent parameters; no known stops
+-> exclude unknown offers from a hard stop-count rule.
+
+Verification: 83 native simulator tests (eight UI tests), 802 backend tests and
+151 web tests pass. Two PostgreSQL-only tests are skipped in the local SQLite
+suite. Production Release and Staging Release simulator builds pass. Repeat
+search/edit cycles start on results; budget checkpoints, Flexible, a 30-night
+slider selection, equal-size prompts and accessibility-size price buttons are
+verified. The cramped CTA was reproduced; the original persistent blank screen
+was NOT reproduced before changes. Separate scroll lifetimes replace the old
+animated anchor handoff, but the reported physical-device glitch still needs
+owner confirmation. Provider-generated Aviasales prefill confirms CPH → ATH →
+SKP / SOF → CPH and all three DDMM dates; closing home must remain on a disjoint
+route. No real fare search, account credentials or AI calls were used for fixtures.
+Stop caps survive watch creation/preview/update via existing search_criteria JSON;
+no database migration or new Railway variables. Release signing/APNs/inbox gates
+remain in NATIVE-RELEASE.md; no automatic App Store submission or extra tracking.
+
 ## Native usability pass — search to next action (2026-09-16)
 
 Handoff: release-foundation CI run 35099842363 and all four deployment statuses

@@ -134,7 +134,7 @@ def test_trip_falls_back_to_a_route_and_date_search_without_a_provider_link():
 
     trip = build_round_trip_options([fare], request, enforce_budget=False)[0]
 
-    assert trip.bookingUrl and "2026-09-30" in trip.bookingUrl
+    assert trip.bookingUrl and "/search/VIE3009BCN03101?" in trip.bookingUrl
     assert "currency=eur" in trip.bookingUrl
 
 

@@ -104,6 +104,22 @@ def test_total_is_the_sum_of_every_flown_hop():
     assert len([s for s in trip.segments if s.kind == "flight"]) == 3
 
 
+def test_one_stop_limit_is_applied_before_cheapest_chain_selection():
+    req = request(maxStops=1)
+    legs = plan_route(req, "VIE")
+    fares = {}
+    for origin, destination in flight_legs(legs):
+        allowed = [f.model_copy(update={"stops": 1}) for f in spread(origin, destination, 50)]
+        cheaper = [f.model_copy(update={"stops": 2}) for f in spread(origin, destination, 10)]
+        unknown = [f.model_copy(update={"stops": None}) for f in spread(origin, destination, 5)]
+        fares[(origin, destination)] = allowed + cheaper + unknown
+    trips = build_itineraries(req, "VIE", legs, fares)
+    assert trips and trips[0].totalPrice == 150
+    assert all(segment.flight.stops == 1 for segment in trips[0].segments if segment.kind == "flight")
+    fares[("BCN", "LIS")] = [f for f in fares[("BCN", "LIS")] if f.stops != 1]
+    assert build_itineraries(req, "VIE", legs, fares) == []
+
+
 def test_dates_are_chosen_for_the_cheapest_whole_trip_not_the_cheapest_first_hop():
     """A cheap first flight that forces an expensive last one must lose.
 
@@ -161,7 +177,8 @@ def test_balkan_chain_preserves_all_flight_and_ground_segments():
         ("CPH", "ATH"), ("ATH", "SKP"), ("SKP", "BEG"), ("BEG", "SOF"), ("SOF", "CPH"),
     ]
     assert [s.kind for s in trip.segments] == ["flight", "flight", "ground", "ground", "flight"]
-    assert trip.bookingUrl is None
+    assert trip.bookingUrl is not None
+    assert "/search/" in trip.bookingUrl
     assert trip.totalPrice == 239
     assert trip.transportTotalEstimate == trip.totalPrice + trip.groundEstimate
     for segment in trip.segments:

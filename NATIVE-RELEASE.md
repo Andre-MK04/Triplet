@@ -213,3 +213,20 @@ Still unverified externally: Apple/Google account configuration, real Resend
 inbox delivery, APNs physical-device acceptance,
 signed distribution and App Store Connect privacy/review metadata. Do not replace
 these checks with mock results.
+
+September 16 progressive Explore receipt: 83 simulator tests pass, including
+eight UI tests. Three repeat search/edit cycles start at the result header;
+budget checkpoints, explicit Flexible, the 30-night duration endpoint, equal
+prompt sizes and accessibility-size price actions are covered. Both Release
+simulator configurations pass, as do 802 backend tests and 151 web tests.
+Two PostgreSQL-only regressions remain skipped in the local SQLite run.
+The wrapped price action was reproduced. The original persistent blank viewport
+was not reproduced; a separate compose/results scroll lifetime replaces the
+animated lazy-list anchor handoff and still needs physical-device confirmation.
+Aviasales prefill was verified for all three flight routes/dates in a disjoint
+chain; the single link is a provider search, not one protected price or ticket.
+Hard stop caps persist in existing watch criteria JSON, with no migration or
+new Railway variables. Confirm the new progressive choices, direct/one-stop
+refinement, retained edits and combined provider handoff on a physical iPhone.
+Staged Gitleaks and diff whitespace checks are clean. The user's Xcode window
+state is intentionally excluded from the commit.

@@ -19,6 +19,7 @@ def build_trips(
     scoring: ScoringContext | None = None,
     enforce_budget: bool = True,
 ) -> list[TripOption]:
+    flights = [flight for flight in flights if request.allows_stops(flight.stops)]
     airports_by_code = {airport.code: airport for airport in airports}
     origin_codes = {code.upper() for code in request.originAirports}
     destination_codes = (
@@ -436,7 +437,7 @@ def build_round_trip_options(
         # City-directions has no verified per-leg stop breakdown. Even a
         # zero aggregate transfers field cannot establish that BOTH legs meet
         # a hard direct-only search. Use verified one-way offers instead.
-        if request.directOnly:
+        if request.directOnly or request.maxStops is not None:
             continue
         if not destination_allowed_by_travel_map(destination, request, scoring):
             continue

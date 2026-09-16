@@ -59,11 +59,17 @@ class TripSearchRequest(BaseModel):
     # Connections are normal on long-haul routes. Users can still require direct
     # flights explicitly, but the worldwide default must not hide useful trips.
     directOnly: bool = False
+    maxStops: int | None = Field(default=None, ge=0, le=3)
     includeBaggage: bool = False
     # Optional per-search travel styles (destination-style keys like "beach",
     # "food"). When set, they override the profile's styles for this search and
     # boost the fit score of matching destinations.
     travelStyles: list[str] = Field(default_factory=list, max_length=9)
+
+    def allows_stops(self, stops: int | None) -> bool:
+        if self.directOnly and (stops or 0) > 0:
+            return False
+        return self.maxStops is None or (stops is not None and 0 <= stops <= self.maxStops)
 
     @field_validator("originAirports", "destinationAirports", "returnOriginAirports", "routeStops", "destinationCountries")
     @classmethod
@@ -109,11 +115,13 @@ class AdvancedTripSearchRequest(BaseModel):
     minTripLengthDays: int | None = Field(default=None, ge=1, le=30)
     maxTripLengthDays: int | None = Field(default=None, ge=1, le=30)
     maxBudget: float | None = Field(default=None, gt=0, le=5000)
+    flexibleBudget: bool = False
     maxGroundTransferHours: float | None = Field(default=None, ge=0, le=12)
     tripStyle: Literal["one city", "two nearby cities", "surprise me"] | None = None
     tripPlan: Literal["return", "open_jaw", "multi_city"] | None = None
     routeStops: list[str] | None = Field(default=None, min_length=2, max_length=6)
     directOnly: bool | None = None
+    maxStops: int | None = Field(default=None, ge=0, le=3)
     includeBaggage: bool | None = None
     travelStyles: list[str] | None = Field(default=None, max_length=9)
     comfortRules: dict[str, Literal["off", "prefer", "require"]] | None = None

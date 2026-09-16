@@ -32,6 +32,7 @@ struct NativeWatchDetail: Decodable, Sendable {
     let directOnly: Bool?
     let includeBaggage: Bool?
     let isActive: Bool
+    var maxStops: Int? = nil
 
     var destinationDescription: String {
         if let stops = routeStops, !stops.isEmpty { return stops.joined(separator: " → ") }
@@ -109,6 +110,9 @@ struct WatchDetailView: View {
                             .foregroundStyle(.secondary)
                         LabeledContent("Status", value: watch.isActive ? "Active" : "Paused")
                         LabeledContent("Checks", value: watch.frequency.capitalized)
+                        if let maxStops = watch.maxStops {
+                            LabeledContent("Connections", value: maxStops == 0 ? "Direct only" : "Maximum \(maxStops) stop\(maxStops == 1 ? "" : "s")")
+                        }
                         LabeledContent("Budget", value: "€\(Int(watch.maxBudget))")
                         Text("\(watch.minTripLengthDays)–\(watch.maxTripLengthDays) days · \(watch.startDate) to \(watch.endDate)").font(.footnote)
                         Button("Edit watch", systemImage: "slider.horizontal.3") {
