@@ -4,6 +4,21 @@ The app reuses FastAPI auth/search/watch/privacy services. Minimum iOS 17,
 iPhone only. Payments stay disabled; don't add a web Stripe purchase link to
 the native app. This file is a release checklist, not a claim of App Store approval.
 
+## Native CI failure diagnostics
+
+Simulator tests save `FarelinTests.xcresult` outside the repository in the runner's
+temporary directory. CI prints its summary even when testing fails and uploads
+the `native-test-results` artifact (including UI screenshots) for seven days.
+Download/open that bundle in Xcode to identify the failed assertion, timeout,
+or crash before changing app code. A test name and exit code 65 alone do not
+identify the cause. Test failure still blocks both Release build steps.
+
+Investigation receipt (2026-09-16): commit cbf7044 failed the long-results UI test
+on GitHub's iOS 26.4.1/Xcode 26.6 runner, but the original workflow suppressed the
+failure detail and discarded the bundle. Unchanged source passed the exact test
+on local iOS 26.5 (42 seconds), then all 83 tests passed on that simulator. This
+is not proof that the hosted failure is fixed; inspect the diagnostic CI run.
+
 ## Backend deployment
 
 Run `python -m alembic upgrade head` on staging before testing a new native build.
