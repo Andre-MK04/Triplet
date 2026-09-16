@@ -44,7 +44,7 @@ struct RootView: View {
             guard session.state == .restoring else { return }
             await session.restore()
         }
-        .tint(FarelinColor.mint)
+        .tint(FarelinColor.action)
     }
 }
 

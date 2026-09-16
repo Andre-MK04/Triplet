@@ -76,6 +76,19 @@ def test_device_cannot_be_taken_by_another_user(db_session, configured, user):
     with pytest.raises(ValueError): push.register_device(db_session, "other-user", "a1" * 32)
 
 
+def test_revoked_device_can_reconnect_without_previous_owner_outbox(db_session, configured, user, watch):
+    device, _, _ = queue(db_session, user, watch)
+    previous_id = device.id
+    device.is_active = False
+    other = UserDB(id=str(uuid4()), email="other-device@example.com", password_hash="unusable",
+                   is_verified=True, is_active=True, plan="free", subscription_status="none")
+    db_session.add(other); db_session.commit()
+    connected = push.register_device(db_session, other.id, "a1" * 32)
+    assert connected.user_id == other.id and connected.id != previous_id
+    assert db_session.query(PushDeliveryDB).count() == 0
+    assert db_session.scalar(select(PushDeviceDB.id).where(PushDeviceDB.user_id == user.id)) is None
+
+
 def test_queue_deduplicates_by_watch_event_and_device(db_session, configured, user, watch):
     device, run, _ = queue(db_session, user, watch)
     assert push.enqueue_watch_push(db_session, watch, run.id) == 0

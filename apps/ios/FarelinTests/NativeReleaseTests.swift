@@ -1,7 +1,21 @@
 import XCTest
+import UIKit
 @testable import Farelin
 
 final class NativeReleaseTests: XCTestCase {
+    @MainActor
+    func testLightModeActionTextHasAccessibleContrast() {
+        let color = UIColor(FarelinColor.action).resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        XCTAssertTrue(color.getRed(&r, green: &g, blue: &b, alpha: &a))
+        func linear(_ c: CGFloat) -> Double {
+            let v = Double(c)
+            return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+        XCTAssertGreaterThanOrEqual(1.05 / (luminance + 0.05), 4.5)
+    }
+
     func testExportRoundTripsStructuredJSON() throws {
         let data = Data(#"{"account":{"email":"private@example.com"},"usage":[1,true,null],"profile":null}"#.utf8)
         let document = try JSONDecoder().decode(AccountExport.self, from: data)

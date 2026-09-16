@@ -92,10 +92,12 @@ this choice. Consent is stored locally per account, and disconnecting doesn't
 automatically re-enable it on relaunch. Lock-screen content is generic; tapping
 opens the watch through the authenticated API, not an arbitrary URL. Log out
 disconnects the registered device best-effort; an offline disconnect may need
-a retry. Device ownership cannot be taken over by another account.
+a retry. Active device ownership cannot be taken over by another account.
 Account also lists active device identifiers and lets the owner disconnect old
 devices. An active token cannot be reassigned by a different account; no tokens
-are shown or returned in account exports.
+are shown or returned in account exports. After the previous owner explicitly
+disconnects, the same phone can reconnect under another account with a fresh
+device identifier; old queued push deliveries are discarded, never reassigned.
 
 ## Watch management
 
@@ -165,9 +167,11 @@ The separate retention-focused UX pass comes after these functional gates.
 
 ## Verification receipt — September 16, 2026
 
-- Backend: 797 tests passed; two PostgreSQL-only tests skipped in the default
+- Backend: 798 tests passed; two PostgreSQL-only tests skipped in the default
   SQLite run and passed separately against a migrated local PostgreSQL 16 database.
-- Native: 69 tests passed, including two isolated UI tests on iPhone 17 Pro / iOS 26.1.
+- Native: 70 tests passed, including two isolated UI tests on iPhone 17 Pro / iOS 26.1
+  and a light-mode action-text contrast regression. Text actions use darker teal
+  in light mode; mint-filled primary buttons keep their original identity.
 - Web regression: 151 tests passed; Next.js production build passed.
 - PostgreSQL: migrations through 33 apply; downgrade to 31 and re-upgrade passed.
   Reproduced and fixed linked-trip foreign-key failures for watch/account deletion;
@@ -191,7 +195,12 @@ exports and transport logs. There are no new payment/webhook/upload/LLM tools in
 this phase. This is a code review plus regression checks, not a hosting audit or
 penetration test, and it is not a guarantee that the app cannot be hacked.
 
-Still unverified externally: Railway migration/deployment completion, Apple/Google
-account configuration, real Resend inbox delivery, APNs physical-device acceptance,
+Deployment receipt for `9aca6b5`: GitHub reports successful Vercel, staging API,
+production API and alerts-worker deployments. Staging `/ready` reports ready;
+native-provider status is available and push status rejects unauthenticated access.
+Backend, frontend, dependency audit and secret/database CI jobs passed.
+
+Still unverified externally: Apple/Google account configuration, real Resend
+inbox delivery, APNs physical-device acceptance,
 signed distribution and App Store Connect privacy/review metadata. Do not replace
 these checks with mock results.

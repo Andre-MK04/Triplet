@@ -9,7 +9,7 @@ import jwt
 from cryptography.fernet import InvalidToken
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.auth.native_identity import token_cipher
@@ -37,9 +37,16 @@ def push_configured() -> bool:
 def register_device(db: Session, user_id: str, token: str) -> PushDeviceDB:
     digest = hashlib.sha256(token.lower().encode()).hexdigest()
     row = db.scalar(select(PushDeviceDB).where(PushDeviceDB.token_hash == digest,
-        PushDeviceDB.topic == settings.apns_topic, PushDeviceDB.environment == settings.apns_environment))
+        PushDeviceDB.topic == settings.apns_topic, PushDeviceDB.environment == settings.apns_environment).with_for_update())
     if row and row.user_id != user_id:
-        raise ValueError("This device must be disconnected from its previous account first.")
+        if row.is_active:
+            raise ValueError("This device must be disconnected from its previous account first.")
+        # Explicit revocation by the previous owner permits a new account on
+        # this phone. Never reuse that owner's device id or queued deliveries.
+        db.execute(delete(PushDeliveryDB).where(PushDeliveryDB.device_id == row.id))
+        db.delete(row)
+        db.flush()
+        row = None
     if not row:
         count = len(db.scalars(select(PushDeviceDB.id).where(PushDeviceDB.user_id == user_id)).all())
         if count >= 8: raise ValueError("This account has reached its registered device limit.")

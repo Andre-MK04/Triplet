@@ -1,7 +1,14 @@
 import SwiftUI
+import UIKit
 
 enum FarelinColor {
     static let mint = Color(red: 0.49, green: 0.87, blue: 0.76)
+    /// Text/actions need more contrast than a mint-filled button in light mode.
+    static let action = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.49, green: 0.87, blue: 0.76, alpha: 1)
+            : UIColor(red: 8.0 / 255, green: 123.0 / 255, blue: 104.0 / 255, alpha: 1)
+    })
     static let coral = Color(red: 1.00, green: 0.60, blue: 0.47)
     static let gold = Color(red: 0.91, green: 0.77, blue: 0.42)
     static let ink = Color(red: 0.043, green: 0.067, blue: 0.090)
@@ -16,7 +23,7 @@ struct FarelinSectionLabel: View {
         Text(title)
             .font(.caption2.monospaced().weight(.semibold))
             .tracking(1.2)
-            .foregroundStyle(accented ? FarelinColor.mint : Color.secondary)
+            .foregroundStyle(accented ? FarelinColor.action : Color.secondary)
     }
 }
 

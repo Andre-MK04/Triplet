@@ -35,9 +35,10 @@ with exact owner setup; missing signing/profile -> prepare archive instructions
 without weakening signing; failing CI -> fix before deploying. Physical iPhone,
 real email, APNs and external TestFlight acceptance remain explicit release gates.
 
-Code verification: 797 backend tests passed; two separate PostgreSQL regressions
+Code verification: 798 backend tests passed; two separate PostgreSQL regressions
 passed (skipped unless TEST_POSTGRES_URL is set in the normal SQLite suite).
-69 native tests passed, including two isolated UI tests; 151 web tests and the
+70 native tests passed, including two isolated UI tests and a light-mode text
+contrast regression; 151 web tests and the
 web production build passed. Real PostgreSQL migrations apply through 33 and
 rollback/re-upgrade 32/33 successfully. Watch/account deletion with generated
 trips was reproduced failing on PostgreSQL, corrected and added to CI. Gitleaks
