@@ -283,6 +283,17 @@ class SavedSearchService:
         row = self._get_user_saved_search(user, saved_search_id)
         return self._to_response(row)
 
+    def delete_user_saved_search(self, user: UserDB, saved_search_id: str) -> None:
+        from sqlalchemy import delete
+        from app.db.models import PushDeliveryDB, TripSuggestionDB
+        row = self._get_user_saved_search(user, saved_search_id)
+        for model in (PushDeliveryDB, AlertDeliveryDB, AlertRunDB):
+            self.db.execute(delete(model).where(model.saved_search_id == row.id))
+        self.db.execute(update(TripSuggestionDB).where(TripSuggestionDB.saved_search_id == row.id)
+                        .values(saved_search_id=None))
+        self.db.execute(delete(SavedSearchDB).where(SavedSearchDB.id == row.id))
+        self.db.commit()
+
     def get_user_saved_search_insights(self, user: UserDB, saved_search_id: str) -> WatchInsightsResponse:
         row = self._get_user_saved_search(user, saved_search_id)
         runs = list(
@@ -496,6 +507,9 @@ class SavedSearchService:
                     )
                 elif self._claim_notification_slot(row):
                     notification_sent = self._send_delivery(row, run, output, provider)
+                    if notification_sent:
+                        from app.notifications.service import enqueue_watch_push
+                        enqueue_watch_push(self.db, row, run.id)
 
             run.status = "success" if trips else "no_results"
             run.provider_used = output.providerUsed

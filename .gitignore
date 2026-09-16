@@ -26,3 +26,6 @@ __pycache__/
 *.sqlite-wal
 # Explicitly tracked fixtures, if any are ever needed, go here:
 !apps/api/app/tests/fixtures/*.db
+
+# Owner-specific native OAuth identifiers/signing overrides; no private keys.
+apps/ios/Config/*.local.xcconfig

@@ -8,7 +8,7 @@ configurable; anything a user still needs is left untouched. Run on a schedule
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.database import SessionLocal
 from app.db.models import (
@@ -16,6 +16,9 @@ from app.db.models import (
     CachedRoundTripDB,
     EmailEventDB,
     NativeEmailVerificationCodeDB,
+    NativeAuthChallengeDB,
+    PushDeviceDB,
+    PushDeliveryDB,
     TripSuggestionDB,
 )
 
@@ -57,6 +60,11 @@ def cleanup(db, now: datetime | None = None) -> dict:
     native_codes_deleted = db.execute(
         delete(NativeEmailVerificationCodeDB).where(NativeEmailVerificationCodeDB.expires_at < now)
     ).rowcount or 0
+    db.execute(delete(NativeAuthChallengeDB).where(NativeAuthChallengeDB.expires_at < now))
+    db.execute(delete(PushDeliveryDB).where(PushDeliveryDB.created_at < now - timedelta(days=30)))
+    stale_devices = select(PushDeviceDB.id).where(PushDeviceDB.updated_at < now - timedelta(days=90))
+    db.execute(delete(PushDeliveryDB).where(PushDeliveryDB.device_id.in_(stale_devices)))
+    db.execute(delete(PushDeviceDB).where(PushDeviceDB.id.in_(stale_devices)))
     db.commit()
 
     summary = {

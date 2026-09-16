@@ -19,7 +19,7 @@ from app.alerts.service import (
 from app.auth.dependencies import get_current_user_required
 from app.auth.service import auth_user_response
 from app.billing.service import billing_status
-from app.billing.usage import assert_origin_airports_allowed, assert_saved_search_allowed
+from app.billing.usage import assert_origin_airports_allowed, assert_saved_search_allowed, assert_alert_frequency_allowed
 from app.database import get_db
 from app.deals.opportunities import OpportunityFeed, build_opportunity_feed
 from app.db.models import UserDB, UserTravelProfileDB
@@ -223,6 +223,17 @@ def create_saved_search(
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc
 
 
+@router.get("/saved-searches/{saved_search_id}", response_model=SavedSearchResponse)
+def get_saved_search(
+    saved_search_id: str,
+    db: Session = Depends(get_db),
+    user: UserDB = Depends(get_current_user_required),
+) -> SavedSearchResponse:
+    return _handle_saved_search_errors(
+        lambda: SavedSearchService(db).get_user_saved_search(user, saved_search_id)
+    )
+
+
 @router.delete("/saved-searches/{saved_search_id}")
 def delete_saved_search(
     saved_search_id: str,
@@ -230,7 +241,7 @@ def delete_saved_search(
     user: UserDB = Depends(get_current_user_required),
 ) -> dict[str, bool]:
     def run() -> dict[str, bool]:
-        SavedSearchService(db).deactivate_user_saved_search(user, saved_search_id)
+        SavedSearchService(db).delete_user_saved_search(user, saved_search_id)
         record_audit_event(db, "watch.deleted", user_id=user.id, commit=True, watch_id=saved_search_id)
         return {"ok": True}
 
@@ -245,8 +256,11 @@ def update_saved_search(
     user: UserDB = Depends(get_current_user_required),
 ) -> SavedSearchResponse:
     def run() -> SavedSearchResponse:
+        # Ownership is checked before limits, and editing an existing watch does
+        # not consume another slot (Free users already have their one slot).
+        SavedSearchService(db).get_user_saved_search(user, saved_search_id)
         if request.frequency:
-            assert_saved_search_allowed(db, user, request.frequency)
+            assert_alert_frequency_allowed(user, request.frequency)
         updated = SavedSearchService(db).update_user_saved_search(user, saved_search_id, request)
         record_audit_event(db, "watch.updated", user_id=user.id, commit=True, watch_id=saved_search_id)
         return updated

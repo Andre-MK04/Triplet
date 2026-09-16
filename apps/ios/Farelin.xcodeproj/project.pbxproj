@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05FC29BCD7DB4CA4653E43C8 /* AccountModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32A2128652A54C9EDD295D9 /* AccountModels.swift */; };
 		0A61D8E72A8E4F7CB227A101 /* AuthenticatedAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B101 /* AuthenticatedAppView.swift */; };
 		0A61D8E72A8E4F7CB227A102 /* DashboardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */; };
 		0A61D8E72A8E4F7CB227A103 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */; };
@@ -22,6 +23,8 @@
 		0A61D8E72A8E4F7CB227A113 /* NaturalEarthCountries.geojson in Resources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B113 /* NaturalEarthCountries.geojson */; };
 		0A61D8E72A8E4F7CB227A114 /* MyWorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B114 /* MyWorldTests.swift */; };
 		1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */; };
+		27F1C1BEDE2CFA413335B4BB /* WatchDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4DF4B702A40FEEE8A35C3FD /* WatchDetailView.swift */; };
+		3722841C84B17BBEB4AD17A3 /* WatchRouteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70473DDEE46FA9AA9FD71B52 /* WatchRouteEditor.swift */; };
 		38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */; };
 		3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
 		3F1336578A6B726713EA4633 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */; };
@@ -30,13 +33,21 @@
 		50E7E05D232B524B3F71FE69 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0729BD432C52D74BA203D10A /* AuthModels.swift */; };
 		5F6AB25ACABE2A4202FA6B88 /* PurchaseProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */; };
 		60CC47A716B92285C2F9768F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2DB8726886ABB13C8FD9E60 /* RootView.swift */; };
+		642B0EFAC2353A001243444D /* NativeReleaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */; };
 		77CAE90C8AEF0DC5A3DEA3F6 /* AppConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */; };
+		80FDF7929F391A4456B71EF1 /* NativeIdentityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265A36FDE693B95AAF3F38ED /* NativeIdentityModels.swift */; };
 		810E9493E949EDE7E5FFCCA5 /* AuthSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */; };
 		819E450D643860B33671141C /* FarelinTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1269DB89080FF7783FD656C9 /* FarelinTheme.swift */; };
+		90B2F135958E88862E11A3B7 /* NativeIdentityButtons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE86B3D075A37E7EDBC049F /* NativeIdentityButtons.swift */; };
+		92C4E5229CA49538C5E75469 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 64A752AE3474B2064DBAC587 /* PrivacyInfo.xcprivacy */; };
 		A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCEC713499788706E4F6405 /* FoundationView.swift */; };
+		A6A26270416E07DB30168BE2 /* PushNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C33B1873E94ED237BAA3EAA /* PushNotifications.swift */; };
 		BE9BFC2A3DBF91BD2B3AEA83 /* FarelinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */; };
+		C07BCD3ED8167FD774B87B1F /* UITestAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6FA9069DF8563D4940FBEE7 /* UITestAuthService.swift */; };
+		CD8AE505795C0C24F7D27009 /* AccountControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA163F87B202903E8B90D813 /* AccountControls.swift */; };
 		CF21CDCA2098B4E0200F27B9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
 		CFF0B32D41537A7F48F0EF25 /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5746754D4228EE40472EEC57 /* AuthenticationView.swift */; };
+		DBCD654DEA36239F6E6FE8FD /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = E981FBD863077978B6DCB426 /* GoogleSignIn */; };
 		DD3A83F197147BC2775374DB /* SignedInFoundationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */; };
 		E49556F163966923FCC30CA1 /* AuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3E956A59DBCBF5112B0967 /* AuthSession.swift */; };
 		E4F04A2A78B55563F52060BB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
@@ -61,6 +72,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0729BD432C52D74BA203D10A /* AuthModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B101 /* AuthenticatedAppView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthenticatedAppView.swift; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardModels.swift; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -75,23 +87,31 @@
 		0A61D8E72A8E4F7CB227B112 /* MyWorldView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyWorldView.swift; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B113 /* NaturalEarthCountries.geojson */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.json; path = Geometry/NaturalEarthCountries.geojson; sourceTree = "<group>"; };
 		0A61D8E72A8E4F7CB227B114 /* MyWorldTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyWorldTests.swift; sourceTree = "<group>"; };
-		0729BD432C52D74BA203D10A /* AuthModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RefreshTokenStore.swift; sourceTree = "<group>"; };
 		0C64792974BA8FAF5EB57C01 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		1269DB89080FF7783FD656C9 /* FarelinTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinTheme.swift; sourceTree = "<group>"; };
 		14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinApp.swift; sourceTree = "<group>"; };
 		1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthSessionTests.swift; sourceTree = "<group>"; };
 		1D5861B6F214DECDEE399F7A /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		265A36FDE693B95AAF3F38ED /* NativeIdentityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeIdentityModels.swift; path = Core/Auth/NativeIdentityModels.swift; sourceTree = "<group>"; };
+		2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeReleaseTests.swift; sourceTree = "<group>"; };
 		2B7EC2B1555142D5DAE4159C /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
 		351A52F5DE1A15D31E28061E /* Production.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
+		3EE86B3D075A37E7EDBC049F /* NativeIdentityButtons.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeIdentityButtons.swift; path = Features/Authentication/NativeIdentityButtons.swift; sourceTree = "<group>"; };
 		3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PurchaseProviding.swift; sourceTree = "<group>"; };
 		4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PurchaseProviderTests.swift; sourceTree = "<group>"; };
 		5746754D4228EE40472EEC57 /* AuthenticationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
+		5C33B1873E94ED237BAA3EAA /* PushNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotifications.swift; path = Core/Notifications/PushNotifications.swift; sourceTree = "<group>"; };
+		64A752AE3474B2064DBAC587 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		70473DDEE46FA9AA9FD71B52 /* WatchRouteEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchRouteEditor.swift; path = Features/Dashboard/WatchRouteEditor.swift; sourceTree = "<group>"; };
 		720180BB4A06118BC877FB22 /* FarelinUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FarelinUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		86978127302CBB600410B49C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2DB8726886ABB13C8FD9E60 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		A32A2128652A54C9EDD295D9 /* AccountModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountModels.swift; path = Core/Auth/AccountModels.swift; sourceTree = "<group>"; };
+		A6FA9069DF8563D4940FBEE7 /* UITestAuthService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UITestAuthService.swift; path = Core/Auth/UITestAuthService.swift; sourceTree = "<group>"; };
+		AA163F87B202903E8B90D813 /* AccountControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountControls.swift; path = Features/Authentication/AccountControls.swift; sourceTree = "<group>"; };
 		AB5FD9DC36BE66D69C0FB348 /* FarelinTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FarelinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinUITests.swift; sourceTree = "<group>"; };
 		B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedInFoundationView.swift; sourceTree = "<group>"; };
@@ -99,6 +119,7 @@
 		D4768987DB99830432970AA4 /* Base.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
 		DBCEC713499788706E4F6405 /* FoundationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoundationView.swift; sourceTree = "<group>"; };
+		F4DF4B702A40FEEE8A35C3FD /* WatchDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchDetailView.swift; path = Features/Dashboard/WatchDetailView.swift; sourceTree = "<group>"; };
 		F970F9EC1A97CD28DBBCC822 /* Farelin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Farelin.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -116,6 +137,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CF21CDCA2098B4E0200F27B9 /* Foundation.framework in Frameworks */,
+				DBCD654DEA36239F6E6FE8FD /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,8 +162,45 @@
 				0A61D8E72A8E4F7CB227B107 /* TravelProfileTests.swift */,
 				0A61D8E72A8E4F7CB227B110 /* TripSearchTests.swift */,
 				0A61D8E72A8E4F7CB227B114 /* MyWorldTests.swift */,
+				2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */,
 			);
 			path = FarelinTests;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C101 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */,
+				0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C102 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */,
+				0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C103 /* Discover */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B108 /* TripSearchModels.swift */,
+				0A61D8E72A8E4F7CB227B109 /* DiscoverView.swift */,
+			);
+			path = Discover;
+			sourceTree = "<group>";
+		};
+		0A61D8E72A8E4F7CB227C104 /* MyWorld */ = {
+			isa = PBXGroup;
+			children = (
+				0A61D8E72A8E4F7CB227B111 /* MyWorldModels.swift */,
+				0A61D8E72A8E4F7CB227B112 /* MyWorldView.swift */,
+			);
+			path = MyWorld;
 			sourceTree = "<group>";
 		};
 		1596A780D3C474D7236791B8 /* Auth */ = {
@@ -194,42 +253,6 @@
 			path = Foundation;
 			sourceTree = "<group>";
 		};
-		0A61D8E72A8E4F7CB227C101 /* Dashboard */ = {
-			isa = PBXGroup;
-			children = (
-				0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */,
-				0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */,
-			);
-			path = Dashboard;
-			sourceTree = "<group>";
-		};
-		0A61D8E72A8E4F7CB227C102 /* Onboarding */ = {
-			isa = PBXGroup;
-			children = (
-				0A61D8E72A8E4F7CB227B105 /* TravelProfileModels.swift */,
-				0A61D8E72A8E4F7CB227B106 /* TravelProfileView.swift */,
-			);
-			path = Onboarding;
-			sourceTree = "<group>";
-		};
-		0A61D8E72A8E4F7CB227C103 /* Discover */ = {
-			isa = PBXGroup;
-			children = (
-				0A61D8E72A8E4F7CB227B108 /* TripSearchModels.swift */,
-				0A61D8E72A8E4F7CB227B109 /* DiscoverView.swift */,
-			);
-			path = Discover;
-			sourceTree = "<group>";
-		};
-		0A61D8E72A8E4F7CB227C104 /* MyWorld */ = {
-			isa = PBXGroup;
-			children = (
-				0A61D8E72A8E4F7CB227B111 /* MyWorldModels.swift */,
-				0A61D8E72A8E4F7CB227B112 /* MyWorldView.swift */,
-			);
-			path = MyWorld;
-			sourceTree = "<group>";
-		};
 		7586DDF7060CE2C18BEA58F3 /* Farelin */ = {
 			isa = PBXGroup;
 			children = (
@@ -237,6 +260,15 @@
 				5EE509D2BE19591A8CCC1B34 /* Core */,
 				410DFECE41F600243BEF8EE6 /* Features */,
 				ABCC86536F227C8C8D33E348 /* Resources */,
+				A32A2128652A54C9EDD295D9 /* AccountModels.swift */,
+				AA163F87B202903E8B90D813 /* AccountControls.swift */,
+				F4DF4B702A40FEEE8A35C3FD /* WatchDetailView.swift */,
+				265A36FDE693B95AAF3F38ED /* NativeIdentityModels.swift */,
+				3EE86B3D075A37E7EDBC049F /* NativeIdentityButtons.swift */,
+				5C33B1873E94ED237BAA3EAA /* PushNotifications.swift */,
+				A6FA9069DF8563D4940FBEE7 /* UITestAuthService.swift */,
+				64A752AE3474B2064DBAC587 /* PrivacyInfo.xcprivacy */,
+				70473DDEE46FA9AA9FD71B52 /* WatchRouteEditor.swift */,
 			);
 			path = Farelin;
 			sourceTree = "<group>";
@@ -377,6 +409,9 @@
 			dependencies = (
 			);
 			name = Farelin;
+			packageProductDependencies = (
+				E981FBD863077978B6DCB426 /* GoogleSignIn */,
+			);
 			productName = Farelin;
 			productReference = F970F9EC1A97CD28DBBCC822 /* Farelin.app */;
 			productType = "com.apple.product-type.application";
@@ -431,6 +466,9 @@
 				Base,
 			);
 			mainGroup = C470EB9B95842F010CBBDFA2;
+			packageReferences = (
+				FEDE866464B5397B4D239D82 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			productRefGroup = C43E40F9B5247037411B4DC3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -463,6 +501,7 @@
 			files = (
 				F500B1AC1089748768BD7C79 /* Assets.xcassets in Resources */,
 				0A61D8E72A8E4F7CB227A113 /* NaturalEarthCountries.geojson in Resources */,
+				92C4E5229CA49538C5E75469 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -480,6 +519,7 @@
 				0A61D8E72A8E4F7CB227A107 /* TravelProfileTests.swift in Sources */,
 				0A61D8E72A8E4F7CB227A110 /* TripSearchTests.swift in Sources */,
 				0A61D8E72A8E4F7CB227A114 /* MyWorldTests.swift in Sources */,
+				642B0EFAC2353A001243444D /* NativeReleaseTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -516,6 +556,14 @@
 				0A61D8E72A8E4F7CB227A105 /* TravelProfileModels.swift in Sources */,
 				0A61D8E72A8E4F7CB227A106 /* TravelProfileView.swift in Sources */,
 				A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */,
+				05FC29BCD7DB4CA4653E43C8 /* AccountModels.swift in Sources */,
+				CD8AE505795C0C24F7D27009 /* AccountControls.swift in Sources */,
+				27F1C1BEDE2CFA413335B4BB /* WatchDetailView.swift in Sources */,
+				80FDF7929F391A4456B71EF1 /* NativeIdentityModels.swift in Sources */,
+				90B2F135958E88862E11A3B7 /* NativeIdentityButtons.swift in Sources */,
+				A6A26270416E07DB30168BE2 /* PushNotifications.swift in Sources */,
+				C07BCD3ED8167FD774B87B1F /* UITestAuthService.swift in Sources */,
+				3722841C84B17BBEB4AD17A3 /* WatchRouteEditor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -537,6 +585,91 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0892F4E170696D3052A4509D /* Staging Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				APNS_DELIVERY_ENVIRONMENT = production;
+				APNS_ENVIRONMENT = production;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				DEVELOPMENT_TEAM = TYQSVP5A64;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.farelin.tests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Farelin.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Farelin";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Staging Release";
+		};
+		0B3EE56B728F681EEE73D427 /* Staging Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APNS_DELIVERY_ENVIRONMENT = production;
+				APNS_ENVIRONMENT = production;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 5.0;
+			};
+			name = "Staging Release";
+		};
 		437C7154DDE9A3C82F9E1427 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
@@ -606,6 +739,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				DEVELOPMENT_TEAM = TYQSVP5A64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -627,6 +761,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				DEVELOPMENT_TEAM = TYQSVP5A64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -646,6 +781,7 @@
 			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
 				DEVELOPMENT_TEAM = TYQSVP5A64;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
@@ -664,6 +800,7 @@
 			baseConfigurationReference = 351A52F5DE1A15D31E28061E /* Production.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
 				DEVELOPMENT_TEAM = TYQSVP5A64;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
@@ -685,6 +822,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Farelin/Resources/Farelin.entitlements;
 				DEVELOPMENT_TEAM = TYQSVP5A64;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
@@ -751,6 +889,30 @@
 			};
 			name = Release;
 		};
+		D2BBF99B3438950F7DF05B0B /* Staging Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				APNS_DELIVERY_ENVIRONMENT = production;
+				APNS_ENVIRONMENT = production;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Farelin/Resources/Farelin.entitlements;
+				DEVELOPMENT_TEAM = TYQSVP5A64;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_NAME = Farelin;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Staging Release";
+		};
 		E5350D992127EC26B6297582 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 351A52F5DE1A15D31E28061E /* Production.xcconfig */;
@@ -758,6 +920,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Farelin/Resources/Farelin.entitlements;
 				DEVELOPMENT_TEAM = TYQSVP5A64;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
@@ -770,6 +933,30 @@
 			};
 			name = Release;
 		};
+		FAC7BC2CD68533CF6FE65942 /* Staging Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */;
+			buildSettings = {
+				APNS_DELIVERY_ENVIRONMENT = production;
+				APNS_ENVIRONMENT = production;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "";
+				DEVELOPMENT_TEAM = TYQSVP5A64;
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.farelin.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Farelin;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Staging Release";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -778,6 +965,7 @@
 			buildConfigurations = (
 				437C7154DDE9A3C82F9E1427 /* Debug */,
 				CDF0AE09AEF5FFF459C92DBC /* Release */,
+				0B3EE56B728F681EEE73D427 /* Staging Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -787,6 +975,7 @@
 			buildConfigurations = (
 				648586907ADAC3A4BFB715D7 /* Release */,
 				74F6A430EC62CF66AEB17225 /* Debug */,
+				0892F4E170696D3052A4509D /* Staging Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -796,6 +985,7 @@
 			buildConfigurations = (
 				E5350D992127EC26B6297582 /* Release */,
 				C3C6B98784796A603B7E6A3B /* Debug */,
+				D2BBF99B3438950F7DF05B0B /* Staging Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -805,11 +995,31 @@
 			buildConfigurations = (
 				B22878D44E35FFDE2D28AF47 /* Release */,
 				92DA20C6708B67F48F687421 /* Debug */,
+				FAC7BC2CD68533CF6FE65942 /* Staging Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FEDE866464B5397B4D239D82 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = exactVersion;
+				version = 9.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E981FBD863077978B6DCB426 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FEDE866464B5397B4D239D82 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 89B29662D614AAA74588654B /* Project object */;
 }

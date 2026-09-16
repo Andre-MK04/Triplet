@@ -43,6 +43,10 @@ def isolated_provider_settings(monkeypatch):
     monkeypatch.setattr(settings, "email_provider", "console")
     monkeypatch.setattr(settings, "resend_api_key", None)
     monkeypatch.setattr(settings, "resend_webhook_secret", None)
+    monkeypatch.setattr(settings, "native_google_client_ids", "")
+    monkeypatch.setattr(settings, "native_apple_client_ids", "")
+    monkeypatch.setattr(settings, "apns_enabled", False)
+    monkeypatch.setattr(settings, "apns_private_key", "")
 
 
 @pytest.fixture(autouse=True)

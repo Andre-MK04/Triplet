@@ -63,6 +63,7 @@ final class DashboardStore {
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private(set) var workingWatchID: String?
+    private(set) var completedWatchActions = 0
 
     private let service: any DashboardServicing
     private let reauthenticate: (@MainActor @Sendable () async -> Bool)?
@@ -110,6 +111,7 @@ final class DashboardStore {
                 return try await self.service.pauseWatch(id: watch.id)
             }
             await load(force: true)
+            completedWatchActions += 1
         } catch {
             errorMessage = readable(error)
         }
@@ -123,6 +125,7 @@ final class DashboardStore {
         do {
             try await authenticated { try await self.service.deleteWatch(id: watch.id) }
             await load(force: true)
+            completedWatchActions += 1
         } catch {
             errorMessage = readable(error)
         }

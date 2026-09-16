@@ -10,8 +10,18 @@ struct RootView: View {
             switch session.state {
             case .restoring:
                 RestoringSessionView()
+            case .restoreFailed:
+                ContentUnavailableView {
+                    Label("Your account is still saved", systemImage: "wifi.exclamationmark")
+                } description: {
+                    Text(session.message ?? "Reconnect to restore your Farelin session.")
+                } actions: {
+                    Button("Try again") { Task { await session.restore() } }
+                        .buttonStyle(.borderedProminent)
+                    Button("Use another account") { Task { await session.signOut() } }
+                }
             case .signedOut:
-                AuthenticationView(configuration: configuration, session: session)
+                AuthenticationView(configuration: configuration, session: session, accountService: apiClient, identityService: apiClient)
             case .signedIn(let user):
                 if user.isVerified {
                     AuthenticatedAppView(
@@ -24,7 +34,8 @@ struct RootView: View {
                     SignedInFoundationView(
                         configuration: configuration,
                         session: session,
-                        user: user
+                        user: user,
+                        accountService: apiClient
                     )
                 }
             }

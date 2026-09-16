@@ -257,7 +257,7 @@ def test_account_saved_searches_are_owned_by_current_user(db_session):
     assert len(listed.json()) == 1
     assert row.user_id == user.id
     assert deleted.status_code == 200
-    assert row.is_active is False
+    assert db_session.get(SavedSearchDB, created.json()["id"]) is None
 
 
 def test_account_dashboard_usage_and_saved_search_edit_flow(db_session):

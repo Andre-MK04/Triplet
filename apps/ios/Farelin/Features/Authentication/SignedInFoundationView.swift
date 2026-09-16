@@ -4,6 +4,7 @@ struct SignedInFoundationView: View {
     let configuration: AppConfiguration
     let session: AuthSession
     let user: AuthUser
+    let accountService: any NativeAccountServicing
     @State private var verificationCode = ""
     @FocusState private var codeFocused: Bool
 
@@ -73,6 +74,8 @@ struct SignedInFoundationView: View {
                     LabeledContent("Environment", value: configuration.environment.rawValue.capitalized)
                     LabeledContent("API", value: configuration.apiBaseURL.host ?? "Configured")
                 }
+
+                AccountControls(service: accountService, session: session, hasPassword: user.hasPassword)
 
                 Section {
                     Button("Sign out", role: .destructive) {

@@ -121,6 +121,9 @@ def configure_logging() -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(getattr(logging, (settings.log_level or "INFO").upper(), logging.INFO))
+    # Transport logs may contain APNs device tokens in request URLs.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     # uvicorn installs its own handlers; let them fall through to ours so
     # request lines and application lines share one format.

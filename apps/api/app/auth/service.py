@@ -117,6 +117,8 @@ class AuthService:
         user_agent: str | None = None,
         ip_address: str | None = None,
         oauth_state: OAuthState | None = None,
+        encrypted_provider_refresh: str | None = None,
+        native_client_id: str | None = None,
     ):
         account = self.db.scalar(
             select(UserOAuthAccountDB).where(
@@ -159,6 +161,8 @@ class AuthService:
                 )
                 self.db.add(user)
                 self.db.flush()
+            elif not user.is_active:
+                raise AuthError("Account is disabled.")
             elif not profile.email_verified:
                 raise AuthError(
                     "This provider did not verify the matching email address. Log in another way."
@@ -175,6 +179,9 @@ class AuthService:
             )
             self.db.add(account)
 
+        if encrypted_provider_refresh:
+            account.encrypted_refresh_token = encrypted_provider_refresh
+            account.native_client_id = native_client_id
         if profile.display_name and not user.display_name:
             user.display_name = profile.display_name
         user.last_login_at = datetime.utcnow()

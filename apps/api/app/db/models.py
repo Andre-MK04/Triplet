@@ -450,10 +450,48 @@ class UserOAuthAccountDB(Base):
     provider: Mapped[str] = mapped_column(String(40), index=True)
     provider_user_id: Mapped[str] = mapped_column(String(255), index=True)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    encrypted_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    native_client_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user: Mapped[UserDB] = relationship(back_populates="oauth_accounts")
+
+
+class PushDeviceDB(Base):
+    __tablename__ = "push_devices"
+    __table_args__ = (UniqueConstraint("token_hash", "topic", "environment", name="uq_push_device_token"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
+    encrypted_token: Mapped[str] = mapped_column(Text)
+    topic: Mapped[str] = mapped_column(String(255))
+    environment: Mapped[str] = mapped_column(String(20))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PushDeliveryDB(Base):
+    __tablename__ = "push_deliveries"
+    __table_args__ = (UniqueConstraint("device_id", "alert_run_id", name="uq_push_delivery_run_device"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("push_devices.id"), index=True)
+    saved_search_id: Mapped[str] = mapped_column(ForeignKey("saved_searches.id"), index=True)
+    alert_run_id: Mapped[str] = mapped_column(ForeignKey("alert_runs.id"), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class NativeAuthChallengeDB(Base):
+    __tablename__ = "native_auth_challenges"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    nonce_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class RefreshTokenSessionDB(Base):

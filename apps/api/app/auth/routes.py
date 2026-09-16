@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
+from typing import Literal
 
 from app.audit import record_audit_event
 from app.auth.dependencies import get_current_user_required
@@ -55,6 +57,55 @@ from app.legal import CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION
 from app.security.client_ip import client_ip
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class NativeIdentityRequest(BaseModel):
+    idToken: str = Field(min_length=16, max_length=16384)
+    authorizationCode: str | None = Field(default=None, max_length=4096)
+    challengeId: str | None = Field(default=None, max_length=36)
+    intent: Literal["login", "signup"] = "login"
+    acceptedTermsVersion: str | None = Field(default=None, max_length=32)
+    acknowledgedPrivacyVersion: str | None = Field(default=None, max_length=32)
+
+
+@router.get("/native/providers")
+def native_providers():
+    from app.auth.native_identity import providers_status
+    return providers_status()
+
+
+@router.post("/native/challenge")
+def native_challenge(db: Session = Depends(get_db), _: None = Depends(auth_rate_limit("native_challenge"))):
+    from app.auth.native_identity import new_challenge, providers_status
+    if not providers_status()["apple"]:
+        raise HTTPException(status_code=503, detail="Apple sign-in is not configured yet.")
+    return new_challenge(db)
+
+
+@router.post("/native/oauth/{provider}", response_model=NativeAuthResponse)
+async def native_identity_login(provider: Literal["apple", "google"], payload: NativeIdentityRequest,
+                                request: Request, db: Session = Depends(get_db),
+                                _: None = Depends(auth_rate_limit("native_oauth"))):
+    from app.auth.native_identity import verified_profile
+    from app.auth.oauth import OAuthState
+    import httpx
+    try:
+        profile, encrypted_refresh, native_client = await verified_profile(db, provider, payload)
+        user, access, refresh = AuthService(db).login_with_oauth(profile,
+            user_agent=request.headers.get("user-agent"), ip_address=client_ip(request),
+            oauth_state=OAuthState(payload.intent, payload.acceptedTermsVersion, payload.acknowledgedPrivacyVersion),
+            encrypted_provider_refresh=encrypted_refresh, native_client_id=native_client)
+    except OAuthConfigError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="This sign-in provider is not available yet.") from exc
+    except (OAuthProviderError, AuthError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (httpx.HTTPError, SQLAlchemyError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Sign-in is temporarily unavailable. Please try again.") from exc
+    record_audit_event(db, "auth.native_oauth", user_id=user.id, request=request, commit=True)
+    return native_auth_response(user, access, refresh)
 
 
 def native_auth_response(user: UserDB, access_token: str, refresh_token: str) -> NativeAuthResponse:
@@ -370,13 +421,15 @@ def delete_me(
         # preserve the account and its portal access rather than strand a paying
         # customer with a subscription they can no longer manage.
         cancel_customer_subscriptions_before_erasure(user)
+        from app.auth.native_identity import revoke_native_apple_accounts
+        revoke_native_apple_accounts(db, user.id)
         erase_user(db, user, request=request)
-    except (BillingConfigError, BillingProviderError) as exc:
+    except (BillingConfigError, BillingProviderError, OAuthProviderError, OAuthConfigError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=503,
             detail=(
-                "We could not safely cancel your billing subscription. "
+                "We could not safely cancel billing or revoke your linked sign-in. "
                 "Your account was not deleted; please try again shortly."
             ),
         ) from exc

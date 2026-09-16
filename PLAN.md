@@ -1,5 +1,53 @@
 # Farelin product plan
 
+## Native release essentials (2026-09-16)
+
+Handoff: preserve the existing SwiftUI app and FastAPI services. The September
+15/16 integrity work is committed in `ac230fc`; verify deployed contracts before
+assuming staging matches local code. Payments remain disabled. User approved
+account controls, session reliability, native login, watch management, APNs,
+and TestFlight preparation before a separate retention-focused UX pass.
+
+Decision: reuse existing auth/privacy/watch endpoints, add verified native
+provider-token exchange and APNs behind explicit configuration. Rejected: a
+second auth database, automatic marketing opt-in, web Stripe purchases in iOS,
+and a UI rewrite. Micro-motion should acknowledge actions, not delay them.
+
+- [x] A — coordinate refresh and implement native account controls.
+  Where: AuthSession, APIClient, Account/Authentication. Verify concurrent refresh,
+  failed-network persistence, export/deletion/reset tests and simulator flows.
+  Fence: no IP-based identity, no secrets in preferences, no production deletion
+  as a diagnostic. View/export data only for the authenticated account.
+- [x] B — Apple/Google native login with server-side signature/audience/issuer
+  validation and no unverified-email account linking. Verify forged/expired/wrong
+  audience tokens and legal consent rejection. Fence: no client-authoritative ID.
+- [x] C — watch edit/preview/history and APNs opt-in/delivery/deep-link handling.
+  Verify owner isolation, revoked devices, disabled APNs, retries/deduplication,
+  permission denial and complete watch criteria round trips. Fence: no silent
+  notification permission or marketing enrollment; no arbitrary notification URL.
+- [x] D — CI, Release simulator build, privacy manifest and release checklist.
+  Signed archive remains an owner gate, not completed. Verify all suites,
+  secret/dependency scans, staging/Release builds and signed archive when possible.
+  Fence: do not submit/release automatically or claim physical/APNs QA from mocks.
+
+Tripwires: missing Apple/Google/APNs credentials -> leave providers unavailable
+with exact owner setup; missing signing/profile -> prepare archive instructions
+without weakening signing; failing CI -> fix before deploying. Physical iPhone,
+real email, APNs and external TestFlight acceptance remain explicit release gates.
+
+Code verification: 797 backend tests passed; two separate PostgreSQL regressions
+passed (skipped unless TEST_POSTGRES_URL is set in the normal SQLite suite).
+69 native tests passed, including two isolated UI tests; 151 web tests and the
+web production build passed. Real PostgreSQL migrations apply through 33 and
+rollback/re-upgrade 32/33 successfully. Watch/account deletion with generated
+trips was reproduced failing on PostgreSQL, corrected and added to CI. Gitleaks
+scanned 159 existing commits clean; dependency audits are clean after patching h2
+to 4.4.1. Final staged scan/deployment evidence is in NATIVE-RELEASE.md.
+Installed Apple profiles lack Sign in with Apple and Push Notifications; do not
+weaken entitlements to produce an upload. External login/APNs/inbox delivery and
+TestFlight are not certified by passing mocks. Retention redesign remains next,
+after owner configuration and physical functional QA.
+
 ## Native Discover and My World redesign (2026-09-15)
 
 Handoff: keep `TripSearchStore`, `OpportunityStore`, `MyWorldStore`, the

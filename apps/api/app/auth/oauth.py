@@ -194,13 +194,13 @@ async def _exchange_apple_code(code: str) -> OAuthProfile:
     )
 
 
-def apple_client_secret() -> str:
-    if settings.apple_oauth_client_secret:
+def apple_client_secret(native_client_id: str | None = None) -> str:
+    if settings.apple_oauth_client_secret and native_client_id is None:
         return settings.apple_oauth_client_secret
 
     team_id = _require(settings.apple_oauth_team_id, "APPLE_OAUTH_TEAM_ID")
     key_id = _require(settings.apple_oauth_key_id, "APPLE_OAUTH_KEY_ID")
-    client_id = _require(settings.apple_oauth_client_id, "APPLE_OAUTH_CLIENT_ID")
+    client_id = native_client_id or _require(settings.apple_oauth_client_id, "APPLE_OAUTH_CLIENT_ID")
     private_key = _require(settings.apple_oauth_private_key, "APPLE_OAUTH_PRIVATE_KEY").replace("\\n", "\n")
     now = int(time.time())
     return jwt.encode(

@@ -318,7 +318,7 @@ Apple return URL: https://www.farelin.com/backend/auth/oauth/apple/callback
 The exact account-side migration checklist is in
 [`docs/operations/farelin-launch.md`](docs/operations/farelin-launch.md).
 
-OAuth accounts are linked through the `user_oauth_accounts` table. The app stores provider subject IDs and email metadata, not provider access tokens. OAuth-only users get an unusable password marker in `users.password_hash`; they can later set a manual password through the reset-password flow.
+OAuth accounts are linked through the `user_oauth_accounts` table. The app stores provider subject IDs and email metadata, not provider access tokens. Native Apple login additionally retains an encrypted refresh token for revocation on account deletion; the encryption key is derived from backend-only APP_SECRET. OAuth-only users get an unusable password marker in `users.password_hash`; they can later set a manual password through the reset-password flow.
 
 Logged-in saved-search routes:
 
@@ -571,10 +571,11 @@ the minimum deployment target. The app reuses Farelin's existing backend and
 will require sign-in before fare or AI search; it never calls OpenAI or a
 flight provider directly.
 
-Generate the Xcode project after adding or moving source files:
+Synchronize the existing Xcode project after adding source files (preserves
+your signing and workspace settings):
 
 ```bash
-ruby apps/ios/scripts/generate_project.rb
+/usr/bin/ruby apps/ios/scripts/sync_project.rb
 ```
 
 Then open `apps/ios/Farelin.xcodeproj` and choose one of two schemes:
@@ -647,21 +648,19 @@ refinement section. This is a presentation change, not a new search engine or
 AI call. All observed prices still retain their indicative/last-checked labels.
 
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
-Account. Watches can be paused, resumed, or deactivated using the same
-ownership-checked API routes as the web app. From a return or open-jaw trip
-card, the user can save a **weekly** watch for similar destinations with an
-editable flight budget; it is not a reservation of that displayed fare. The
-current watch schema cannot retain an ordered multi-city route, so the native
-client explicitly declines to save a misleading multi-city watch. A separate
+Account. Watches can be edited, previewed, paused, resumed, or deleted using
+ownership-checked API routes. Search results can save watches for return,
+open-jaw and ordered/broad-scope multi-city trips, subject to plan limits;
+they are not reservations of displayed fares. A separate
 **Save this fare** bookmark works for any suggestion persisted by the search
 (including multi-city). Bookmarks appear in Watches as observed snapshots,
 not as monitored alerts; they survive suggestion expiry and clearly ask the
 user to check the final price with the provider. Bookmarks retain the original
 demo/indicative/cached/live label rather than upgrading a mock fare to a real
-observation. A multi-city bookmark only links to its first leg and calls out
-the need to verify each remaining flight. They are account-owned and
-included in export/erasure. Pro daily
-watch creation and watch editing remain web-only for now.
+observation. Multi-city bookmarks reopen their full normalized itinerary with
+per-leg provider links. They are account-owned and included in export/erasure.
+Native watch frequency follows backend entitlements: weekly for Free, daily
+or weekly for eligible Trial/Pro/Owner accounts.
 
 My World uses the authenticated `/countries` and `/me/travel-map` API. Its
 native SceneKit Earth is a genuinely three-dimensional textured sphere, not a
@@ -759,11 +758,38 @@ xcodebuild -project apps/ios/Farelin.xcodeproj \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-The staging host is intentionally a separate environment and will show as
-unavailable until its Railway API and EU database are created. This prevents
-development builds from consuming production data or sending production
-notifications. Configure the Apple Development Team in Xcode before running
-on a physical device; that setting is intentionally not hardcoded here.
+The staging API/database are separate from production. Configure your Apple
+Development Team and enable Sign in with Apple / Push Notifications for the
+matching bundle identifier before running provider login or push on a physical
+device. The existing project signing team is preserved by the sync script.
+
+### Native release essentials
+
+The iPhone client includes coordinated refresh-token rotation, offline session
+recovery, password recovery/change, account JSON export via the system file
+picker, and explicitly confirmed account deletion. Existing ownership checks,
+password-reset tokens and erasure/billing safeguards remain authoritative on
+the backend. Native watches can edit name/dates/duration/budget/frequency/
+comfort/trigger settings, preview matching observations and inspect check/email
+history; partial settings edits preserve destination scopes and ordered route
+stops. A separate route editor uses real airport/place autocomplete, supports
+ordered city routes or regions, and enforces the current origin-airport limit.
+Deleting a watch unlinks generated trips before removing watch history, so
+saved trips remain usable and PostgreSQL foreign keys are respected.
+
+Apple/Google sign-in exchanges verified provider identities for Farelin bearer
+sessions. APNs is optional and explicitly opt-in, supplements real email watch
+notifications, and uses a bounded delivery outbox. No credentials means no
+provider button/push delivery, not simulated success. No iOS Stripe purchase
+flow was added. The privacy manifest declares app functionality/personalization
+data and local preference access; App Store Connect answers and SDK reports
+still need owner review.
+
+See [NATIVE-RELEASE.md](NATIVE-RELEASE.md) for the exact Railway/Xcode setup,
+archive commands, test evidence and physical-device/TestFlight gates. CI now
+tests the native staging app and builds Release without signing secrets.
+The staging scheme archives with `Staging Release` (staging backend, Release
+optimizations and production APNs), never with DEBUG-only UI-test login code.
 
 ## Step 10 Product Flow Polish
 

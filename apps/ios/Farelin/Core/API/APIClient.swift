@@ -37,7 +37,7 @@ protocol NativeAuthServicing: Sendable {
     func setAccessToken(_ token: String?) async
 }
 
-actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, OpportunityServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating, NativeFareSaving {
+actor APIClient: NativeAuthServicing, NativeAccountServicing, NativeIdentityServicing, NativePushServicing, WatchManagementServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, OpportunityServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating, NativeFareSaving {
     private let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
@@ -49,6 +49,50 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
 
     func health() async throws -> HealthResponse {
         try await send(path: "health", method: "GET", response: HealthResponse.self)
+    }
+
+    func pushStatus() async throws -> NativePushStatus {
+        try await send(path: "me/push/status", method: "GET", authenticated: true, response: NativePushStatus.self)
+    }
+    func registerPush(_ registration: NativePushRegistration) async throws -> NativePushDevice {
+        try await send(path: "me/push/devices", method: "POST", body: registration, authenticated: true, response: NativePushDevice.self)
+    }
+    func disconnectPush(id: String) async throws {
+        _ = try await send(path: "me/push/devices/\(id)", method: "DELETE", authenticated: true, response: MutationAcknowledgement.self)
+    }
+
+    func identityProviders() async throws -> NativeIdentityProviders {
+        try await send(path: "auth/native/providers", method: "GET", response: NativeIdentityProviders.self)
+    }
+    func identityChallenge() async throws -> NativeIdentityChallenge {
+        try await send(path: "auth/native/challenge", method: "POST", body: EmptyPayload(), response: NativeIdentityChallenge.self)
+    }
+    func identityLogin(provider: String, payload: NativeIdentityPayload) async throws -> NativeAuthTokens {
+        try await send(path: "auth/native/oauth/\(provider)", method: "POST", body: payload, response: NativeAuthTokens.self)
+    }
+
+    func forgotPassword(email: String) async throws {
+        _ = try await send(path: "auth/forgot-password", method: "POST",
+                           body: EmailPayload(email: email), response: MessageResponse.self)
+    }
+
+    func resetPassword(token: String, password: String) async throws {
+        _ = try await send(path: "auth/reset-password", method: "POST",
+                           body: ResetPasswordPayload(token: token, newPassword: password), response: MutationAcknowledgement.self)
+    }
+
+    func changePassword(current: String, new: String) async throws {
+        _ = try await send(path: "auth/change-password", method: "POST",
+                           body: ChangePasswordPayload(currentPassword: current, newPassword: new),
+                           authenticated: true, response: MutationAcknowledgement.self)
+    }
+
+    func deleteAccount() async throws {
+        _ = try await send(path: "auth/me", method: "DELETE", authenticated: true, response: MutationAcknowledgement.self)
+    }
+
+    func exportAccount() async throws -> AccountExport {
+        try await send(path: "me/export", method: "GET", authenticated: true, response: AccountExport.self)
     }
 
     func dashboard() async throws -> DashboardResponse {
@@ -69,6 +113,26 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             response: SavedWatchSummary.self
         )
     }
+
+    func watch(id: String) async throws -> NativeWatchDetail {
+        try await send(path: "me/saved-searches/\(id)", method: "GET", authenticated: true, response: NativeWatchDetail.self)
+    }
+    func updateWatch(id: String, update: NativeWatchUpdate) async throws -> NativeWatchDetail {
+        try await send(path: "me/saved-searches/\(id)", method: "PATCH", body: update, authenticated: true, response: NativeWatchDetail.self)
+    }
+    func previewWatch(id: String) async throws -> NativeWatchPreview {
+        try await send(path: "me/saved-searches/\(id)/preview", method: "POST", body: EmptyPayload(), authenticated: true, response: NativeWatchPreview.self)
+    }
+    func watchInsights(id: String) async throws -> NativeWatchInsights {
+        try await send(path: "me/saved-searches/\(id)/insights", method: "GET", authenticated: true, response: NativeWatchInsights.self)
+    }
+    func updateWatchRoute(id: String, update: NativeWatchRouteUpdate) async throws -> NativeWatchDetail {
+        try await send(path: "me/saved-searches/\(id)", method: "PATCH", body: update, authenticated: true, response: NativeWatchDetail.self)
+    }
+    func watchAirports(query: String) async throws -> [AirportResult] {
+        try await searchAirports(query, latitude: nil, longitude: nil)
+    }
+    func watchPlaces(query: String) async throws -> [FlightPlaceResult] { try await searchPlaces(query) }
 
     func savedFares() async throws -> [SavedFareSummary] {
         try await send(path: "me/saved-fares", method: "GET", authenticated: true, response: [SavedFareSummary].self)
@@ -429,6 +493,10 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
 }
 
 private struct EmptyPayload: Encodable, Sendable {}
+private struct EmailPayload: Encodable, Sendable { let email: String }
+private struct ResetPasswordPayload: Encodable, Sendable { let token: String; let newPassword: String }
+private struct ChangePasswordPayload: Encodable, Sendable { let currentPassword: String; let newPassword: String }
+private struct MessageResponse: Decodable, Sendable { let message: String }
 private struct APIErrorEnvelope: Decodable, Sendable { let detail: String }
 private struct MutationAcknowledgement: Decodable, Sendable { let ok: Bool }
 private struct SavedFareDeletionResponse: Decodable, Sendable { let deleted: Bool }

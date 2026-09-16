@@ -1,7 +1,9 @@
 import SwiftUI
+@preconcurrency import GoogleSignIn
 
 @main
 struct FarelinApp: App {
+    @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
     private let configuration: AppConfiguration
     private let apiClient: APIClient
     @State private var session: AuthSession
@@ -12,16 +14,26 @@ struct FarelinApp: App {
             let apiClient = APIClient(baseURL: configuration.apiBaseURL)
             self.configuration = configuration
             self.apiClient = apiClient
-            _session = State(
-                initialValue: AuthSession(
-                    service: apiClient,
-                    tokenStore: KeychainRefreshTokenStore(
-                        service: configuration.environment == .staging
-                            ? "com.farelin.app.staging.auth"
-                            : "com.farelin.app.auth"
-                    )
-                )
-            )
+            let authService: any NativeAuthServicing
+            let tokenStore: any RefreshTokenStoring
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing") {
+                let isolated = UITestAuthService()
+                authService = isolated; tokenStore = isolated
+            } else {
+                authService = apiClient
+                tokenStore = KeychainRefreshTokenStore(service: configuration.environment == .staging
+                    ? "com.farelin.app.staging.auth" : "com.farelin.app.auth")
+            }
+            #else
+            authService = apiClient
+            tokenStore = KeychainRefreshTokenStore(service: configuration.environment == .staging
+                ? "com.farelin.app.staging.auth" : "com.farelin.app.auth")
+            #endif
+            let session = AuthSession(service: authService, tokenStore: tokenStore)
+            _session = State(initialValue: session)
+            PushNotifications.shared.configure(service: apiClient, reauthenticate: { await session.refreshAccess() })
+            session.beforeSignOut = { await PushNotifications.shared.disconnect(forSignOut: true) }
         } catch {
             fatalError("Invalid non-secret app configuration: \(error.localizedDescription)")
         }
@@ -30,6 +42,7 @@ struct FarelinApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(configuration: configuration, session: session, apiClient: apiClient)
+                .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
         }
     }
 }

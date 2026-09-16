@@ -27,6 +27,8 @@ from app.db.models import (
     EmailVerificationTokenDB,
     NativeEmailVerificationCodeDB,
     PasswordResetTokenDB,
+    PushDeviceDB,
+    PushDeliveryDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
     SavedFareDB,
@@ -57,6 +59,7 @@ def export_user_data(db: Session, user: UserDB) -> dict:
         select(CountryVisitDB).where(CountryVisitDB.user_id == user.id)
     ).all()
     suppression = db.get(EmailSuppressionDB, recipient_hash(user.email))
+    devices = db.scalars(select(PushDeviceDB).where(PushDeviceDB.user_id == user.id)).all()
 
     return {
         "exportedAt": _now_iso(),
@@ -88,6 +91,8 @@ def export_user_data(db: Session, user: UserDB) -> dict:
             for s in saved
         ],
         "linkedLogins": [{"provider": o.provider, "email": o.email} for o in oauth],
+        "notificationDevices": [{"id": d.id, "topic": d.topic, "environment": d.environment,
+                                  "isActive": d.is_active, "createdAt": _iso(d.created_at)} for d in devices],
         "tripSuggestions": [
             {"title": t.title, "totalPrice": t.total_price, "createdAt": _iso(t.created_at)}
             for t in suggestions
@@ -171,11 +176,21 @@ def erase_user(db: Session, user: UserDB, request=None) -> None:
     saved_ids = list(
         db.scalars(select(SavedSearchDB.id).where(SavedSearchDB.user_id == user_id)).all()
     )
+    device_ids = list(db.scalars(select(PushDeviceDB.id).where(PushDeviceDB.user_id == user_id)).all())
+    if device_ids:
+        db.execute(delete(PushDeliveryDB).where(PushDeliveryDB.device_id.in_(device_ids)))
+    if saved_ids:
+        db.execute(delete(PushDeliveryDB).where(PushDeliveryDB.saved_search_id.in_(saved_ids)))
     if saved_ids:
         db.execute(delete(AlertDeliveryDB).where(AlertDeliveryDB.saved_search_id.in_(saved_ids)))
         db.execute(delete(AlertRunDB).where(AlertRunDB.saved_search_id.in_(saved_ids)))
+        # Generated trips may refer to a watch independently of their owner.
+        # Unlink before erasing watches; own suggestions are erased below.
+        db.execute(update(TripSuggestionDB).where(TripSuggestionDB.saved_search_id.in_(saved_ids))
+                   .values(saved_search_id=None))
 
     for model in (
+        PushDeviceDB,
         CountryVisitDB,
         UserCountryDB,
         SavedSearchDB,

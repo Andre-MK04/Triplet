@@ -158,13 +158,18 @@ def active_saved_search_count(db: Session, user: UserDB) -> int:
     ) or 0
 
 
-def assert_saved_search_allowed(db: Session, user: UserDB, frequency: str) -> None:
+def assert_alert_frequency_allowed(user: UserDB, frequency: str) -> None:
     entitlements = get_entitlements(user)
     if frequency not in entitlements["allowedAlertFrequencies"]:
         raise HTTPException(
             status_code=402,
             detail="Daily checks are available in the 7-day trial and Pro.",
         )
+
+
+def assert_saved_search_allowed(db: Session, user: UserDB, frequency: str) -> None:
+    assert_alert_frequency_allowed(user, frequency)
+    entitlements = get_entitlements(user)
     limit = entitlements["savedSearchLimit"]
     if active_saved_search_count(db, user) >= limit:
         plan = entitlements["plan"]

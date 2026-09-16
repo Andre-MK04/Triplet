@@ -21,6 +21,7 @@ struct AuthenticatedAppView: View {
     @State private var opportunityStore: OpportunityStore
     @State private var worldStore: MyWorldStore
     @State private var showingProfile = false
+    @State private var showingAccount = false
 
     init(
         configuration: AppConfiguration,
@@ -73,7 +74,24 @@ struct AuthenticatedAppView: View {
             }
         }
         .task { await profileStore.load() }
+        .safeAreaInset(edge: .top) {
+            if !profileStore.isComplete {
+                HStack {
+                    Spacer()
+                    Button("Account", systemImage: "person.crop.circle") { showingAccount = true }
+                        .font(.subheadline)
+                }.padding(.horizontal, 24)
+            }
+        }
+        .sheet(isPresented: $showingAccount) {
+            AccountView(configuration: configuration, session: session, user: user, accountService: apiClient,
+                        editProfile: { showingAccount = false })
+        }
         .task { await dashboardStore.load() }
+        .task { await PushNotifications.shared.restore(accountID: user.id) }
+        .onChange(of: PushNotifications.shared.destination, initial: true) {
+            if PushNotifications.shared.destination != nil { selectedTab = .watches }
+        }
     }
 
     private var originLimit: Int {
@@ -103,6 +121,7 @@ struct AuthenticatedAppView: View {
             .tag(FarelinTab.dashboard)
 
             WatchesView(store: dashboardStore, fareService: apiClient, tripDetailService: apiClient,
+                        watchService: apiClient, session: session,
                         reauthenticate: { await session.refreshAccess() }) {
                 selectedTab = .discover
             }
@@ -128,6 +147,7 @@ struct AuthenticatedAppView: View {
                 configuration: configuration,
                 session: session,
                 user: user,
+                accountService: apiClient,
                 editProfile: { showingProfile = true }
             )
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
@@ -173,6 +193,8 @@ private struct WatchesView: View {
     let store: DashboardStore
     let fareService: any NativeFareSaving
     let tripDetailService: any TripDetailServicing
+    let watchService: any WatchManagementServicing
+    let session: AuthSession
     let reauthenticate: (@MainActor @Sendable () async -> Bool)?
     let discoverTrips: () -> Void
     @State private var pendingDeletion: SavedWatchSummary?
@@ -197,6 +219,14 @@ private struct WatchesView: View {
                                 .fill(watch.isActive ? FarelinColor.mint : Color.secondary.opacity(0.45))
                                 .frame(width: 9, height: 9)
                             VStack(alignment: .leading, spacing: 6) {
+                                NavigationLink("Details & history") {
+                                    WatchDetailView(id: watch.id, service: watchService, tripService: tripDetailService,
+                                                    session: session, dailyChecks: store.dashboard?.usage.dailyWatchChecks ?? false,
+                                                    originLimit: store.dashboard?.usage.maxOriginAirports ?? 3) {
+                                        Task { await store.load(force: true) }
+                                    }
+                                }
+                                .font(.caption.weight(.semibold))
                                 Text(watch.name ?? "Trip watch")
                                     .font(.headline)
                                 Text("\(watch.originAirports.joined(separator: " + ")) → \(watch.destinationAirports?.joined(separator: " + ") ?? "Anywhere")")
@@ -272,9 +302,22 @@ private struct WatchesView: View {
                     Button("Discover", systemImage: "magnifyingglass", action: discoverTrips)
                 }
             }
+            .navigationDestination(isPresented: Binding(
+                get: { PushNotifications.shared.destination != nil },
+                set: { if !$0 { PushNotifications.shared.destination = nil } }
+            )) {
+                if case .watch(let id) = PushNotifications.shared.destination {
+                    WatchDetailView(id: id, service: watchService, tripService: tripDetailService,
+                                    session: session, dailyChecks: store.dashboard?.usage.dailyWatchChecks ?? false,
+                                    originLimit: store.dashboard?.usage.maxOriginAirports ?? 3) {
+                        Task { await store.load(force: true) }
+                    }
+                }
+            }
             .task { await store.load() }
             .onAppear { Task { await loadSavedFares() } }
             .refreshable { await store.load(force: true); await loadSavedFares() }
+            .sensoryFeedback(.success, trigger: store.completedWatchActions)
             .alert("Delete this watch?", isPresented: Binding(
                 get: { pendingDeletion != nil },
                 set: { if !$0 { pendingDeletion = nil } }
@@ -369,6 +412,7 @@ private struct AccountView: View {
     let configuration: AppConfiguration
     let session: AuthSession
     let user: AuthUser
+    let accountService: any NativeAccountServicing
     let editProfile: () -> Void
 
     var body: some View {
@@ -400,6 +444,8 @@ private struct AccountView: View {
                     Link("Privacy policy", destination: URL(string: "https://www.farelin.com/privacy")!)
                     Link("Terms of service", destination: URL(string: "https://www.farelin.com/terms")!)
                 }
+                AccountControls(service: accountService, session: session, hasPassword: user.hasPassword)
+                PushPreferencesSection()
                 Section {
                     Button("Sign out", role: .destructive) {
                         Task { await session.signOut() }

@@ -23,6 +23,7 @@ from app.observability import events
 from app.deals.featured import refresh_featured_deals
 from app.deals.refresher import refresh_deals
 from app.privacy.retention import run_retention_cleanup
+from app.notifications.service import run_push_delivery
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ def run_tick(now: datetime | None = None) -> dict:
         "featuredDeals": None,
         "alertsRun": 0,
         "retention": None,
+        "push": None,
         "errors": [],
     }
 
@@ -98,6 +100,12 @@ def run_tick(now: datetime | None = None) -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.exception("tick_alerts_failed")
             summary["errors"].append(f"alerts: {exc}")
+
+    try:
+        summary["push"] = run_push_delivery()
+    except Exception:  # A push failure must not stop email or cache refresh.
+        logger.exception("tick_push_failed")
+        summary["errors"].append("push: delivery temporarily unavailable")
 
     if now.hour == RETENTION_HOUR:
         try:
@@ -123,6 +131,8 @@ def run_tick(now: datetime | None = None) -> dict:
 
 
 def main() -> None:
+    from app.observability.logging import configure_logging
+    configure_logging()
     summary = run_tick()
     deals = summary["deals"] or {}
     print(

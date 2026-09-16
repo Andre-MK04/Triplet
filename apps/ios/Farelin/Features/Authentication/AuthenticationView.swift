@@ -10,6 +10,8 @@ struct AuthenticationView: View {
 
     let configuration: AppConfiguration
     let session: AuthSession
+    let accountService: any NativeAccountServicing
+    let identityService: any NativeIdentityServicing
 
     @State private var mode: Mode = .signIn
     @State private var email = ""
@@ -17,6 +19,7 @@ struct AuthenticationView: View {
     @State private var displayName = ""
     @State private var acceptedLegal = false
     @State private var validationMessage: String?
+    @State private var forgotPassword = false
     @FocusState private var focusedField: Field?
 
     private enum Field { case name, email, password }
@@ -114,6 +117,13 @@ struct AuthenticationView: View {
                     .disabled(session.isWorking)
                     .accessibilityIdentifier("auth-submit")
 
+                    if mode == .signIn {
+                        Button("Forgot password?") { forgotPassword = true }
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    NativeIdentityButtons(session: session, service: identityService,
+                                          creatingAccount: mode == .createAccount, acceptedLegal: acceptedLegal)
+
                     Text("The iPhone app requires an account before fare or AI search. You can still explore Farelin publicly on the web.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -128,6 +138,7 @@ struct AuthenticationView: View {
             validationMessage = nil
             acceptedLegal = false
         }
+        .sheet(isPresented: $forgotPassword) { PasswordRecoveryView(service: accountService) }
     }
 
     @ViewBuilder

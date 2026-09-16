@@ -3,6 +3,50 @@ import XCTest
 
 @MainActor
 final class AuthSessionTests: XCTestCase {
+    func testOfflineRestorePreservesKeychainAndOffersRetry() async {
+        let service = FakeAuthService(refreshFailure: .unavailable)
+        let store = MemoryRefreshTokenStore(token: "refresh-old")
+        let session = AuthSession(service: service, tokenStore: store)
+        await session.restore()
+        let token = await store.load()
+        XCTAssertEqual(token, "refresh-old")
+        XCTAssertEqual(session.state, .restoreFailed)
+    }
+
+    func testRejectedRefreshClearsSession() async {
+        let service = FakeAuthService(refreshFailure: .unauthorized)
+        let store = MemoryRefreshTokenStore(token: "refresh-old")
+        let session = AuthSession(service: service, tokenStore: store)
+        await session.restore()
+        let token = await store.load()
+        XCTAssertNil(token)
+        XCTAssertEqual(session.state, .signedOut)
+    }
+
+    func testLogoutCannotBeUndoneByInflightRefresh() async {
+        let service = FakeAuthService()
+        let store = MemoryRefreshTokenStore(token: "refresh-old")
+        let session = AuthSession(service: service, tokenStore: store)
+        let task = Task { await session.refreshAccess() }
+        try? await Task.sleep(for: .milliseconds(10))
+        await session.signOut()
+        _ = await task.value
+        let token = await store.load()
+        let access = await service.savedAccessToken()
+        XCTAssertNil(token)
+        XCTAssertNil(access)
+        XCTAssertEqual(session.state, .signedOut)
+    }
+    func testConcurrentExpiredRequestsShareOneRefresh() async {
+        let service = FakeAuthService()
+        let session = AuthSession(service: service, tokenStore: MemoryRefreshTokenStore(token: "refresh-old"))
+        async let first = session.refreshAccess()
+        async let second = session.refreshAccess()
+        let results = await (first, second)
+        XCTAssertTrue(results.0 && results.1)
+        let count = await service.refreshCount()
+        XCTAssertEqual(count, 1)
+    }
     func testCreateAccountExplainsMissingPasswordInsteadOfSilentlyDisablingSubmit() {
         let message = AuthenticationFormValidator.message(
             mode: .createAccount,
@@ -100,7 +144,7 @@ final class AuthSessionTests: XCTestCase {
         let session = AuthSession(service: service, tokenStore: store)
 
         let refreshed = await session.refreshAccess()
-        let storedToken = try await store.load()
+        let storedToken = await store.load()
         let accessToken = await service.savedAccessToken()
 
         XCTAssertTrue(refreshed)
@@ -148,6 +192,9 @@ private actor MemoryRefreshTokenStore: RefreshTokenStoring {
 }
 
 private actor FakeAuthService: NativeAuthServicing {
+    let refreshFailure: APIError?
+    init(refreshFailure: APIError? = nil) { self.refreshFailure = refreshFailure }
+    private var refreshes = 0
     private var accessToken: String?
     private var refreshedToken: String?
     private var logoutToken: String?
@@ -166,10 +213,15 @@ private actor FakeAuthService: NativeAuthServicing {
         legal: LegalVersions
     ) -> NativeAuthTokens { .fixture }
 
-    func nativeRefresh(refreshToken: String) -> NativeAuthTokens {
+    func nativeRefresh(refreshToken: String) async throws -> NativeAuthTokens {
+        refreshes += 1
+        try? await Task.sleep(for: .milliseconds(40))
+        if let refreshFailure { throw refreshFailure }
         refreshedToken = refreshToken
         return .fixture
     }
+
+    func refreshCount() -> Int { refreshes }
 
     func nativeLogout(refreshToken: String) {
         logoutToken = refreshToken

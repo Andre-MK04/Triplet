@@ -4,12 +4,14 @@ import XCTest
 final class FarelinUITests: XCTestCase {
     func testFoundationScreenLaunches() {
         let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing"]
         app.launch()
         XCTAssertTrue(app.staticTexts["FARELIN"].waitForExistence(timeout: 5))
     }
 
     func testCreateAccountTapExplainsMissingPassword() {
         let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing"]
         app.launch()
 
         let createAccountTab = app.buttons["Create account"].firstMatch

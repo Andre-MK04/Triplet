@@ -6,7 +6,10 @@ require "xcodeproj"
 ROOT = File.expand_path("..", __dir__)
 PROJECT_PATH = File.join(ROOT, "Farelin.xcodeproj")
 
-FileUtils.rm_rf(PROJECT_PATH)
+# Preserve owner signing/workspace settings in an existing project.
+if File.exist?(PROJECT_PATH)
+  exec(RbConfig.ruby, File.join(__dir__, "sync_project.rb"))
+end
 project = Xcodeproj::Project.new(PROJECT_PATH)
 project.root_object.attributes["LastSwiftUpdateCheck"] = "2660"
 project.root_object.attributes["LastUpgradeCheck"] = "2660"
@@ -90,15 +93,15 @@ def make_scheme(project, name, app, tests, ui_tests, configuration:, include_tes
   scheme = Xcodeproj::XCScheme.new
   scheme.add_build_target(app)
   if include_tests
-    scheme.add_build_target(tests)
-    scheme.add_build_target(ui_tests)
+    scheme.add_build_target(tests, false)
+    scheme.add_build_target(ui_tests, false)
     scheme.add_test_target(tests)
     scheme.add_test_target(ui_tests)
   end
   scheme.launch_action.build_configuration = configuration
   scheme.profile_action.build_configuration = configuration
   scheme.analyze_action.build_configuration = configuration
-  scheme.archive_action.build_configuration = configuration
+  scheme.archive_action.build_configuration = configuration == "Debug" ? "Staging Release" : configuration
   scheme.test_action.build_configuration = configuration == "Release" ? "Debug" : configuration
   scheme.set_launch_target(app)
   scheme.save_as(project.path, name, true)
@@ -108,4 +111,4 @@ make_scheme(project, "Farelin Staging", app, tests, ui_tests, configuration: "De
 make_scheme(project, "Farelin", app, tests, ui_tests, configuration: "Release", include_tests: false)
 
 project.save
-puts "Generated #{PROJECT_PATH}"
+exec(RbConfig.ruby, File.join(__dir__, "sync_project.rb"))

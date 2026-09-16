@@ -14,6 +14,26 @@ permissions:
   contents: read
 
 jobs:
+  ios:
+    name: iPhone app
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: SDK inventory
+        run: xcodebuild -version && xcodebuild -showsdks
+      - name: Resolve pinned native packages
+        run: xcodebuild -resolvePackageDependencies -project apps/ios/Farelin.xcodeproj -scheme "Farelin Staging" -onlyUsePackageVersionsFromResolvedFile
+      - name: Simulator tests
+        shell: bash
+        run: |
+          task_ios_device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
+          xcodebuild -project apps/ios/Farelin.xcodeproj -scheme "Farelin Staging" -destination "platform=iOS Simulator,id=$task_ios_device" -parallel-testing-enabled NO -test-timeouts-enabled YES -maximum-test-execution-time-allowance 60 CODE_SIGNING_ALLOWED=NO test -quiet
+      - name: Release build (no signing secrets in CI)
+        run: xcodebuild -project apps/ios/Farelin.xcodeproj -scheme Farelin -configuration Release -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO build -quiet
+      - name: Staging TestFlight build (no DEBUG test login)
+        run: xcodebuild -project apps/ios/Farelin.xcodeproj -scheme "Farelin Staging" -configuration "Staging Release" -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO build -quiet
+
   backend:
     name: Backend
     runs-on: ubuntu-latest
@@ -57,6 +77,11 @@ jobs:
             python -m alembic heads
             exit 1
           fi
+
+      - name: PostgreSQL native deletion regressions
+        env:
+          TEST_POSTGRES_URL: postgresql+psycopg://triplet:triplet@localhost:5432/triplet
+        run: python -m pytest app/tests/test_native_postgres.py -q
 
     services:
       postgres:

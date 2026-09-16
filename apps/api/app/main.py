@@ -40,6 +40,7 @@ from app.routers import (
     places,
     saved_fares,
     providers,
+    push,
     tools,
     travel_map,
     trips,
@@ -384,5 +385,6 @@ app.include_router(contact.router)
 app.include_router(auth_routes.router)
 app.include_router(me.router)
 app.include_router(saved_fares.router)
+app.include_router(push.router)
 app.include_router(travel_map.router)
 app.include_router(billing_routes.router)

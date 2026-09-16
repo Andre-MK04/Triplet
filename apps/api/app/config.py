@@ -172,6 +172,14 @@ class Settings:
     ai_daily_request_limit: int = int(os.getenv("AI_DAILY_REQUEST_LIMIT", "2000"))
     ai_max_message_chars: int = int(os.getenv("AI_MAX_MESSAGE_CHARS", "2000"))
     google_oauth_client_id: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_ID") or None
+    native_google_client_ids: str = os.getenv("NATIVE_GOOGLE_CLIENT_IDS", "")
+    native_apple_client_ids: str = os.getenv("NATIVE_APPLE_CLIENT_IDS", "")
+    apns_enabled: bool = os.getenv("APNS_ENABLED", "false").lower() == "true"
+    apns_team_id: str = os.getenv("APNS_TEAM_ID", "")
+    apns_key_id: str = os.getenv("APNS_KEY_ID", "")
+    apns_private_key: str = os.getenv("APNS_PRIVATE_KEY", "")
+    apns_topic: str = os.getenv("APNS_TOPIC", "")
+    apns_environment: str = os.getenv("APNS_ENVIRONMENT", "sandbox")
     google_oauth_client_secret: str | None = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET") or None
     apple_oauth_client_id: str | None = os.getenv("APPLE_OAUTH_CLIENT_ID") or None
     apple_oauth_client_secret: str | None = os.getenv("APPLE_OAUTH_CLIENT_SECRET") or None
