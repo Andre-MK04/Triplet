@@ -37,6 +37,7 @@ REGION_TO_COUNTRY_CODES: dict[str, frozenset[str]] = {
     "iberia": frozenset({"ES", "PT"}),
     "benelux": frozenset({"BE", "LU", "NL"}),
     "baltics": frozenset({"EE", "LT", "LV"}),
+    "central europe": frozenset({"AT", "CH", "CZ", "DE", "HU", "LI", "PL", "SK", "SI"}),
     "balkans": frozenset({"AL", "BA", "BG", "GR", "HR", "ME", "MK", "RO", "RS", "SI", "XK"}),
     "southeast asia": frozenset({"BN", "ID", "KH", "LA", "MM", "MY", "PH", "SG", "TH", "TL", "VN"}),
     "east asia": frozenset({"CN", "HK", "JP", "KP", "KR", "MO", "MN", "TW"}),
@@ -46,6 +47,13 @@ REGION_TO_COUNTRY_CODES: dict[str, frozenset[str]] = {
     "central america": frozenset({"BZ", "CR", "GT", "HN", "NI", "PA", "SV"}),
     "caribbean": frozenset({"AG", "BB", "BS", "CU", "DM", "DO", "GD", "HT", "JM", "KN", "LC", "TT", "VC"}),
 }
+
+# Official UN M49 world regions and subregions, bundled at build time. Keep
+# Farelin's familiar aliases above where definitions differ (e.g. Nordics).
+_m49_path = Path(__file__).with_name("un_m49_regions.json")
+if _m49_path.exists():
+    for _name, _codes in json.loads(_m49_path.read_text(encoding="utf-8")).items():
+        REGION_TO_COUNTRY_CODES.setdefault(_name, frozenset(_codes))
 
 
 @lru_cache(maxsize=1)

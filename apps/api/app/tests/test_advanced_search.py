@@ -116,7 +116,38 @@ def test_advanced_multi_city_requires_ordered_stops(db_session):
     app.dependency_overrides.clear()
 
     assert response.status_code == 400
-    assert "at least two destinations" in response.json()["detail"]
+    assert "two destinations in order or a region" in response.json()["detail"]
+
+
+def test_advanced_multi_city_accepts_scandinavia_without_ordered_stops(db_session):
+    user = _user_with_profile(db_session)
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    app.dependency_overrides[get_current_user_required] = lambda: user
+    client = TestClient(app)
+
+    response = client.post(
+        "/trips/advanced-search",
+        json={"tripPlan": "multi_city", "destinationRegions": ["scandinavia"]},
+    )
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["parsedRequest"]["destinationRegions"] == ["scandinavia"]
+    assert response.json()["parsedRequest"]["routeStops"] is None
+
+
+def test_unknown_region_does_not_become_anywhere_search(db_session):
+    user = _user_with_profile(db_session)
+    app.dependency_overrides[get_db] = _override_db(db_session)
+    app.dependency_overrides[get_current_user_required] = lambda: user
+    client = TestClient(app)
+    response = client.post(
+        "/trips/advanced-search",
+        json={"tripPlan": "multi_city", "destinationRegions": ["not-a-real-region"]},
+    )
+    app.dependency_overrides.clear()
+    assert response.status_code == 400
+    assert "Unknown destination region" in response.json()["detail"]
 
 
 def test_advanced_open_jaw_preserves_arrival_and_fly_home_airports(db_session):

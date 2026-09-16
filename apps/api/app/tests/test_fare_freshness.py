@@ -234,7 +234,7 @@ def test_a_chained_trip_says_its_total_is_separate_tickets():
     trip = build_itineraries(ask, "VIE", legs, fares)[0]
     _finish_itinerary(trip, ask, ScoringContext())
 
-    assert any("own one-way ticket" in warning for warning in trip.warnings)
+    assert any("separate one-way fare observations" in warning for warning in trip.warnings)
     # Every hop is checkable on its own, since that is what was priced.
     assert all(
         segment.bookingUrl for segment in trip.segments if segment.kind == "flight"

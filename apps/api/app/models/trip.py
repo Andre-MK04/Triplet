@@ -1,11 +1,22 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.models.flight import Flight
 from app.models.transfer import GroundTransfer
 from app.pricing.model import PriceInfo
+
+
+class DestinationIntent(BaseModel):
+    """A route order is not a set of geographical candidates."""
+
+    kind: Literal["explicit_stops", "geographic_area", "candidates", "anywhere"]
+    stops: list[str] = Field(default_factory=list)
+    airports: list[str] = Field(default_factory=list)
+    countries: list[str] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)
+    continents: list[str] = Field(default_factory=list)
 
 
 class TripSearchRequest(BaseModel):
@@ -53,6 +64,29 @@ class TripSearchRequest(BaseModel):
     # "food"). When set, they override the profile's styles for this search and
     # boost the fit score of matching destinations.
     travelStyles: list[str] = Field(default_factory=list, max_length=9)
+
+    @field_validator("originAirports", "destinationAirports", "returnOriginAirports", "routeStops", "destinationCountries")
+    @classmethod
+    def normalize_codes(cls, values):
+        return [code.strip().upper() for code in values] if values is not None else None
+
+    @field_validator("destinationRegions")
+    @classmethod
+    def normalize_regions(cls, values):
+        return [region.strip().lower() for region in values]
+
+    @computed_field
+    @property
+    def destinationIntent(self) -> DestinationIntent:
+        if self.routeStops:
+            return DestinationIntent(kind="explicit_stops", stops=self.routeStops)
+        if self.tripPlan == "open_jaw" and self.destinationAirports and self.returnOriginAirports:
+            return DestinationIntent(kind="explicit_stops", stops=[self.destinationAirports[0], self.returnOriginAirports[0]])
+        if self.destinationCountries or self.destinationRegions or self.destinationContinents:
+            return DestinationIntent(kind="geographic_area", countries=self.destinationCountries,
+                                     regions=self.destinationRegions, continents=self.destinationContinents)
+        return DestinationIntent(kind="candidates" if self.destinationAirports else "anywhere",
+                                 airports=self.destinationAirports or [])
 
 
 class AdvancedTripSearchRequest(BaseModel):
@@ -111,6 +145,13 @@ class TripSegment(BaseModel):
     #: one-way tickets, so each one has to be checkable on its own.
     bookingUrl: str | None = None
 
+    @computed_field
+    @property
+    def state(self) -> str:
+        return "estimated" if self.kind == "ground" else (
+            self.flight.confidenceLevel if self.flight else "unresolved"
+        )
+
 
 class CityStay(BaseModel):
     """A city the traveller sleeps in, and for how long."""
@@ -145,6 +186,8 @@ class TripOption(BaseModel):
     stays: list[CityStay] = []
     #: Sum of every flight fare. This is what totalPrice reports.
     flightCost: float = 0.0
+    transportTotalEstimate: float | None = None
+    durationMatch: Literal["requested", "alternative"] = "requested"
     #: Rough cost of the ground hops, for planning only — never in totalPrice.
     groundEstimate: float | None = None
     #: What this price is and how sure we are of it. The canonical model; the

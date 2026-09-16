@@ -59,8 +59,24 @@ final class TripSearchTests: XCTestCase {
         XCTAssertEqual(body["frequency"] as? String, "weekly")
         XCTAssertEqual(body["destinationAirports"] as? [String], ["ARN"])
         XCTAssertEqual(body["maxBudget"] as? Double, 300)
-        XCTAssertNil(body["destinationCountries"])
+        XCTAssertEqual(body["destinationCountries"] as? [String], [])
         XCTAssertNil(body["routeStops"])
+    }
+
+    func testRegionWatchOmitsEmptyAirportConstraint() throws {
+        var request = NativeSavedWatchRequest(
+            email: "tester@example.invalid", name: "Nordics", originAirports: ["CPH", "MMX"],
+            destinationAirports: nil, startDate: "2026-10-01", endDate: "2026-12-31",
+            minTripLengthDays: 4, maxTripLengthDays: 7, maxBudget: 400, maxGroundTransferHours: 6,
+            tripStyle: "surprise me", frequency: "weekly", triggerMode: "below_budget"
+        )
+        request.destinationRegions = ["nordics"]
+        request.tripPlan = "multi_city"
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(request)) as? [String: Any])
+        XCTAssertNil(body["destinationAirports"])
+        XCTAssertEqual(body["destinationRegions"] as? [String], ["nordics"])
+        XCTAssertEqual(body["tripPlan"] as? String, "multi_city")
+        XCTAssertEqual(body["originAirports"] as? [String], ["CPH", "MMX"])
     }
 
     func testMultiCityResponseKeepsEveryPricedFlightLegAndStop() throws {
@@ -190,6 +206,48 @@ final class TripSearchTests: XCTestCase {
         XCTAssertNil(request)
     }
 
+    func testExploreAcceptsSingleScandinaviaRegion() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.tripPlan = "multi_city"
+        store.advanced.destinations = [.scandinavia]
+
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+
+        let request = await service.lastAdvancedRequest()
+        XCTAssertEqual(request?.destinationRegions, ["scandinavia"])
+        XCTAssertEqual(request?.tripPlan, "multi_city")
+        XCTAssertNil(request?.routeStops)
+        XCTAssertNil(store.errorMessage)
+    }
+
+    func testExploreResolvesTypedScandinaviaWithoutManualCitySelection() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.tripPlan = "multi_city"
+        store.placeQuery = "Scandinavia"
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+        let request = await service.lastAdvancedRequest()
+        XCTAssertEqual(request?.destinationRegions, ["scandinavia"])
+        XCTAssertNil(request?.routeStops)
+        XCTAssertNil(store.errorMessage)
+    }
+
+    func testSavedFareIsExplicitlyAnObservedBookmarkWithSafePriceLink() throws {
+        let json = """
+        {"id":"fare-1","suggestionId":"suggestion-1","title":"Stockholm → Oslo",
+         "tripType":"multi_city","observedPrice":245,"currency":"EUR","fareStatus":"indicative",
+         "observedAt":"2026-09-15T12:00:00","checkPriceUrl":"https://www.aviasales.com/search/VIESTO",
+         "savedAt":"2026-09-15T12:01:00","disclaimer":"Saved fare is an observation, not a monitored price."}
+        """
+        let fare = try JSONDecoder().decode(SavedFareSummary.self, from: Data(json.utf8))
+        XCTAssertEqual(fare.tripType, "multi_city")
+        XCTAssertEqual(fare.observedPrice, 245)
+        XCTAssertEqual(fare.fareStatus, "indicative")
+        XCTAssertEqual(fare.checkPriceURL?.scheme, "https")
+        XCTAssertTrue(fare.disclaimer.contains("not a monitored price"))
+    }
+
     func testAdvancedOpenJawMapsArrivalAndFlyHomeCitiesToDifferentFields() async {
         let service = FakeTripSearchService(response: .fixture)
         let store = TripSearchStore(service: service)
@@ -203,6 +261,19 @@ final class TripSearchTests: XCTestCase {
         XCTAssertEqual(request?.returnOriginAirports, ["HEL"])
         XCTAssertEqual(request?.tripPlan, "open_jaw")
         XCTAssertNil(request?.routeStops)
+        XCTAssertNil(store.errorMessage)
+    }
+
+    func testAdvancedOpenJawAcceptsOneBroadRegionForFareBackedProposal() async {
+        let service = FakeTripSearchService(response: .fixture)
+        let store = TripSearchStore(service: service)
+        store.advanced.tripPlan = "open_jaw"
+        store.advanced.destinations = [.scandinavia]
+        await store.searchAdvanced(profileOrigins: ["CPH"])
+        let request = await service.lastAdvancedRequest()
+        XCTAssertEqual(request?.destinationRegions, ["scandinavia"])
+        XCTAssertNil(request?.returnOriginAirports)
+        XCTAssertEqual(request?.tripPlan, "open_jaw")
         XCTAssertNil(store.errorMessage)
     }
 
@@ -409,7 +480,9 @@ private actor FakeTripSearchService: TripSearchServicing {
         return response
     }
 
-    func searchPlaces(_ query: String) async throws -> [FlightPlaceResult] { [] }
+    func searchPlaces(_ query: String) async throws -> [FlightPlaceResult] {
+        query.caseInsensitiveCompare("Scandinavia") == .orderedSame ? [.scandinavia] : []
+    }
 
     func lastRequest() -> FarelinAISearchRequest? { request }
     func lastAdvancedRequest() -> FarelinAdvancedSearchRequest? { advancedRequest }
@@ -476,6 +549,11 @@ private extension FarelinAISearchResponse {
 }
 
 private extension FlightPlaceResult {
+    static let scandinavia = FlightPlaceResult(
+        code: "scandinavia", kind: "region", name: "Scandinavia",
+        subtitle: "Region", city: nil, countryCode: nil,
+        countryName: nil, continent: nil, searchCodes: []
+    )
     static let stockholm = FlightPlaceResult(
         code: "STO",
         kind: "city",
@@ -570,6 +648,7 @@ private extension SearchTrip {
             id: "trip", tripType: "same_city", outboundFlight: outbound,
             returnFlight: inbound, groundTransfer: nil,
             segments: nil, stays: nil, flightCost: nil, groundEstimate: nil,
+            transportTotalEstimate: nil, durationMatch: nil,
             price: SearchPriceInfo(
                 amount: 210, currency: "EUR",
                 kind: isEstimate ? "estimated_multi_city" : "cached_return",

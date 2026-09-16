@@ -67,7 +67,7 @@ MAX_COUNTRY_ROUTE_CANDIDATES = 2
 # A multi-city chain is much more likely to be date-sparse than a return fare.
 # If the requested duration has no complete chain, reuse the same observed legs
 # to offer the nearest honest itinerary rather than inventing missing fares.
-RELAXED_CHAIN_MAX_DAYS = 60
+RELAXED_CHAIN_EXTRA_DAYS = 7
 
 
 class UnsupportedFlightPlaceError(ValueError):
@@ -110,8 +110,9 @@ def build_chained_trips(
     Returns None when the request is not a chained trip, so the caller falls
     through to the round-trip path. Otherwise returns (trips, note) — an empty
     list means the route genuinely could not be priced, and quietly substituting
-    a return trip for the multi-city one somebody asked for would be answering a
-    different question.
+    a return trip for an explicit city order would answer a different question.
+    Geographic exploration may expose return observations as clearly labeled
+    alternatives when no complete chain is available.
 
     When the traveller named cities, those are the route. When they named a
     region — "a multi-city trip to Scandinavia" — the cities are proposed from
@@ -124,8 +125,12 @@ def build_chained_trips(
     note: str | None = None
     all_trips: list = []
     relaxed_trips: list = []
+    observed_returns: list = []
+    geographic_exploration = request.destinationIntent.kind == "geographic_area"
     for origin in request.originAirports[:MAX_CHAINED_ORIGINS]:
-        candidates, discovered = _routes_for_origin(request, flight_search, origin)
+        candidates, discovered = _routes_for_origin(
+            request, flight_search, origin, observed_returns if geographic_exploration else None
+        )
         if not candidates:
             if discovered is not None and not discovered:
                 note = note or (
@@ -175,11 +180,12 @@ def build_chained_trips(
             relaxed_request = request.model_copy(
                 update={
                     "minTripLengthDays": 1,
-                    "maxTripLengthDays": max(request.maxTripLengthDays, RELAXED_CHAIN_MAX_DAYS),
+                    "maxTripLengthDays": request.maxTripLengthDays + RELAXED_CHAIN_EXTRA_DAYS,
                 }
             )
             for trip in build_itineraries(relaxed_request, origin, legs, fares):
                 _finish_itinerary(trip, request, scoring)
+                trip.durationMatch = "alternative"
                 trip.tags.insert(0, "Different trip length")
                 trip.warnings.insert(
                     0,
@@ -189,7 +195,22 @@ def build_chained_trips(
                 relaxed_trips.append(trip)
 
     selected = all_trips or relaxed_trips
+    if not selected and geographic_exploration and observed_returns:
+        # Reuse discovery observations already fetched for candidate pruning.
+        # A geographic intent may have good returns but no complete chain;
+        # expose those explicitly as alternatives, never silently replace stops.
+        alternative_request = request.model_copy(update={"tripPlan": "return"})
+        selected = build_round_trip_options(observed_returns, alternative_request, scoring, enforce_budget=False)
+        for trip in selected:
+            trip.tags.insert(0, "Return alternative")
+            trip.warnings.insert(0, "No complete chained itinerary was observed. This is a return-trip alternative within your chosen area.")
+        if selected:
+            note = "No complete chained itinerary was observed in this area. These are return-trip alternatives using the same dates and trip-length filters."
+            all_trips = selected
     selected = _rescore(selected, request, scoring)
+    if not all_trips:
+        selected.sort(key=lambda trip: (max(request.minTripLengthDays - trip.nights,
+                                           trip.nights - request.maxTripLengthDays, 0), trip.totalPrice))
     if not all_trips and selected:
         found_lengths = sorted({trip.nights for trip in selected})
         length_label = (
@@ -203,6 +224,17 @@ def build_chained_trips(
             "their actual dates and durations are shown."
         )
         note = f"{note} {relaxed_note}" if note else relaxed_note
+    if request.routeStops is None and (
+        request.destinationCountries or request.destinationRegions or request.destinationContinents
+    ):
+        scope = flight_search.resolve_scope(request)
+        if scope.truncated:
+            limit_note = (
+                f"To stay within provider limits, we checked {len(scope.country_codes)} of "
+                f"{len(scope.considered_country_codes)} countries in this broad area; "
+                "this is not an exhaustive cheapest-fare search."
+            )
+            note = f"{note} {limit_note}" if note else limit_note
     return selected[:MAX_CHAINED_RESULTS], note
 
 
@@ -210,6 +242,7 @@ def _routes_for_origin(
     request: TripSearchRequest,
     flight_search: FlightSearchService,
     origin: str,
+    observed_returns: list | None = None,
 ) -> tuple[list[list[str]], list[str] | None]:
     """Candidate stop lists for one origin, plus what we found reachable.
 
@@ -234,7 +267,7 @@ def _routes_for_origin(
 
     # Map out the options first: which places inside the requested region do we
     # actually have fares to? Everything downstream chooses only from these.
-    reachable = _reachable_cities(request, flight_search, origin)
+    reachable = _reachable_cities(request, flight_search, origin, observed_returns)
     return propose_route_stops(request, origin, reachable), reachable
 
 
@@ -298,6 +331,7 @@ def _reachable_cities(
     request: TripSearchRequest,
     flight_search: FlightSearchService,
     origin: str,
+    observed_returns: list | None = None,
 ) -> list[str]:
     """Cities in the requested scope we have seen fares to, cheapest first."""
     probe = request.model_copy(update={"originAirports": [origin], "tripPlan": "return"})
@@ -306,6 +340,8 @@ def _reachable_cities(
     except Exception:  # noqa: BLE001 - discovery must never break the search
         logger.exception("route_discovery_failed")
         return []
+    if observed_returns is not None:
+        observed_returns.extend(fares)
     seen: dict[str, float] = {}
     for fare in fares:
         code = canonical_code(fare.destination)
@@ -386,9 +422,8 @@ def _finish_itinerary(trip, request: TripSearchRequest, scoring: ScoringContext)
         )
     if len([s for s in trip.segments if s.kind == "flight"]) > 2:
         trip.warnings.append(
-            "This total is each flight bought as its own one-way ticket. Booking the whole "
-            "itinerary as a single multi-city fare usually costs more — check the legs "
-            "individually to see the price quoted here."
+            "This estimate adds separate one-way fare observations, not a single multi-city quote. "
+            "Check every flight individually before paying; current prices and availability may differ."
         )
 
 
@@ -402,11 +437,13 @@ def describe_itinerary(trip) -> str:
     ground = ""
     if trip.groundEstimate:
         crossings = [s for s in trip.segments if s.kind == "ground"]
-        first = crossings[0]
+        descriptions = "; ".join(
+            f"{s.originCity} → {s.destinationCity} (~{s.transfer.durationHours:g}h, roughly €{s.transfer.estimatedCost:g})"
+            for s in crossings
+        )
         ground = (
-            f" You cross {first.originCity} → {first.destinationCity} overland"
-            f" (~{first.transfer.durationHours:g}h, roughly €{first.transfer.estimatedCost:g}), "
-            "which is not included in the price."
+            f" Arrange these estimated ground crossings separately: {descriptions}. "
+            "They are not included in the flight price."
         )
     return (
         f"{route} over {trip.nights} nights — {nights}. "

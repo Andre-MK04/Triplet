@@ -63,6 +63,8 @@ class TripSuggestionsRepository:
 
 
 def build_title(trip: TripOption) -> str:
+    if trip.tripType == "multi_city" and trip.segments:
+        return " → ".join([trip.segments[0].origin, *[s.destination for s in trip.segments]])
     if trip.tripType == "open_jaw":
         return (
             f"{trip.outboundFlight.origin} → {trip.outboundFlight.destination} / "

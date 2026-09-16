@@ -637,18 +637,40 @@ days for travel/check-in until the real provider flight schedule is known.
 Activities, transfer prices and opening hours remain suggestions to verify,
 not checked reservations or exact quotes.
 
+Native Discover now keeps the first fold short: a compact fare sighting, the
+structured Explore/Ask Farelin switch, and the essentials composer lead the
+screen. The full observed board expands only when its fare sighting is tapped.
+Trip shape and destination choice are always
+accessible; non-return trips label their ordered destination input clearly.
+Origin overrides, exact dates, and comfort rules sit inside an expandable
+refinement section. This is a presentation change, not a new search engine or
+AI call. All observed prices still retain their indicative/last-checked labels.
+
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be paused, resumed, or deactivated using the same
 ownership-checked API routes as the web app. From a return or open-jaw trip
 card, the user can save a **weekly** watch for similar destinations with an
 editable flight budget; it is not a reservation of that displayed fare. The
 current watch schema cannot retain an ordered multi-city route, so the native
-client explicitly declines to save a misleading multi-city watch. Pro daily
+client explicitly declines to save a misleading multi-city watch. A separate
+**Save this fare** bookmark works for any suggestion persisted by the search
+(including multi-city). Bookmarks appear in Watches as observed snapshots,
+not as monitored alerts; they survive suggestion expiry and clearly ask the
+user to check the final price with the provider. Bookmarks retain the original
+demo/indicative/cached/live label rather than upgrading a mock fare to a real
+observation. A multi-city bookmark only links to its first leg and calls out
+the need to verify each remaining flight. They are account-owned and
+included in export/erasure. Pro daily
 watch creation and watch editing remain web-only for now.
 
 My World uses the authenticated `/countries` and `/me/travel-map` API. Its
-MapKit globe supports drag, pinch, country tapping, a searchable country list,
-wishlist route arcs from the profile base, and optional slow rotation. Rotation
+native SceneKit Earth is a genuinely three-dimensional textured sphere, not a
+MapKit projection or web view. It supports drag rotation, pinch zoom and
+country tapping through the bundled polygon hit-test index. Country-state
+colors, a subtle wireframe/point field, a base-location marker and up to four wishlist route arcs are drawn
+into a bounded 2048×1024 texture only when the relevant state changes. The
+globe has no clipped card frame; the full alphabetized country list is browseable
+without a 24-row cap, with search as an additional shortcut. Rotation
 stops when the tab is hidden, when the user interacts, in Low Power Mode, and
 when Reduce Motion is enabled. The bundled [Natural Earth 110m](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/) public-domain
 GeoJSON draws larger country boundaries; tiny islands and microstates missing
@@ -657,9 +679,61 @@ importer maps France and Norway using Natural Earth's three-letter country
 code where its two-letter property is absent. If the resource cannot load,
 the country list still works. Keep `NaturalEarthCountries.geojson` in the app
 resources when regenerating the Xcode project.
-Before App Store submission, review MapKit's network/privacy behavior and the
+Before App Store submission, visually verify the Earth texture orientation,
+tap-to-country mapping, zoom and frame time on a real iPhone, and review the
 App Privacy declaration for this native view. My World uses the profile's
 saved base coordinates; the client does not request the phone's GPS location.
+
+Explore accepts an exact city order or a single selected region/country/continent
+for multi-city and open-jaw planning. Typing an exact name such as “Scandinavia”
+also selects its matching suggestion at submit time. Farelin proposes a small
+set of routes using destinations with observed fares, then checks every leg;
+an unpriceable chain is not shown as a complete deal. The worldwide region
+catalogue combines familiar travel aliases with bundled [UN M49 world
+regions](https://unstats.un.org/unsd/methodology/m49/overview). Refresh it
+manually with `cd apps/api && .venv/bin/python scripts/import_un_regions.py`
+(or pipe verified HTML to that script with `--stdin`), review the resulting JSON diff, then run
+tests. An unknown custom region is rejected instead of silently becoming an
+“anywhere” search. Broad scopes can be truncated by the provider request
+budget, and neither AI nor the catalogue guarantees fares where there are no
+observations. Structured Explore searches do not consume AI-search quota.
+
+Deploy the saved-fare migration with the normal API Alembic startup path
+(`20260915_0030` followed by `20260916_0031`); no new Railway secret is needed. Saving a fare does not
+enable notifications or a background worker.
+
+The September 16 integrity pass distinguishes explicit ordered stops from
+geographic exploration in `destinationIntent`. Broad searches prune candidates
+before pricing and can reuse already-fetched return observations as prominently
+labeled alternatives when no complete chain exists. Explicit city orders are
+never silently replaced. Duration alternatives are capped at seven days beyond
+the requested maximum; a 4–7-night request cannot yield a 45-night chain.
+
+Ordered `segments` are canonical for multi-city/open-jaw presentation on iOS and
+web; legacy outbound/return fields remain for compatibility. Every flight has
+its own matching provider search link. No partial flight chain is advertised as
+one complete provider quote. `totalPrice`/`flightCost` cover flights;
+`groundEstimate` and `transportTotalEstimate` are separately labeled estimates.
+Flight dates are shown without raw ISO timestamps, and inferred flight durations
+are not exposed as confirmed provider flight times.
+
+`saved_fares.itinerary_snapshot` stores a normalized, private itinerary that can
+be reopened after the original suggestion expires. Legacy bookmarks without a
+snapshot explicitly lack detail. `saved_searches.search_criteria` preserves
+regions, countries, continents, ordered stops, trip shape, and travel styles for
+preview and scheduled searches. Watch validation uses the same canonical origin
+directory as Discover, including CPH/MMX, rather than the legacy seed subset.
+
+My World rotates through a frame-synchronized display link without per-frame
+SwiftUI state or texture regeneration. Rotation pauses for gestures, inactive
+tabs, background state, reduced motion, and low power. Country picking uses the
+hit's local sphere coordinates and raw GeoJSON rings, preserving holes,
+date-line seams, and polar closure. Antarctica draws normally but is not added
+to the sovereign-country list. Rendered sphere/texture attachments were inspected.
+
+Verification for this pass is recorded in PLAN.md; the production iOS simulator scheme builds.
+Physical-device QA remains required for globe gestures, frame time, mood-chip
+layout, and saving/removing fares against the migrated staging API.
 
 Native email confirmation uses the same signed-in API environment as the app:
 

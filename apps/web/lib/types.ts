@@ -110,6 +110,8 @@ export type TripOption = {
   returnFlight: Flight;
   groundTransfer: GroundTransfer | null;
   segments?: TripSegment[];
+  transportTotalEstimate?: number | null;
+  durationMatch?: "requested" | "alternative";
   stays?: CityStay[];
   /** Sum of every flight fare — this is what totalPrice reports. */
   flightCost?: number;

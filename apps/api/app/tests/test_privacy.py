@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -11,6 +13,7 @@ from app.db.models import (
     NativeEmailVerificationCodeDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
+    SavedFareDB,
     UserDB,
     UserCountryDB,
     UserTravelProfileDB,
@@ -111,6 +114,12 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
 
     user_id = db_session.scalar(select(UserDB.id).where(UserDB.email == "erase-me@example.com"))
     assert user_id
+    db_session.add(SavedFareDB(
+        id="fare-erasure-row", user_id=user_id, suggestion_id="old-suggestion",
+        title="Observed trip", trip_type="multi_city", price=230, currency="EUR",
+        fare_status="indicative",
+        observed_at=datetime.utcnow(),
+    ))
     hashed_email = recipient_hash("erase-me@example.com")
     db_session.add(
         EmailEventDB(
@@ -132,6 +141,7 @@ def test_erasure_removes_all_user_rows_and_logs_out(db_session):
         UserDB,
         UserTravelProfileDB,
         SavedSearchDB,
+        SavedFareDB,
         RefreshTokenSessionDB,
         UserCountryDB,
         CountryVisitDB,

@@ -127,15 +127,10 @@ final class MyWorldStore {
 
     var filteredCatalog: [CountryCatalogEntry] {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let ordered = catalog.sorted { lhs, rhs in
-            let lhsStatus = countriesByCode[lhs.code]?.primaryStatus ?? "unvisited"
-            let rhsStatus = countriesByCode[rhs.code]?.primaryStatus ?? "unvisited"
-            if lhsStatus != rhsStatus {
-                return Self.statusRank(lhsStatus) < Self.statusRank(rhsStatus)
-            }
-            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        let ordered = catalog.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
-        guard !term.isEmpty else { return Array(ordered.prefix(24)) }
+        guard !term.isEmpty else { return ordered }
         return ordered.filter {
             $0.name.lowercased().contains(term)
                 || $0.code.lowercased().contains(term)

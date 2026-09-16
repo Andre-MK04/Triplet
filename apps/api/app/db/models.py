@@ -97,6 +97,26 @@ class TripSuggestionDB(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class SavedFareDB(Base):
+    """Private fare bookmark: observed snapshot, not an active price watch."""
+
+    __tablename__ = "saved_fares"
+    __table_args__ = (UniqueConstraint("user_id", "suggestion_id", name="uq_saved_fare_user_suggestion"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    suggestion_id: Mapped[str] = mapped_column(String(36))
+    title: Mapped[str] = mapped_column(String(200))
+    trip_type: Mapped[str] = mapped_column(String(20))
+    price: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8))
+    fare_status: Mapped[str] = mapped_column(String(20), default="indicative")
+    observed_at: Mapped[datetime] = mapped_column(DateTime)
+    check_price_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    itinerary_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class CachedRoundTripDB(Base):
     """Precomputed cheapest round trips per route, refreshed on a schedule.
 
@@ -220,6 +240,7 @@ class SavedSearchDB(Base):
     name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     origin_airports: Mapped[list[str]] = mapped_column(JSON)
     destination_airports: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    search_criteria: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
     min_trip_length_days: Mapped[int] = mapped_column(Integer)

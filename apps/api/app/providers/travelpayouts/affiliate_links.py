@@ -28,6 +28,29 @@ def build_aviasales_itinerary_url(
     """Build a valid indexed multi-city URL for return or open-jaw itineraries."""
     if not segments:
         return None
+    # Official documented one-way path. Indexed depart_date query parameters
+    # have produced shifted dates in the provider's prefilled multi-city form.
+    # Chains use these independently checkable links, not a partial whole-trip link.
+    if len(segments) == 1:
+        segment = segments[0]
+        origin, destination = segment.origin.strip().upper(), segment.destination.strip().upper()
+        try:
+            departure = date.fromisoformat(str(segment.departure_date)[:10])
+        except ValueError:
+            return None
+        if not (origin.isascii() and origin.isalpha() and destination.isascii() and destination.isalpha()
+                and len(origin) == len(destination) == 3 and origin != destination):
+            return None
+        cabin = {"Y": "", "C": "c", "W": "w", "F": "f"}.get(trip_class.upper())
+        if cabin is None or not 1 <= adults <= 9 or not 0 <= children <= 9 or not 0 <= infants <= 9:
+            return None
+        passengers = str(adults) + (str(children) if children or infants else "") + (str(infants) if infants else "")
+        route = f"{origin}{departure:%d%m}{destination}{cabin}{passengers}"
+        query = {"currency": settings.travelpayouts_currency.lower()}
+        affiliate_marker = marker if marker is not None else settings.travelpayouts_marker
+        if affiliate_marker:
+            query["marker"] = affiliate_marker
+        return f"{settings.travelpayouts_affiliate_base_url.rstrip('/')}/search/{route}?{urlencode(query)}"
     params: list[tuple[str, str | int]] = []
     for index, segment in enumerate(segments):
         origin = segment.origin.strip().upper()

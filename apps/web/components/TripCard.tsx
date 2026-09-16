@@ -96,7 +96,9 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
   const destinationCity = trip.destination?.city ?? airportCity(outbound.destination);
   const observed = timeAgo(outbound.observedAt);
   const routeTitle =
-    trip.tripType === "open_jaw"
+    trip.tripType === "multi_city" && trip.segments?.length
+      ? [trip.segments[0].origin, ...trip.segments.map((segment) => segment.destination)].join(" → ")
+      : trip.tripType === "open_jaw"
       ? `${airportCity(outbound.origin)} → ${airportCity(outbound.destination)} / ${airportCity(inbound.origin)} → ${airportCity(inbound.destination)}`
       : `${airportCity(outbound.origin)} → ${destinationCity}`;
 
@@ -112,7 +114,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
 
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate font-display text-lg font-bold text-cloud">{routeTitle}</h3>
+          <h3 className="font-display text-lg font-bold text-cloud">{routeTitle}</h3>
           <p className="text-xs text-mist">
             {formatDate(outbound.departureDateTime)} – {formatDate(inbound.departureDateTime)} · {trip.nights}{" "}
             {trip.nights === 1 ? "night" : "nights"}
@@ -140,6 +142,15 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
       </div>
 
       <div className="space-y-2">
+        {trip.durationMatch === "alternative" ? <p className="text-xs font-semibold text-coral">Different trip length: {trip.nights} nights. Not your requested duration.</p> : null}
+        {trip.segments?.length ? trip.segments.map((segment, index) => (
+          <div key={`${index}-${segment.origin}-${segment.destination}`}>
+            {segment.flight ? <FlightRow label={`Segment ${index + 1}`} flight={segment.flight} /> : (
+              <p className="px-2 py-2 text-xs text-gold">{segment.origin} → {segment.destination} · {formatDate(segment.departureDate)} · ground travel · {segment.transfer ? `about ${segment.transfer.durationHours}h, estimated ${formatPrice(segment.transfer.estimatedCost)}` : "details unresolved"} · arrange separately</p>
+            )}
+            {segment.bookingUrl ? <a href={segment.bookingUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-mint">Check {segment.origin} → {segment.destination}</a> : null}
+          </div>
+        )) : <>
         <FlightRow label="Outbound" flight={outbound} showPrice={trip.fareKind !== "round_trip_bundle"} />
         {trip.groundTransfer ? (
           <p className="flex items-center gap-2 px-2 text-xs text-gold">
@@ -150,6 +161,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
           </p>
         ) : null}
         <FlightRow label="Return" flight={inbound} showPrice={trip.fareKind !== "round_trip_bundle"} />
+        </>}
       </div>
 
       {expanded ? (
@@ -218,7 +230,7 @@ export function TripCard({ trip, onSaveAlert, isDemo = false }: TripCardProps) {
               {CHECK_PRICE_LABEL} ↗
             </a>
           ) : (
-            <span className="text-xs text-mist-dim">No booking link for demo fares</span>
+            <span className="text-xs text-mist-dim">{trip.segments?.length ? "Check each flight separately above" : "Provider link unavailable"}</span>
           )}
         </div>
       </footer>

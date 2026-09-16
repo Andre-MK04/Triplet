@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
 
-from app.data.flight_places import catalogue, get_place, is_flightable_place, search_places
+from app.data.flight_places import REGION_TO_COUNTRY_CODES, catalogue, get_place, is_flightable_place, search_places
 from app.deals.refresher import valid_discovery_fares
 from app.main import app
 from app.models import Flight, TripSearchRequest
@@ -38,6 +38,16 @@ def test_global_autocomplete_distinguishes_country_city_and_airport():
     assert any(row["kind"] == "city" and row["code"] == "NYC" for row in new_york.json())
     assert any(row["kind"] == "airport" and row["code"] == "JFK" for row in jfk.json())
     assert all(len(row["searchCodes"]) <= 20 for row in japan.json())
+
+
+def test_official_world_regions_are_searchable_without_provider_calls():
+    assert {"NO", "SE"}.issubset(REGION_TO_COUNTRY_CODES["scandinavia"])
+    assert {"FR", "DE"}.issubset(REGION_TO_COUNTRY_CODES["western europe"])
+    assert {"BR", "AR"}.issubset(REGION_TO_COUNTRY_CODES["south america"])
+    assert len(REGION_TO_COUNTRY_CODES) > 35
+    response = TestClient(app).get("/places/search", params={"q": "Western Europe"})
+    assert response.status_code == 200
+    assert any(row["kind"] == "region" and row["code"] == "western europe" for row in response.json())
 
 
 def test_refresher_validation_keeps_worldwide_fares_and_rejects_unknown_rows():

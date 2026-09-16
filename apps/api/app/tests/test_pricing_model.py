@@ -117,7 +117,7 @@ def test_a_multi_city_total_is_marked_as_an_estimate():
 
 def test_an_open_jaw_total_is_marked_as_an_estimate():
     ask = request(
-        destinationAirports=["STO"], returnOriginAirports=["HEL"], tripPlan="open_jaw",
+        originAirports=["BUD"], destinationAirports=["STO"], returnOriginAirports=["HEL"], tripPlan="open_jaw",
     )
     legs = plan_route(ask, "BUD")
     recent = datetime.utcnow() - timedelta(hours=2)

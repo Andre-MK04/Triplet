@@ -30,13 +30,18 @@ struct ParsedTripSearch: Decodable, Sendable {
     let maxBudget: Double
     let tripPlan: String
     let travelStyles: [String]?
+    let routeStops: [String]?
+    let returnOriginAirports: [String]?
+    let maxGroundTransferHours: Double?
+    let directOnly: Bool?
+    let includeBaggage: Bool?
 }
 
 struct NativeSavedWatchRequest: Encodable, Sendable {
     let email: String
     let name: String
     let originAirports: [String]
-    let destinationAirports: [String]
+    var destinationAirports: [String]?
     let startDate: String
     let endDate: String
     let minTripLengthDays: Int
@@ -46,10 +51,45 @@ struct NativeSavedWatchRequest: Encodable, Sendable {
     let tripStyle: String
     let frequency: String
     let triggerMode: String
+    var destinationCountries: [String] = []
+    var destinationRegions: [String] = []
+    var destinationContinents: [String] = []
+    var tripPlan: String = "return"
+    var routeStops: [String]? = nil
+    var returnOriginAirports: [String]? = nil
+    var travelStyles: [String] = []
+    var directOnly: Bool? = nil
+    var includeBaggage: Bool? = nil
 }
 
 protocol NativeWatchCreating: Sendable {
     func createWatch(_ request: NativeSavedWatchRequest) async throws -> SavedWatchSummary
+}
+
+struct SavedFareSummary: Decodable, Identifiable, Sendable {
+    let id: String
+    let suggestionId: String
+    let title: String
+    let tripType: String
+    let observedPrice: Double
+    let currency: String
+    let fareStatus: String
+    let observedAt: String
+    let checkPriceUrl: String?
+    let savedAt: String
+    let disclaimer: String
+    let trip: SearchTrip?
+
+    var checkPriceURL: URL? {
+        guard let checkPriceUrl, let url = URL(string: checkPriceUrl), url.scheme == "https" else { return nil }
+        return url
+    }
+}
+
+protocol NativeFareSaving: Sendable {
+    func savedFares() async throws -> [SavedFareSummary]
+    func saveFare(suggestionId: String) async throws -> SavedFareSummary
+    func deleteSavedFare(id: String) async throws
 }
 
 struct FlightPlaceResult: Decodable, Identifiable, Hashable, Sendable {
@@ -196,6 +236,8 @@ struct SearchTrip: Decodable, Identifiable, Sendable {
     let stays: [SearchCityStay]?
     let flightCost: Double?
     let groundEstimate: Double?
+    let transportTotalEstimate: Double?
+    let durationMatch: String?
     let price: SearchPriceInfo?
     let totalPrice: Double
     let tripLengthDays: Int
@@ -217,7 +259,9 @@ struct SearchTrip: Decodable, Identifiable, Sendable {
         case "open_jaw":
             "\(outboundFlight.origin) → \(outboundFlight.destination) / \(returnFlight.origin) → \(returnFlight.destination)"
         case "multi_city":
-            ([outboundFlight.origin] + (stays ?? []).map(\.city) + [returnFlight.destination])
+            ([segments?.first?.origin ?? outboundFlight.origin] +
+             ((segments ?? []).isEmpty ? (stays ?? []).map(\.city) + [returnFlight.destination] :
+                (segments ?? []).map { $0.destination == returnFlight.destination ? $0.destination : $0.destinationCity }))
                 .joined(separator: " → ")
         default:
             "\(outboundFlight.origin) → \(destination?.city ?? outboundFlight.destination)"
@@ -233,10 +277,12 @@ struct SearchTrip: Decodable, Identifiable, Sendable {
     }
 
     var checkPriceURL: URL? {
-        [bookingUrl, outboundFlight.bookingUrl, outboundFlight.deepLink, outboundFlight.affiliateUrl]
+        // A chain is a set of separately priced tickets, not a single quote.
+        if tripType == "multi_city" || (tripType == "open_jaw" && !(segments ?? []).isEmpty) { return nil }
+        return [bookingUrl, outboundFlight.bookingUrl, outboundFlight.deepLink, outboundFlight.affiliateUrl]
             .compactMap { $0 }
             .compactMap(URL.init(string:))
-            .first { $0.scheme == "https" }
+            .first { $0.scheme == "https" && $0.host != nil && $0.user == nil && $0.password == nil }
     }
 }
 
@@ -452,18 +498,54 @@ final class TripSearchStore {
     }
 
     func submitAdvanced(profileOrigins: [String]) {
-        guard activeSearchTask == nil, let request = beginAdvancedSearch(profileOrigins: profileOrigins) else { return }
+        guard activeSearchTask == nil else { return }
 
         activeSearchTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            guard await self.resolveTypedDestinationIfNeeded(),
+                  let request = self.beginAdvancedSearch(profileOrigins: profileOrigins) else {
+                self.activeSearchTask = nil
+                return
+            }
             await self.performAdvancedSearch(request)
             self.activeSearchTask = nil
         }
     }
 
     func searchAdvanced(profileOrigins: [String]) async {
+        guard await resolveTypedDestinationIfNeeded() else { return }
         guard let request = beginAdvancedSearch(profileOrigins: profileOrigins) else { return }
         await performAdvancedSearch(request)
+    }
+
+    private func resolveTypedDestinationIfNeeded() async -> Bool {
+        guard advanced.destinations.isEmpty else { return true }
+        let typed = placeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { return true }
+        guard typed.count >= 2 else {
+            errorMessage = "Choose a place or region from the suggestions."
+            return false
+        }
+        do {
+            let candidates = placeResults.isEmpty ? try await service.searchPlaces(typed) : placeResults
+            guard typed == placeQuery.trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
+            let exact = candidates.filter {
+                $0.name.caseInsensitiveCompare(typed) == .orderedSame
+                    || $0.code.caseInsensitiveCompare(typed) == .orderedSame
+            }
+            let place = exact.count == 1 ? exact.first :
+                (exact.allSatisfy { ["region", "continent"].contains($0.kind) }
+                    ? exact.first { $0.kind == "continent" } : nil)
+            guard let place else {
+                errorMessage = "Choose a matching place or region from the suggestions before searching."
+                return false
+            }
+            addDestination(place)
+            return true
+        } catch {
+            errorMessage = readable(error)
+            return false
+        }
     }
 
     private func beginSearch(origins: [String]) -> FarelinAISearchRequest? {
@@ -531,24 +613,27 @@ final class TripSearchStore {
 
         let tripPlan = advanced.tripPlan == "profile" ? nil : advanced.tripPlan
         let routePlaces = advanced.destinations.filter { $0.kind == "city" || $0.kind == "airport" }
-        if tripPlan == "open_jaw" && routePlaces.count != 2 {
+        let broadScope = advanced.destinations.filter { ["country", "region", "continent"].contains($0.kind) }
+        let isScopedJourney = !broadScope.isEmpty && routePlaces.isEmpty
+        if ["open_jaw", "multi_city"].contains(tripPlan ?? ""), !advanced.destinations.isEmpty,
+           !broadScope.isEmpty && !routePlaces.isEmpty {
+            errorMessage = "Choose either places in travel order or a broad region, not both."
+            return nil
+        }
+        if tripPlan == "open_jaw" && !isScopedJourney && routePlaces.count != 2 {
             errorMessage = "Add exactly two cities or airports: where you land, then where you fly home from."
             return nil
         }
-        if tripPlan == "open_jaw" && routePlaces.count != advanced.destinations.count {
-            errorMessage = "Open-jaw trips need two specific cities or airports rather than regions or countries."
+        if ["open_jaw", "multi_city"].contains(tripPlan ?? ""), advanced.destinations.isEmpty {
+            errorMessage = "Choose two places in order, or one region, country or continent."
             return nil
         }
-        if tripPlan == "multi_city" && routePlaces.count < 2 {
+        if tripPlan == "multi_city" && !isScopedJourney && routePlaces.count < 2 {
             errorMessage = "Add at least two cities or airports in travel order for a multi-city trip."
             return nil
         }
-        if tripPlan == "multi_city" && routePlaces.count != advanced.destinations.count {
-            errorMessage = "Multi-city routes need specific cities or airports rather than regions or countries."
-            return nil
-        }
 
-        let scopedDestinations = tripPlan == "open_jaw" ? [] : advanced.destinations
+        let scopedDestinations = tripPlan == "open_jaw" && !isScopedJourney ? [] : advanced.destinations
         let airports = scopedDestinations
             .filter { $0.kind == "city" || $0.kind == "airport" }
             .map(\.code)
@@ -562,11 +647,11 @@ final class TripSearchStore {
         progressMessage = "Resolving your profile defaults…"
         return FarelinAdvancedSearchRequest(
             originAirports: origins,
-            destinationAirports: tripPlan == "open_jaw" ? [routePlaces[0].code] : (airports.isEmpty ? nil : airports),
+            destinationAirports: tripPlan == "open_jaw" && !isScopedJourney ? [routePlaces[0].code] : (airports.isEmpty ? nil : airports),
             destinationCountries: countries.isEmpty ? nil : countries,
             destinationRegions: regions.isEmpty ? nil : regions,
             destinationContinents: continents.isEmpty ? nil : continents,
-            returnOriginAirports: tripPlan == "open_jaw" ? [routePlaces[1].code] : nil,
+            returnOriginAirports: tripPlan == "open_jaw" && !isScopedJourney ? [routePlaces[1].code] : nil,
             startDate: advanced.useProfileDates ? nil : Self.apiDate(advanced.startDate),
             endDate: advanced.useProfileDates ? nil : Self.apiDate(advanced.endDate),
             minTripLengthDays: advanced.useProfileTripLength ? nil : advanced.minTripLengthDays,
@@ -574,7 +659,7 @@ final class TripSearchStore {
             maxBudget: budget,
             maxGroundTransferHours: advanced.useDefaultGroundTransfer ? nil : advanced.maxGroundTransferHours,
             tripPlan: tripPlan,
-            routeStops: tripPlan == "multi_city" ? routePlaces.map(\.code) : nil,
+            routeStops: tripPlan == "multi_city" && !isScopedJourney ? routePlaces.map(\.code) : nil,
             directOnly: Self.optionalPreference(advanced.directPreference, requiredValue: "direct"),
             includeBaggage: Self.optionalPreference(advanced.baggagePreference, requiredValue: "included"),
             travelStyles: advanced.travelStyles.isEmpty ? nil : advanced.travelStyles

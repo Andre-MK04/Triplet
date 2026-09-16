@@ -25,12 +25,17 @@ from app.db.models import AlertDeliveryDB, AlertRunDB, SavedSearchDB, UserDB, Us
 from app.observability import events
 from app.db.repositories.airports_repository import AirportsRepository
 from app.models import TripSearchRequest
+from app.data.flight_places import is_supported_origin, is_flightable_place, REGION_TO_COUNTRY_CODES
+from app.data.country_catalog import countries_by_code
 from app.tools.base import ToolContext
 from app.services.flight_search_service import FlightSearchService
 from app.tools.registry import build_default_tool_registry
 from app.tools.schemas import SearchTripsOutput
 
 logger = logging.getLogger(__name__)
+WATCH_CRITERIA_KEYS = ("destinationCountries", "destinationRegions", "destinationContinents",
+                       "excludeEurope", "unvisitedOnly", "tripPlan", "routeStops",
+                       "returnOriginAirports", "travelStyles")
 
 
 class AlertPermissionError(PermissionError):
@@ -78,6 +83,7 @@ class SavedSearchService:
             name=request.name,
             origin_airports=request.originAirports,
             destination_airports=request.destinationAirports,
+            search_criteria={key: request.model_dump()[key] for key in WATCH_CRITERIA_KEYS},
             start_date=request.startDate,
             end_date=request.endDate,
             min_trip_length_days=request.minTripLengthDays,
@@ -259,6 +265,8 @@ class SavedSearchService:
         return [self._to_response(row) for row in rows]
 
     def create_user_saved_search(self, user: UserDB, request: CreateSavedSearchRequest) -> SavedSearchResponse:
+        from app.billing.usage import assert_origin_airports_allowed
+        assert_origin_airports_allowed(user, len(request.originAirports))
         if request.email != user.email:
             request = request.model_copy(update={"email": user.email})
         return self.create_saved_search(request, user=user)
@@ -359,6 +367,8 @@ class SavedSearchService:
         if request.name is not None:
             row.name = request.name
         if request.originAirports is not None:
+            from app.billing.usage import assert_origin_airports_allowed
+            assert_origin_airports_allowed(user, len(request.originAirports))
             row.origin_airports = request.originAirports
         if request.destinationAirports is not None:
             # An empty list clears the filter back to "anywhere".
@@ -385,6 +395,14 @@ class SavedSearchService:
             row.frequency = request.frequency
         if request.triggerMode is not None:
             row.trigger_mode = request.triggerMode
+        criteria = dict(row.search_criteria or {})
+        for key in WATCH_CRITERIA_KEYS:
+            if key in request.model_fields_set:
+                value = getattr(request, key)
+                criteria[key] = (value or []) if key in {
+                    "destinationCountries", "destinationRegions", "destinationContinents", "travelStyles"
+                } else value
+        row.search_criteria = criteria
         self._validate_row(row)
         row.updated_at = datetime.utcnow()
         self.db.commit()
@@ -586,18 +604,35 @@ class SavedSearchService:
             raise AlertValidationError("Saved alert date range cannot exceed 180 days.")
         if request.maxTripLengthDays < request.minTripLengthDays:
             raise AlertValidationError("maxTripLengthDays must be greater than or equal to minTripLengthDays.")
-        known = {airport.code for airport in AirportsRepository(self.db).list_origin_candidates()}
-        invalid = [code for code in request.originAirports if code not in known]
+        invalid = [code for code in request.originAirports if not is_supported_origin(code)]
         if invalid:
             raise AlertValidationError(f"Unknown origin airport code(s): {', '.join(invalid)}.")
         if request.destinationAirports:
-            from app.data.flight_places import is_flightable_place
-
             invalid_destinations = [code for code in request.destinationAirports if not is_flightable_place(code)]
             if invalid_destinations:
                 raise AlertValidationError(
                     f"Unknown destination code(s): {', '.join(invalid_destinations)}."
                 )
+        if any(region not in REGION_TO_COUNTRY_CODES for region in request.destinationRegions):
+            raise AlertValidationError("Choose a recognized destination region.")
+        if any(code not in countries_by_code() for code in request.destinationCountries):
+            raise AlertValidationError("Choose a recognized destination country.")
+        if any(continent not in {"Africa", "Asia", "Europe", "North America", "South America", "Oceania"}
+               for continent in request.destinationContinents):
+            raise AlertValidationError("Choose a recognized destination continent.")
+        if request.routeStops and any(not is_flightable_place(code) for code in request.routeStops):
+            raise AlertValidationError("Choose valid cities or airports for every route stop.")
+        if request.returnOriginAirports and any(not is_flightable_place(code) for code in request.returnOriginAirports):
+            raise AlertValidationError("Choose a valid city or airport for the flight home.")
+        if request.tripPlan == "multi_city" and not request.routeStops and not any((
+            request.destinationCountries, request.destinationRegions, request.destinationContinents,
+        )):
+            raise AlertValidationError("Choose an ordered route or a geographic area for a multi-city watch.")
+        if request.tripPlan == "open_jaw" and not any((request.destinationCountries, request.destinationRegions,
+                                                       request.destinationContinents)) and not (
+            request.destinationAirports and request.returnOriginAirports
+        ):
+            raise AlertValidationError("Choose arrival and return cities or a geographic area for an open-jaw watch.")
 
     def _validate_row(self, row: SavedSearchDB) -> None:
         request = CreateSavedSearchRequest(
@@ -615,6 +650,7 @@ class SavedSearchService:
             directOnly=row.direct_only,
             includeBaggage=row.include_baggage,
             frequency=row.frequency,
+            **(row.search_criteria or {}),
         )
         self._validate_request(request)
 
@@ -748,6 +784,7 @@ def saved_search_to_trip_request(row: SavedSearchDB) -> TripSearchRequest:
         tripStyle=row.trip_style,
         directOnly=row.direct_only if row.direct_only is not None else False,
         includeBaggage=row.include_baggage if row.include_baggage is not None else False,
+        **(row.search_criteria or {}),
     )
 
 
@@ -763,6 +800,10 @@ def saved_search_to_response(
         name=row.name,
         originAirports=row.origin_airports,
         destinationAirports=row.destination_airports,
+        **{key: (row.search_criteria or {}).get(key, default) for key, default in (
+            ("destinationCountries", []), ("destinationRegions", []), ("destinationContinents", []),
+            ("tripPlan", "return"), ("routeStops", None), ("returnOriginAirports", None), ("travelStyles", []))},
+        destinationIntent=saved_search_to_trip_request(row).destinationIntent.model_dump(),
         startDate=row.start_date,
         endDate=row.end_date,
         minTripLengthDays=row.min_trip_length_days,

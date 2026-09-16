@@ -1,5 +1,67 @@
 # Farelin product plan
 
+## Native Discover and My World redesign (2026-09-15)
+
+Handoff: keep `TripSearchStore`, `OpportunityStore`, `MyWorldStore`, the
+FastAPI contracts, and the bundled Natural Earth geometry. Discover currently
+stacks four complete opportunity cards before a long all-at-once form; My
+World presents a MapKit projection, not an actual 3D Earth. Redesign only the
+SwiftUI presentation and the globe renderer. The user's Xcode window-state
+file is unrelated and must remain untouched.
+
+Decision: Discover uses a compact observed-fare preview and an essentials
+composer, with trip shape/destinations in the main flow and precision controls
+disclosed on demand. My
+World uses a textured native sphere with geographic hit testing, while the
+country browser remains the accessible fallback. Rejected: a full app rewrite,
+an embedded web globe (gesture/state bridge), retaining the flat MapKit view,
+or asking the provider to supply aesthetic globe data. Do not label cached
+prices as live.
+
+### Stage 1 — compact Discover
+
+Visible result: users can scan a fare sighting and launch structured search
+without scrolling through a wall of nested controls.
+
+1. Goal: put a restrained observed-opportunity teaser below the heading and
+   disclose the full board only when requested. Where: `DiscoverView`. Verify:
+   board still uses real observed DTOs and opens the same trip details.
+   Fence: no sample prices in the signed-in board.
+2. Goal: show window, budget, duration, mood, trip shape and destination in
+   the main flow; disclose origin overrides and precision inputs in an expandable
+   section. Where: `DiscoverView`, existing `TripSearchStore`. Verify:
+   structured submit reaches the existing endpoint; multi-city/open-jaw
+   controls still work; no extra AI charge. Fence: search overrides remain
+   higher priority than profile defaults.
+
+### Stage 2 — tactile native Earth
+
+Visible result: a true sphere with recognizable country outlines and personal
+visited/lived/wishlist colors rotates by touch, zooms by pinch, and taps a
+country to open its existing sheet.
+
+1. Goal: transform bundled country polygons into a low-resolution, theme-aware
+   equirectangular texture and a reusable geographic hit-test index. Where:
+   My World globe implementation. Verify: known country coordinates map to
+   the expected ISO-2 codes. Fence: no network map asset or fake country data.
+2. Goal: render the textured sphere natively and wire touch/zoom/selection;
+   preserve the country browser and state update route. Where: `MyWorldView`.
+   Verify: simulator build/tests plus visual/gesture check on iPhone; reduced
+   motion and low-power disable idle spin. Fence: no MapKit globe masquerading
+   as 3D and no unbounded texture redraw per frame.
+
+Risk tripwires: if texture orientation or tap mapping fails, stop and correct
+the geographic transform before shipping; if first-frame texture generation
+causes visible delay, prepare it once and cache it. SceneKit is a pragmatic
+iOS 17-compatible renderer here, but its newer-platform deprecation means
+renderer migration should remain possible without changing country-state
+services. The browser covers tiny countries and accessibility.
+
+2026-09-15 code status: Stage 1 and Stage 2 presentation changes are in the
+SwiftUI app. The simulator build and geographic tests passed; the rendered
+texture and country gestures still require physical-iPhone visual QA before
+an App Store build. Do not infer visual correctness from a passing unit test.
+
 ## Current cross-platform redesign workstream (2026-09)
 
 Handoff: Farelin already has Next.js, FastAPI, a scheduled cached-fare board,
@@ -128,7 +190,7 @@ port and must not duplicate fare or entitlement logic on-device.
 
 Build with Xcode 26.6, the iOS 26 SDK, and Swift 6 strict concurrency. The
 interface adopts Farelin's visual identity through native navigation, tabs,
-sheets, search, haptics, accessibility, and an interactive MapKit globe.
+sheets, search, haptics, accessibility, and an interactive native Earth.
 Minimum deployment is iOS 17 to avoid excluding otherwise compatible users;
 iOS 26-only presentation APIs are availability-gated. The first public app is
 iPhone-only and requires sign-in before search. iPad comes later.
@@ -165,10 +227,11 @@ search. This controls model/provider cost and gives Farelin a durable channel
 for watches, email, and push. The public website remains the product preview.
 The backend enforces this; the app does not merely hide anonymous controls.
 
-### Native MapKit globe — chosen
+### Native MapKit globe — superseded by tactile Earth redesign
 
-Use MapKit's globe camera, route overlays, and local Natural Earth country
-geometry. Country state still comes from the existing travel-map API. Keep a
+The initial native implementation used MapKit overlays. The 2026-09-15
+redesign replaces that surface with a native textured sphere using the same
+local Natural Earth geometry and existing travel-map state API. Keep a
 searchable country list as the accessible and low-precision fallback.
 
 - Rejected embedding the existing Three.js globe: code reuse is attractive,
@@ -352,8 +415,8 @@ origins; tapping a country opens a native sheet and edits sync with the web.
    - Where: bundled simplified geometry + API country catalogue adapter.
    - Verify: numeric geometry ID maps to the same ISO code as the backend.
    - Fence: no display-name matching and no second country truth source.
-2. Goal: build MapKit globe with route arcs and selected origin airports.
-   - Where: My World Map view, overlays, camera, theme adaptation.
+2. Goal: build a native interactive Earth with route cues and selected origin airports.
+   - Where: My World globe renderer, geometry, camera, theme adaptation.
    - Verify: smooth interaction on a supported physical iPhone; reduced motion
      stops auto-rotation; low-power mode reduces overlays.
    - Fence: visual fidelity must not block accessible country search/list use.
@@ -483,8 +546,38 @@ the reviewed build is released with production services and truthful metadata.
     ordered multi-city stops, dates, trip length, budget, travel style, comfort,
     transfer and origin overrides. The authenticated backend resolves omissions
     from the profile, returns source labels, and consumes no AI allowance.
-  - Saved-watch creation remains for the final Stage 4 slice.
+  - Explore now accepts one selected or exactly typed world region, country, or
+    continent for fare-backed multi-city/open-jaw proposals; explicit ordered
+    stops still win. Unknown regions are rejected and broad provider-budget
+    truncation is disclosed. UN M49 subregions are bundled, not fetched live.
+  - Weekly watch creation and separate private saved-fare bookmarks are
+    implemented; an observed multi-city fare can be saved without pretending
+    the ordered route is a recurring watch.
+  - Integrity pass: geographic destination intent is distinct from ordered stops;
+    region searches may expose explicitly labeled return alternatives without an
+    extra discovery request. Chain integrity is validated before persistence;
+    all flight/ground segments display on native/web cards with per-flight links.
+    Duration alternatives are bounded; dates no longer leak raw ISO timestamps.
+  - Saved fares preserve normalized private itineraries after suggestion expiry.
+    Watches preserve semantic regions/ordered stops through preview and scheduled
+    search, using the canonical Discover origin directory instead of seed-only
+    validation. Staging currently lacks the new Save Fare endpoint: deploy API
+    migrations `20260915_0030` and `20260916_0031` before physical-device QA.
+  - Verified September 16: 769 backend tests, 57 iOS simulator tests, and 151 web
+    tests pass. Web production build and Release production iOS simulator build
+    pass; Alembic has a single `20260916_0031` head; `git diff --check` is clean.
 - [ ] Stage 5 — watches and native push
+  - Existing watches and saved fare snapshots are visible in the Watches tab;
+    semantic multi-city recurring watch criteria are implemented; native push
+    and end-to-end real-email scheduled-delivery QA remain unfinished.
 - [ ] Stage 6 — My World and interactive globe
+  - Full alphabetized country browsing, search, country selection, state color,
+    touch rotation/zoom, base pin, wishlist arcs, and a frameless SceneKit globe
+    are implemented. Globe texture/wireframe/points now echo the web visual;
+    exact web mesh parity and real-device frame/gesture QA remain open.
+  - Removed timed step rotation in favor of a frame-synchronized display link;
+    local sphere-coordinate picking and raw GeoJSON preserve polar rings, holes,
+    and date-line seams. Automated geometry/rendering regressions pass; physical
+    iPhone gesture/frame profiling remains required.
 - [ ] Stage 7 — account, privacy, StoreKit seam, resilience
 - [ ] Stage 8 — TestFlight and App Store release

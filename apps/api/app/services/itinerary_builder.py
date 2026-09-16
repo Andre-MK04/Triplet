@@ -363,7 +363,7 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
 
     for dated in route:
         leg = dated.leg
-        if leg.is_ground or dated.fare is None:
+        if leg.is_ground:
             transfer = _ground_segment(leg.origin, leg.destination)
             if not transfer:
                 return None
@@ -382,6 +382,8 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
             )
             continue
 
+        if dated.fare is None or dated.fare.origin != leg.origin or dated.fare.destination != leg.destination:
+            return None
         flight = _to_flight(dated)
         flights.append(flight)
         flight_cost += flight.price
@@ -412,12 +414,12 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
         return None
 
     stays = _stays(route)
-    booking_url = build_aviasales_itinerary_url(
-        [ItinerarySegment(d.leg.origin, d.leg.destination, d.departure) for d in route if not d.leg.is_ground]
-    )
+    # Separate one-way observations are not a single multi-city quote. Expose
+    # each flight's matching route/date URL through the canonical segments.
+    booking_url = None
     trip_type = "open_jaw" if request.tripPlan == "open_jaw" else "multi_city"
 
-    return TripOption(
+    trip = TripOption(
         id="mc-" + "-".join(f"{d.leg.origin}{d.departure.isoformat()}" for d in route),
         tripType=trip_type,
         outboundFlight=flights[0],
@@ -427,6 +429,7 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
         segments=segments,
         stays=stays,
         flightCost=round(flight_cost, 2),
+        transportTotalEstimate=round(flight_cost + ground_estimate, 2),
         groundEstimate=round(ground_estimate, 2) if has_ground else None,
         # Every hop priced from its own observation, then added up. Real fares,
         # real arithmetic — but no one observed this chain as a single price, and
@@ -458,6 +461,38 @@ def _to_trip_option(request: TripSearchRequest, origin: str, route: list[DatedLe
         ),
         destination=_destination_metadata(route),
     )
+    return trip if validate_itinerary(trip, request, [d.leg for d in route]) else None
+
+
+def validate_itinerary(trip: TripOption, request: TripSearchRequest, legs: list[PlannedLeg]) -> bool:
+    """Discard broken chains before they cross the persistence/client boundary."""
+    segments = trip.segments
+    if not segments or len(segments) != len(legs):
+        return False
+    if canonical_code(segments[0].origin) not in {canonical_code(c) for c in request.originAirports}:
+        return False
+    if segments[-1].destination != segments[0].origin:
+        return False
+    if request.routeStops and all(get_place(code) for code in request.routeStops):
+        if [s.destination for s in segments[:-1]] != [canonical_code(c) for c in request.routeStops]:
+            return False
+    for index, (segment, leg) in enumerate(zip(segments, legs)):
+        if (segment.origin, segment.destination) != (leg.origin, leg.destination):
+            return False
+        if (segment.kind == "ground") != leg.is_ground:
+            return False
+        if index and (segments[index - 1].destination != segment.origin
+                      or segments[index - 1].departureDate > segment.departureDate):
+            return False
+        if segment.kind == "flight":
+            flight = segment.flight
+            if flight is None or (flight.origin, flight.destination) != (segment.origin, segment.destination):
+                return False
+            if flight.departureDateTime.date() != segment.departureDate or flight.currency != trip.outboundFlight.currency:
+                return False
+        elif segment.transfer is None:
+            return False
+    return abs(sum(s.flight.price for s in segments if s.flight) - trip.totalPrice) < 0.01
 
 
 def _to_flight(dated: DatedLeg) -> Flight:
@@ -476,7 +511,9 @@ def _to_flight(dated: DatedLeg) -> Flight:
         currency=fare.currency,
         provider="travelpayouts",
         stops=fare.stops,
-        durationMinutes=duration,
+        # A distance-based duration is useful internally for arrival ordering,
+        # but it is not a provider-confirmed flight time.
+        durationMinutes=fare.durationMinutes,
         isLive=False,
         confidenceLevel="indicative",
         observedAt=fare.observedAt,

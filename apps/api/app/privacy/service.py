@@ -29,6 +29,7 @@ from app.db.models import (
     PasswordResetTokenDB,
     RefreshTokenSessionDB,
     SavedSearchDB,
+    SavedFareDB,
     TripSuggestionDB,
     UsageCounterDB,
     UserCountryDB,
@@ -44,6 +45,7 @@ def export_user_data(db: Session, user: UserDB) -> dict:
     saved = db.scalars(select(SavedSearchDB).where(SavedSearchDB.user_id == user.id)).all()
     oauth = db.scalars(select(UserOAuthAccountDB).where(UserOAuthAccountDB.user_id == user.id)).all()
     suggestions = db.scalars(select(TripSuggestionDB).where(TripSuggestionDB.user_id == user.id)).all()
+    saved_fares = db.scalars(select(SavedFareDB).where(SavedFareDB.user_id == user.id)).all()
     usage = db.scalars(select(UsageCounterDB).where(UsageCounterDB.user_id == user.id)).all()
     subscriptions = db.scalars(
         select(BillingSubscriptionDB).where(BillingSubscriptionDB.user_id == user.id)
@@ -75,6 +77,7 @@ def export_user_data(db: Session, user: UserDB) -> dict:
                 "name": s.name,
                 "originAirports": s.origin_airports,
                 "destinationAirports": s.destination_airports,
+                "searchCriteria": s.search_criteria,
                 "startDate": _iso(s.start_date),
                 "endDate": _iso(s.end_date),
                 "maxBudget": s.max_budget,
@@ -88,6 +91,14 @@ def export_user_data(db: Session, user: UserDB) -> dict:
         "tripSuggestions": [
             {"title": t.title, "totalPrice": t.total_price, "createdAt": _iso(t.created_at)}
             for t in suggestions
+        ],
+        "savedFares": [
+            {"title": fare.title, "tripType": fare.trip_type, "observedPrice": fare.price,
+             "currency": fare.currency, "fareStatus": fare.fare_status,
+             "observedAt": _iso(fare.observed_at),
+             "checkPriceUrl": fare.check_price_url, "savedAt": _iso(fare.created_at),
+             "trip": fare.itinerary_snapshot}
+            for fare in saved_fares
         ],
         "travelMap": {
             "countries": [
@@ -168,6 +179,7 @@ def erase_user(db: Session, user: UserDB, request=None) -> None:
         CountryVisitDB,
         UserCountryDB,
         SavedSearchDB,
+        SavedFareDB,
         TripSuggestionDB,
         UserTravelProfileDB,
         UserOAuthAccountDB,

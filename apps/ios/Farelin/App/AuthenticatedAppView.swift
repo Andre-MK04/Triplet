@@ -89,6 +89,7 @@ struct AuthenticatedAppView: View {
                 accountEmail: user.email,
                 tripDetailService: apiClient,
                 watchService: apiClient,
+                fareService: apiClient,
                 onWatchSaved: { Task { await dashboardStore.load(force: true) } },
                 reauthenticate: { await session.refreshAccess() }
             )
@@ -101,7 +102,8 @@ struct AuthenticatedAppView: View {
             .tabItem { Label("Today", systemImage: "sparkles") }
             .tag(FarelinTab.dashboard)
 
-            WatchesView(store: dashboardStore) {
+            WatchesView(store: dashboardStore, fareService: apiClient, tripDetailService: apiClient,
+                        reauthenticate: { await session.refreshAccess() }) {
                 selectedTab = .discover
             }
                 .tabItem { Label("Watches", systemImage: "bell") }
@@ -169,14 +171,21 @@ struct AuthenticatedAppView: View {
 
 private struct WatchesView: View {
     let store: DashboardStore
+    let fareService: any NativeFareSaving
+    let tripDetailService: any TripDetailServicing
+    let reauthenticate: (@MainActor @Sendable () async -> Bool)?
     let discoverTrips: () -> Void
     @State private var pendingDeletion: SavedWatchSummary?
+    @State private var savedFares: [SavedFareSummary] = []
+    @State private var fareError: String?
+    @State private var loadingFares = false
 
     var body: some View {
         NavigationStack {
             Group {
                 if let watches = store.dashboard?.savedSearches, !watches.isEmpty {
                     List {
+                        savedFareSection
                         if let error = store.errorMessage {
                             Label(error, systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(FarelinColor.coral)
@@ -227,7 +236,15 @@ private struct WatchesView: View {
                         }
                         }
                     }
-                } else if store.isLoading {
+                } else if !savedFares.isEmpty {
+                    List {
+                        savedFareSection
+                        Section("Active watches") {
+                            Text("No active watches yet. Saved fares are bookmarks, not alerts.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                } else if store.isLoading || loadingFares {
                     ProgressView("Loading watches…")
                 } else if let error = store.errorMessage {
                     ContentUnavailableView {
@@ -240,9 +257,9 @@ private struct WatchesView: View {
                     }
                 } else {
                     ContentUnavailableView {
-                        Label("No saved watches", systemImage: "bell.slash")
+                        Label("Nothing saved yet", systemImage: "bookmark.slash")
                     } description: {
-                        Text("Find a trip you like, then ask Farelin to keep watching fares from your airports.")
+                        Text(fareError ?? "Save a fare as a bookmark, or create a watch for ongoing alerts.")
                     } actions: {
                         Button("Discover trips", action: discoverTrips)
                             .buttonStyle(.borderedProminent)
@@ -256,7 +273,8 @@ private struct WatchesView: View {
                 }
             }
             .task { await store.load() }
-            .refreshable { await store.load(force: true) }
+            .onAppear { Task { await loadSavedFares() } }
+            .refreshable { await store.load(force: true); await loadSavedFares() }
             .alert("Delete this watch?", isPresented: Binding(
                 get: { pendingDeletion != nil },
                 set: { if !$0 { pendingDeletion = nil } }
@@ -270,6 +288,79 @@ private struct WatchesView: View {
             } message: {
                 Text("Farelin will stop checking this search. This cannot be undone.")
             }
+        }
+    }
+
+    @ViewBuilder
+    private var savedFareSection: some View {
+        if let fareError {
+            Label(fareError, systemImage: "wifi.exclamationmark")
+                .font(.caption).foregroundStyle(FarelinColor.coral)
+        }
+        if !savedFares.isEmpty {
+            Section("Saved fares · not monitored") {
+                ForEach(savedFares) { fare in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(fare.title).font(.headline)
+                            Spacer()
+                            Text("\(fare.currency) \(fare.observedPrice, specifier: "%.0f")")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(FarelinColor.mint)
+                        }
+                        Text("\(fare.fareStatus.capitalized) fare · last observed \(String(fare.observedAt.prefix(10))) · price may change")
+                            .font(.caption).foregroundStyle(.secondary)
+                        if !["multi_city", "open_jaw"].contains(fare.tripType), let url = fare.checkPriceURL {
+                            Link("Check final price", destination: url)
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        if let trip = fare.trip {
+                            NavigationLink("View saved route") {
+                                TripDetailView(trip: trip, service: tripDetailService,
+                                               reauthenticate: reauthenticate, isSavedSnapshot: true)
+                            }
+                            .font(.subheadline.weight(.semibold))
+                        } else {
+                            Text("This older bookmark has no complete itinerary snapshot.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 5)
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) { Task { await deleteFare(fare) } } label: {
+                            Label("Remove bookmark", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadSavedFares() async {
+        guard !loadingFares else { return }
+        loadingFares = true
+        fareError = nil
+        defer { loadingFares = false }
+        do {
+            savedFares = try await fareService.savedFares()
+        } catch APIError.unauthorized {
+            guard let reauthenticate, await reauthenticate() else {
+                fareError = "Sign in again to see saved fares."
+                return
+            }
+            do { savedFares = try await fareService.savedFares() }
+            catch { fareError = (error as? LocalizedError)?.errorDescription ?? "Saved fares could not load." }
+        } catch {
+            fareError = (error as? LocalizedError)?.errorDescription ?? "Saved fares could not load."
+        }
+    }
+
+    private func deleteFare(_ fare: SavedFareSummary) async {
+        do {
+            try await fareService.deleteSavedFare(id: fare.id)
+            savedFares.removeAll { $0.id == fare.id }
+        } catch {
+            fareError = (error as? LocalizedError)?.errorDescription ?? "Could not remove this fare."
         }
     }
 }

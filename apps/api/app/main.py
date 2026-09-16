@@ -38,6 +38,7 @@ from app.routers import (
     health,
     me,
     places,
+    saved_fares,
     providers,
     tools,
     travel_map,
@@ -382,5 +383,6 @@ app.include_router(email_webhooks.router)
 app.include_router(contact.router)
 app.include_router(auth_routes.router)
 app.include_router(me.router)
+app.include_router(saved_fares.router)
 app.include_router(travel_map.router)
 app.include_router(billing_routes.router)

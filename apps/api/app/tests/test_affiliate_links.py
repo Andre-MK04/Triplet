@@ -32,12 +32,9 @@ def test_one_way_carries_route_date_currency_and_marker():
     url = build_aviasales_itinerary_url([ItinerarySegment("VIE", "BCN", date(2026, 10, 6))])
 
     fields = params(url)
-    assert fields["segments[0][origin_iata]"] == "VIE"
-    assert fields["segments[0][destination_iata]"] == "BCN"
-    assert fields["segments[0][depart_date]"] == "2026-10-06"
+    assert "/search/VIE0610BCN1?" in url
     assert fields["currency"] == "eur"
     assert fields["marker"] == "747408"
-    assert fields["adults"] == "1"
 
 
 def test_return_carries_both_dates_in_order():
@@ -78,7 +75,10 @@ def test_multi_city_keeps_every_hop_in_order():
 
 
 def test_square_brackets_are_encoded_so_the_url_survives_transport():
-    url = build_aviasales_itinerary_url([ItinerarySegment("VIE", "BCN", date(2026, 10, 6))])
+    url = build_aviasales_itinerary_url([
+        ItinerarySegment("VIE", "BCN", date(2026, 10, 6)),
+        ItinerarySegment("BCN", "VIE", date(2026, 10, 10)),
+    ])
 
     assert "segments%5B0%5D" in url
     assert " " not in url

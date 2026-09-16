@@ -21,6 +21,8 @@ from app.models import (
 )
 from app.preferences.resolution import resolve_search_preferences
 from app.config import settings
+from app.data.country_catalog import countries_by_code
+from app.data.flight_places import REGION_TO_COUNTRY_CODES
 from app.observability import events
 from app.security import RateLimitCategory, check_rate_limit, consume_ai_call
 from app.providers.errors import ProviderApiError, ProviderAuthError, ProviderConfigError
@@ -44,6 +46,7 @@ def search_trips(
     user: UserDB | None = Depends(get_current_user_optional),
 ) -> TripSearchResponse:
     check_rate_limit(RateLimitCategory.SEARCH, http_request, user.id if user else None)
+    _validate_destination_scopes(request)
     if request.endDate < request.startDate:
         raise HTTPException(status_code=400, detail="endDate must be on or after startDate")
     if request.maxTripLengthDays < request.minTripLengthDays:
@@ -131,8 +134,10 @@ def advanced_search(
         raise HTTPException(status_code=400, detail="Add at least one origin airport to your travel profile.")
 
     trip_plan = request.tripPlan or resolved.values["tripPlan"]
-    if trip_plan == "multi_city" and not request.routeStops:
-        raise HTTPException(status_code=400, detail="Multi-city search needs at least two destinations in travel order.")
+    if trip_plan == "multi_city" and not request.routeStops and not any((
+        request.destinationCountries, request.destinationRegions, request.destinationContinents,
+    )):
+        raise HTTPException(status_code=400, detail="Multi-city search needs two destinations in order or a region, country or continent.")
 
     # No hard budget means broad discovery, not an invisible profile cap. The
     # engine still requires a numeric ceiling, so 5000 is an internal safety
@@ -165,7 +170,12 @@ def advanced_search(
         includeBaggage=bool(resolved.values["includeBaggage"]),
         travelStyles=list(resolved.values["travelStyles"]),
     )
+    intent = search_request.destinationIntent
+    if intent.kind == "explicit_stops" and (search_request.destinationCountries or
+            search_request.destinationRegions or search_request.destinationContinents):
+        raise HTTPException(status_code=400, detail="Choose an ordered city route or a geographic area, not both.")
 
+    _validate_destination_scopes(search_request)
     result = search_trips(search_request, http_request, db, user)
     source_map = dict(resolved.sourceMap)
     for field_name in (
@@ -191,6 +201,22 @@ def advanced_search(
         sourceMap=source_map,
         hardBudgetApplied=hard_budget,
     )
+
+
+def _validate_destination_scopes(request: TripSearchRequest) -> None:
+    """Never turn an unrecognized region into an accidental anywhere search."""
+    invalid_regions = [name for name in request.destinationRegions
+                       if name.strip().casefold() not in REGION_TO_COUNTRY_CODES]
+    invalid_countries = [code for code in request.destinationCountries
+                         if code.strip().upper() not in countries_by_code()]
+    continents = {"africa", "asia", "europe", "north america", "south america", "oceania"}
+    invalid_continents = [name for name in request.destinationContinents
+                          if name.strip().casefold() not in continents]
+    if invalid_regions or invalid_countries or invalid_continents:
+        raise HTTPException(
+            status_code=400,
+            detail="Unknown destination region, country or continent. Choose a matching place from suggestions.",
+        )
 
 
 @router.get("/suggestions/{suggestion_id}")

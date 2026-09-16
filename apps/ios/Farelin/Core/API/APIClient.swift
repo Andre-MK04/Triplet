@@ -37,7 +37,7 @@ protocol NativeAuthServicing: Sendable {
     func setAccessToken(_ token: String?) async
 }
 
-actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, OpportunityServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating {
+actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing, TripSearchServicing, OpportunityServicing, TripDetailServicing, TravelMapServicing, NativeWatchCreating, NativeFareSaving {
     private let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
@@ -68,6 +68,20 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             authenticated: true,
             response: SavedWatchSummary.self
         )
+    }
+
+    func savedFares() async throws -> [SavedFareSummary] {
+        try await send(path: "me/saved-fares", method: "GET", authenticated: true, response: [SavedFareSummary].self)
+    }
+
+    func saveFare(suggestionId: String) async throws -> SavedFareSummary {
+        try await send(path: "me/saved-fares/\(suggestionId)", method: "POST",
+                       body: EmptyPayload(), authenticated: true, response: SavedFareSummary.self)
+    }
+
+    func deleteSavedFare(id: String) async throws {
+        _ = try await send(path: "me/saved-fares/\(id)", method: "DELETE",
+                           authenticated: true, response: SavedFareDeletionResponse.self)
     }
 
     func pauseWatch(id: String) async throws -> SavedWatchSummary {
@@ -396,7 +410,10 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
             guard (200 ..< 300).contains(http.statusCode) else {
                 let detail = (try? JSONDecoder().decode(APIErrorEnvelope.self, from: data).detail)
                     ?? "Farelin could not complete that request."
-                throw APIError.server(message: detail, statusCode: http.statusCode)
+                let message = http.statusCode == 404 && detail == "Not Found"
+                    ? "This feature isn't available on the connected Farelin server yet. Please try again after the app and server are updated."
+                    : detail
+                throw APIError.server(message: message, statusCode: http.statusCode)
             }
             do {
                 return try JSONDecoder().decode(Response.self, from: data)
@@ -414,3 +431,4 @@ actor APIClient: NativeAuthServicing, DashboardServicing, TravelProfileServicing
 private struct EmptyPayload: Encodable, Sendable {}
 private struct APIErrorEnvelope: Decodable, Sendable { let detail: String }
 private struct MutationAcknowledgement: Decodable, Sendable { let ok: Bool }
+private struct SavedFareDeletionResponse: Decodable, Sendable { let deleted: Bool }

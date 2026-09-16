@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models import ProviderMetadata, TripOption
 
@@ -25,6 +25,10 @@ class CreateSavedSearchRequest(BaseModel):
     destinationContinents: list[str] = Field(default_factory=list, max_length=7)
     excludeEurope: bool = False
     unvisitedOnly: bool = False
+    tripPlan: Literal["return", "open_jaw", "multi_city"] = "return"
+    routeStops: list[str] | None = Field(default=None, min_length=2, max_length=6)
+    returnOriginAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    travelStyles: list[str] = Field(default_factory=list, max_length=9)
     startDate: date
     endDate: date
     minTripLengthDays: int = Field(ge=1)
@@ -59,21 +63,15 @@ class CreateSavedSearchRequest(BaseModel):
             return None
         return list(dict.fromkeys(code.strip().upper() for code in value if code.strip())) or None
 
-    @model_validator(mode="after")
-    def reject_unpersisted_geographic_scope(self):
-        if (
-            self.destinationCountries
-            or self.destinationRegions
-            or self.destinationContinents
-            or self.excludeEurope
-            or self.unvisitedOnly
-        ):
-            raise ValueError(
-                "Country, region, continent, outside-Europe, and unvisited-only watches are not persisted yet. "
-                "Choose a city/airport or save an anywhere watch."
-            )
-        return self
+    @field_validator("destinationCountries", "routeStops", "returnOriginAirports")
+    @classmethod
+    def normalize_codes(cls, values):
+        return [code.strip().upper() for code in values] if values is not None else None
 
+    @field_validator("destinationRegions")
+    @classmethod
+    def normalize_regions(cls, values):
+        return [region.strip().lower() for region in values]
 
 class UpdateSavedSearchRequest(BaseModel):
     name: str | None = Field(default=None, max_length=160)
@@ -90,6 +88,13 @@ class UpdateSavedSearchRequest(BaseModel):
     includeBaggage: bool | None = None
     frequency: Frequency | None = None
     triggerMode: TriggerMode | None = None
+    destinationCountries: list[str] | None = Field(default=None, max_length=20)
+    destinationRegions: list[str] | None = Field(default=None, max_length=8)
+    destinationContinents: list[str] | None = Field(default=None, max_length=7)
+    tripPlan: Literal["return", "open_jaw", "multi_city"] | None = None
+    routeStops: list[str] | None = Field(default=None, min_length=2, max_length=6)
+    returnOriginAirports: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    travelStyles: list[str] | None = Field(default=None, max_length=9)
 
     @field_validator("originAirports")
     @classmethod
@@ -105,6 +110,14 @@ class SavedSearchResponse(BaseModel):
     name: str | None = None
     originAirports: list[str]
     destinationAirports: list[str] | None = None
+    destinationCountries: list[str] = Field(default_factory=list)
+    destinationRegions: list[str] = Field(default_factory=list)
+    destinationContinents: list[str] = Field(default_factory=list)
+    tripPlan: str = "return"
+    routeStops: list[str] | None = None
+    returnOriginAirports: list[str] | None = None
+    travelStyles: list[str] = Field(default_factory=list)
+    destinationIntent: dict | None = None
     startDate: date
     endDate: date
     minTripLengthDays: int

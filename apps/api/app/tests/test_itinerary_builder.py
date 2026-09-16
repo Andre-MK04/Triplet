@@ -61,7 +61,7 @@ def test_multi_city_route_is_home_then_each_stop_then_home():
 
 def test_open_jaw_flies_in_to_one_city_and_home_from_another():
     legs = plan_route(
-        request(tripPlan="open_jaw", routeStops=None,
+        request(originAirports=["BUD"], tripPlan="open_jaw", routeStops=None,
                 destinationAirports=["STO"], returnOriginAirports=["HEL"]),
         "BUD",
     )
@@ -126,7 +126,7 @@ def test_dates_are_chosen_for_the_cheapest_whole_trip_not_the_cheapest_first_hop
 
 def test_ground_hops_are_described_but_never_priced_into_the_total():
     legs = plan_route(
-        request(tripPlan="open_jaw", routeStops=None,
+        request(originAirports=["BUD"], tripPlan="open_jaw", routeStops=None,
                 destinationAirports=["STO"], returnOriginAirports=["HEL"]),
         "BUD",
     )
@@ -136,7 +136,7 @@ def test_ground_hops_are_described_but_never_priced_into_the_total():
     }
 
     trip = build_itineraries(
-        request(tripPlan="open_jaw", routeStops=None,
+        request(originAirports=["BUD"], tripPlan="open_jaw", routeStops=None,
                 destinationAirports=["STO"], returnOriginAirports=["HEL"]),
         "BUD", legs, fares,
     )[0]
@@ -148,6 +148,86 @@ def test_ground_hops_are_described_but_never_priced_into_the_total():
     # Flights only.
     assert trip.totalPrice == 170
     assert trip.flightCost == 170
+
+
+def test_balkan_chain_preserves_all_flight_and_ground_segments():
+    ask = request(originAirports=["CPH", "MMX"], routeStops=["ATH", "SKP", "BEG", "SOF"])
+    legs = plan_route(ask, "CPH")
+    fares = {pair: spread(*pair, price) for pair, price in [
+        (("CPH", "ATH"), 110), (("ATH", "SKP"), 70), (("SOF", "CPH"), 59),
+    ]}
+    trip = build_itineraries(ask, "CPH", legs, fares)[0]
+    assert [(s.origin, s.destination) for s in trip.segments] == [
+        ("CPH", "ATH"), ("ATH", "SKP"), ("SKP", "BEG"), ("BEG", "SOF"), ("SOF", "CPH"),
+    ]
+    assert [s.kind for s in trip.segments] == ["flight", "flight", "ground", "ground", "flight"]
+    assert trip.bookingUrl is None
+    assert trip.totalPrice == 239
+    assert trip.transportTotalEstimate == trip.totalPrice + trip.groundEstimate
+    for segment in trip.segments:
+        if segment.kind == "flight":
+            stamp = segment.departureDate.strftime("%d%m")
+            assert f"/search/{segment.origin}{stamp}{segment.destination}1?" in segment.bookingUrl
+
+
+def test_explicit_chain_does_not_return_a_45_night_trip_for_4_to_7_nights():
+    class FareSearch:
+        def one_way_fares_for(self, _request, legs):
+            fares = {("CPH", "ATH"): [OneWayFare(origin="CPH", destination="ATH", departureDate="2026-10-07", price=110)],
+                     ("ATH", "SKP"): [OneWayFare(origin="ATH", destination="SKP", departureDate="2026-10-15", price=70)],
+                     ("SOF", "CPH"): [OneWayFare(origin="SOF", destination="CPH", departureDate="2026-11-21", price=59)]}
+            return {leg: fares.get(leg, []) for leg in legs}
+
+    ask = request(originAirports=["CPH"], routeStops=["ATH", "SKP", "BEG", "SOF"],
+                  endDate=date(2026, 12, 15), maxTripLengthDays=7)
+    trips, _ = build_chained_trips(ask, FareSearch(), ScoringContext())
+    assert trips == []
+
+
+def test_geographic_exploration_offers_labeled_return_without_requerying():
+    from app.providers.travelpayouts.mapper import RoundTripFare
+
+    class FareSearch:
+        calls = 0
+
+        def discover_round_trip_fares(self, _request):
+            self.calls += 1
+            return [RoundTripFare(origin="CPH", destination="HEL", price=450,
+                                 departureDate="2026-10-02", returnDate="2026-10-08")]
+
+        def one_way_fares_for(self, _request, _legs):
+            return {}
+
+        def resolve_scope(self, _request):
+            return type("Scope", (), {"truncated": False, "label": "Nordics"})()
+
+    search = FareSearch()
+    ask = request(originAirports=["CPH"], routeStops=None, destinationRegions=["nordics"],
+                  maxTripLengthDays=7, maxBudget=400)
+    trips, note = build_chained_trips(ask, search, ScoringContext())
+    assert search.calls == 1
+    assert len(trips) == 1
+    assert trips[0].tripType == "same_city"
+    assert trips[0].nights == 6
+    assert "Return alternative" in trips[0].tags
+    assert "Over budget" in trips[0].tags
+    assert "alternative" in note
+
+
+def test_itinerary_validator_rejects_missing_segment_and_wrong_flight_pair():
+    from app.services.itinerary_builder import validate_itinerary
+
+    ask = request()
+    legs = plan_route(ask, "VIE")
+    fares = {pair: spread(*pair, 50) for pair in flight_legs(legs)}
+    trip = build_itineraries(ask, "VIE", legs, fares)[0]
+    assert validate_itinerary(trip, ask, legs)
+    broken = trip.model_copy(deep=True)
+    broken.segments.pop(1)
+    assert not validate_itinerary(broken, ask, legs)
+    broken = trip.model_copy(deep=True)
+    broken.segments[1].flight.destination = "ATH"
+    assert not validate_itinerary(broken, ask, legs)
 
 
 def test_an_unpriceable_hop_yields_no_itinerary_rather_than_a_guess():
@@ -277,7 +357,7 @@ def test_country_sequence_is_not_sent_to_provider_when_one_country_has_no_city()
 def test_country_chain_tries_an_alternative_city_and_returns_the_nearest_real_duration():
     """Regression: CPH→Tokyo→Seoul→Guangzhou had no Guangzhou→CPH fare.
 
-    Shanghai completed the same three-country request, but only as a 43–44-night
+    Shanghai completed the same three-country request, but only as a 26–27-night
     itinerary. The search should return that real, clearly relaxed option rather
     than treating Guangzhou as the only possible Chinese city and returning none.
     """
@@ -305,7 +385,7 @@ def test_country_chain_tries_an_alternative_city_and_returns_the_nearest_real_du
                 ("SEL", "SHA"): [
                     OneWayFare(origin="SEL", destination="SHA", departureDate="2026-10-07", price=103),
                 ],
-                ("SHA", "CPH"): [OneWayFare(origin="SHA", destination="CPH", departureDate="2026-10-28", price=338)],
+                ("SHA", "CPH"): [OneWayFare(origin="SHA", destination="CPH", departureDate="2026-10-11", price=338)],
             }
             return {leg: available.get(leg, []) for leg in legs}
 
@@ -327,7 +407,8 @@ def test_country_chain_tries_an_alternative_city_and_returns_the_nearest_real_du
 
     assert len(trips) >= 2
     assert all([stay.code for stay in trip.stays] == ["TYO", "SEL", "SHA"] for trip in trips)
-    assert {trip.nights for trip in trips} == {43, 44}
+    assert {trip.nights for trip in trips} == {26, 27}
+    assert all(trip.durationMatch == "alternative" for trip in trips)
     assert all("Different trip length" in trip.tags for trip in trips)
     assert note and "14–21" in note and "closest" in note.lower()
 
@@ -397,7 +478,7 @@ def test_open_jaw_keeps_the_ground_crossing_outside_the_fare():
     """The crossing is the traveller's own arrangement; pricing it as part of
     the trip would misstate what the money buys."""
     ask = request(
-        tripPlan="open_jaw", routeStops=None,
+        originAirports=["BUD"], tripPlan="open_jaw", routeStops=None,
         destinationAirports=["STO"], returnOriginAirports=["HEL"],
     )
     legs = plan_route(ask, "BUD")

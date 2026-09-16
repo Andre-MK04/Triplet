@@ -8,6 +8,18 @@ enum FarelinColor {
     static let cloud = Color(red: 0.91, green: 0.94, blue: 0.96)
 }
 
+struct FarelinSectionLabel: View {
+    let title: String
+    var accented = false
+
+    var body: some View {
+        Text(title)
+            .font(.caption2.monospaced().weight(.semibold))
+            .tracking(1.2)
+            .foregroundStyle(accented ? FarelinColor.mint : Color.secondary)
+    }
+}
+
 struct FarelinPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
