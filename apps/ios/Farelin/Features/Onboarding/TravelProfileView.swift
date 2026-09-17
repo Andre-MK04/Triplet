@@ -37,7 +37,7 @@ struct TravelProfileView: View {
                         .padding(.bottom, 36)
                     }
                     .scrollDismissesKeyboard(.interactively)
-                    .background(Color(.systemBackground))
+                    .background(FarelinColor.ink)
                 } else {
                     ProgressView("Loading your travel profile…")
                 }
@@ -62,7 +62,7 @@ struct TravelProfileView: View {
             }
             .font(.caption2.monospaced().weight(.semibold))
             .tracking(1.1)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FarelinColor.mist)
             ProgressView(value: Double(step + 1), total: Double(totalSteps))
                 .tint(FarelinColor.mint)
         }
@@ -74,11 +74,11 @@ struct TravelProfileView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(stepTitle)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold, design: .default))
                 .tracking(-0.6)
             Text(stepSubtitle)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
                 .lineSpacing(3)
         }
         .id(step)
@@ -108,10 +108,10 @@ struct TravelProfileView: View {
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
                 .padding(15)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(draft.baseLocationId == nil ? Color(.separator) : FarelinColor.mint, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius)
+                        .stroke(draft.baseLocationId == nil ? FarelinColor.line : FarelinColor.mint, lineWidth: 1)
                 }
                 .accessibilityLabel("Search for your base city or town")
                 .onChange(of: locationQuery) { _, newValue in
@@ -139,17 +139,17 @@ struct TravelProfileView: View {
                             HStack(alignment: .firstTextBaseline) {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(location.name)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(FarelinColor.cloud)
                                     if let region = location.adminRegion, !region.isEmpty {
                                         Text(region)
                                             .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(FarelinColor.mist)
                                     }
                                 }
                                 Spacer()
                                 Text(location.countryName)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(FarelinColor.mist)
                             }
                             .padding(.horizontal, 15)
                             .padding(.vertical, 13)
@@ -158,11 +158,11 @@ struct TravelProfileView: View {
                         if location.id != store.locationResults.last?.id { Divider() }
                     }
                 }
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
             } else if locationQuery.count >= 2, draft.baseLocationId == nil {
                 Text("Choose a matching place from the suggestions to continue.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
 
             if draft.baseLocationId != nil {
@@ -211,7 +211,7 @@ struct TravelProfileView: View {
                 Text("SELECTED \(draft.originAirports.count) / \(originLimit)")
                     .font(.caption2.monospaced().weight(.semibold))
                     .tracking(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                 Spacer()
                 if store.isLoadingRecommendations { ProgressView() }
             }
@@ -219,7 +219,7 @@ struct TravelProfileView: View {
             if store.recommendedAirports.isEmpty, !store.isLoadingRecommendations {
                 Text("No scheduled airports were found inside this range. Increase the distance or search manually below.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                     .farelinCard()
             } else {
                 VStack(spacing: 10) {
@@ -241,12 +241,12 @@ struct TravelProfileView: View {
             Text("SEARCH ANOTHER AIRPORT")
                 .font(.caption2.monospaced().weight(.semibold))
                 .tracking(1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             TextField("City, airport, or IATA code", text: $airportQuery)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
                 .padding(15)
-                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
                 .task(id: airportQuery) {
                     try? await Task.sleep(for: .milliseconds(300))
                     guard !Task.isCancelled else { return }
@@ -334,11 +334,11 @@ struct TravelProfileView: View {
                 Text("ABSOLUTE MAXIMUM · OPTIONAL")
                     .font(.caption2.monospaced().weight(.semibold))
                     .tracking(1)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                 TextField("No hard cap", text: $absoluteBudget)
                     .keyboardType(.decimalPad)
                     .padding(15)
-                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
+                    .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
                     .onChange(of: absoluteBudget) { _, value in
                         let normalized = value.replacingOccurrences(of: ",", with: ".")
                         store.update { $0.absoluteMaxBudget = Double(normalized) }
@@ -362,7 +362,7 @@ struct TravelProfileView: View {
             ForEach(Self.comfortRules, id: \.ruleID) { rule in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(rule.title).font(.headline)
-                    Text(rule.detail).font(.caption).foregroundStyle(.secondary)
+                    Text(rule.detail).font(.caption).foregroundStyle(FarelinColor.mist)
                     Picker(
                         rule.title,
                         selection: Binding(
@@ -421,7 +421,7 @@ struct TravelProfileView: View {
                 systemImage: "bell"
             )
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FarelinColor.mist)
             .padding(.top, 8)
         }
     }
@@ -502,12 +502,12 @@ private struct SelectionRow: View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selected ? FarelinColor.mint : .secondary)
+                    .foregroundStyle(selected ? FarelinColor.mint : FarelinColor.mist)
                     .font(.title3)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.headline).foregroundStyle(.primary)
+                    Text(title).font(.headline).foregroundStyle(FarelinColor.cloud)
                     if let detail {
-                        Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                        Text(detail).font(.caption).foregroundStyle(FarelinColor.mist).multilineTextAlignment(.leading)
                     }
                 }
                 Spacer()
@@ -532,12 +532,12 @@ private struct AirportRow: View {
                         Text(airport.city ?? airport.name).font(.headline)
                         Text(airport.iataCode).font(.subheadline.monospaced().weight(.semibold))
                     }
-                    Text(airportDetail).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(airportDetail).font(.caption).foregroundStyle(FarelinColor.mist).lineLimit(2)
                 }
                 Spacer()
                 Image(systemName: selected ? "checkmark.circle.fill" : "plus.circle")
                     .font(.title3)
-                    .foregroundStyle(selected ? FarelinColor.mint : .secondary)
+                    .foregroundStyle(selected ? FarelinColor.mint : FarelinColor.mist)
             }
             .farelinCard()
         }
@@ -564,15 +564,15 @@ private struct SelectableTile: View {
             VStack(alignment: .leading, spacing: 18) {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(selected ? FarelinColor.ink : FarelinColor.mint)
+                    .foregroundStyle(selected ? FarelinColor.mintInk : FarelinColor.mint)
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(selected ? FarelinColor.ink : .primary)
+                    .foregroundStyle(selected ? FarelinColor.mintInk : FarelinColor.cloud)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(16)
             .frame(minHeight: 112)
-            .background(selected ? FarelinColor.mint : Color(.secondarySystemBackground), in: .rect(cornerRadius: 18))
+            .background(selected ? FarelinColor.mint : FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
         }
         .buttonStyle(.plain)
     }
@@ -586,7 +586,7 @@ private struct ProfileSlider: View {
     var body: some View {
         VStack(spacing: 10) {
             HStack {
-                Text(title).foregroundStyle(.secondary)
+                Text(title).foregroundStyle(FarelinColor.mist)
                 Spacer()
                 Text("\(value) days").font(.headline.monospacedDigit())
             }
@@ -609,7 +609,7 @@ private struct OptionSection<Content: View>: View {
             Text(title.uppercased())
                 .font(.caption2.monospaced().weight(.semibold))
                 .tracking(1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             content
         }
     }

@@ -676,6 +676,19 @@ does not trigger fare previews, AI searches or automatic watch resumption;
 pull to refresh only reloads the account dashboard. A failed refresh keeps the
 previous dashboard visible with a retry warning.
 
+Native content shares the web's exact paired light/dark theme tokens from
+`apps/web/app/globals.css`: ink/raised surfaces, cloud/mist text, teal actions,
+coral prices, gold deal and sky fit-score tones, and translucent hairlines.
+Custom cards, form choices and primary buttons use the web's flat geometry;
+custom headings use clean sans-serif rather than rounded display styling.
+SF typography, native navigation/tabs/sheets/pickers and Apple's identity
+control remain platform-native. Globe materials separately match the web globe
+palette; colors are explicitly resolved for its light/dark texture renderer.
+System appearance selects the theme; no forced-dark setting or new tracking.
+Navigation titles retain native rendering: a global navigation appearance
+replacement hid large titles on iOS 26.5, so it is intentionally not installed.
+The Today UI regressions check title visibility before and after watch navigation.
+
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using
 ownership-checked API routes. Search results can save watches for return,

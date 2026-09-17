@@ -8,6 +8,7 @@ final class FarelinUITests: XCTestCase {
         app.launch()
         let watch = app.buttons["today-watch-nordic"]
         XCTAssertTrue(watch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Today"].staticTexts["Today"].isHittable)
         XCTAssertTrue(app.staticTexts["today-status"].label.contains("set to check on schedule"))
         XCTAssertFalse(app.staticTexts["THIS MONTH"].exists)
         watch.tap()
@@ -16,6 +17,7 @@ final class FarelinUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         app.tabBars.buttons["Today"].tap()
         XCTAssertTrue(watch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Today"].staticTexts["Today"].isHittable)
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Actionable Today"
         shot.lifetime = .keepAlways
@@ -27,6 +29,7 @@ final class FarelinUITests: XCTestCase {
         app.launchArguments = ["-ui-testing", "-ui-testing-today", "-ui-testing-empty", "-ui-testing-large-text", "-ui-testing-dark"]
         app.launch()
         XCTAssertTrue(app.buttons["today-discover"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Today"].staticTexts["Today"].isHittable)
         XCTAssertTrue(app.staticTexts["today-status"].label.contains("Find a trip"))
         tapVisible("today-usage", in: app)
         XCTAssertTrue(app.staticTexts["THIS MONTH"].waitForExistence(timeout: 3))

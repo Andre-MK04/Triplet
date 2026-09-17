@@ -82,7 +82,7 @@ struct WatchRouteEditor: View {
                     TextField("Search origin city, airport or IATA", text: $airportQuery).autocorrectionDisabled()
                     if searchingAirport { ProgressView("Finding airports…") }
                     if airportQuery.count >= 2, !searchingAirport, airports.isEmpty {
-                        Text("No airport matches. Try the city name or IATA code.").font(.caption).foregroundStyle(.secondary)
+                        Text("No airport matches. Try the city name or IATA code.").font(.caption).foregroundStyle(FarelinColor.mist)
                     }
                     ForEach(airports.filter { !origins.contains($0.iataCode) }) { airport in
                         Button {
@@ -93,7 +93,7 @@ struct WatchRouteEditor: View {
                         } label: {
                             VStack(alignment: .leading) {
                                 Text("\(airport.name) · \(airport.iataCode)")
-                                Text(airport.countryName).font(.caption).foregroundStyle(.secondary)
+                                Text(airport.countryName).font(.caption).foregroundStyle(FarelinColor.mist)
                             }
                         }
                     }
@@ -105,14 +105,14 @@ struct WatchRouteEditor: View {
                         Text("Multi-city").tag("multi_city")
                     }
                     Text("Choose cities in order, or a region/country for the engine to explore using observed fares.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(FarelinColor.mist)
                 }
                 Section(shape == "multi_city" ? "Cities in order or region" : "Destinations") {
                     ForEach(places) { place in
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(place.name)
-                                Text(place.subtitle).font(.caption).foregroundStyle(.secondary)
+                                Text(place.subtitle).font(.caption).foregroundStyle(FarelinColor.mist)
                             }
                             Spacer()
                             Button("Remove \(place.name)", systemImage: "minus.circle") { places.removeAll { $0.id == place.id } }
@@ -123,7 +123,7 @@ struct WatchRouteEditor: View {
                     TextField("Search cities, regions or countries", text: $placeQuery).autocorrectionDisabled()
                     if searchingPlace { ProgressView("Finding places…") }
                     if placeQuery.count >= 2, !searchingPlace, placeResults.isEmpty {
-                        Text("No place matches. Try a city, country or region name.").font(.caption).foregroundStyle(.secondary)
+                        Text("No place matches. Try a city, country or region name.").font(.caption).foregroundStyle(FarelinColor.mist)
                     }
                     ForEach(placeResults.filter { p in !places.contains(where: { $0.id == p.id }) }) { place in
                         Button {
@@ -132,7 +132,7 @@ struct WatchRouteEditor: View {
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(place.name)
-                                Text(place.subtitle).font(.caption).foregroundStyle(.secondary)
+                                Text(place.subtitle).font(.caption).foregroundStyle(FarelinColor.mist)
                             }
                         }
                     }

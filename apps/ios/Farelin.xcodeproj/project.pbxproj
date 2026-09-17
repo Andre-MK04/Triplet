@@ -28,6 +28,7 @@
 		38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */; };
 		3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
 		3F1336578A6B726713EA4633 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */; };
+		40F355545E9077A11F9ECB8F /* ThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B728C0C17DEAC015C29D0A /* ThemeTests.swift */; };
 		466DD45BE0B19F63D797DD1D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5861B6F214DECDEE399F7A /* APIClient.swift */; };
 		4D315C90D9E66B6C55B1C0A6 /* FarelinUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */; };
 		50E7E05D232B524B3F71FE69 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0729BD432C52D74BA203D10A /* AuthModels.swift */; };
@@ -91,6 +92,7 @@
 		0C64792974BA8FAF5EB57C01 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		1269DB89080FF7783FD656C9 /* FarelinTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinTheme.swift; sourceTree = "<group>"; };
 		14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinApp.swift; sourceTree = "<group>"; };
+		17B728C0C17DEAC015C29D0A /* ThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThemeTests.swift; sourceTree = "<group>"; };
 		1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthSessionTests.swift; sourceTree = "<group>"; };
 		1D5861B6F214DECDEE399F7A /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		265A36FDE693B95AAF3F38ED /* NativeIdentityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeIdentityModels.swift; path = Core/Auth/NativeIdentityModels.swift; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 				0A61D8E72A8E4F7CB227B110 /* TripSearchTests.swift */,
 				0A61D8E72A8E4F7CB227B114 /* MyWorldTests.swift */,
 				2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */,
+				17B728C0C17DEAC015C29D0A /* ThemeTests.swift */,
 			);
 			path = FarelinTests;
 			sourceTree = "<group>";
@@ -520,6 +523,7 @@
 				0A61D8E72A8E4F7CB227A110 /* TripSearchTests.swift in Sources */,
 				0A61D8E72A8E4F7CB227A114 /* MyWorldTests.swift in Sources */,
 				642B0EFAC2353A001243444D /* NativeReleaseTests.swift in Sources */,
+				40F355545E9077A11F9ECB8F /* ThemeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

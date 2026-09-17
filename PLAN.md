@@ -1,5 +1,40 @@
 # Farelin product plan
 
+## Native/web visual identity alignment (2026-09-17)
+
+User direction: use farelin.com's established design language and colors.
+Source of truth: web globals.css, Tailwind tokens, Button/TripCard and the
+RouteGlobe/TravelMapGlobe palettes in this repository. Port paired light/dark
+RGB values exactly rather than approximate floats or generic system grays.
+
+Implemented: theme-aware ink/raised/soft surfaces, cloud/mist text, teal
+actions with correct contrasting button text, coral observed prices, gold deal
+and sky fit-score tones, hairline borders, flat custom cards/fields/choices,
+and sans-serif rather than rounded custom headlines. Native SF typography,
+navigation, tabs, sheets, sliders and Apple identity controls remain native;
+this is a brand translation, not embedded HTML or a navigation rewrite.
+Globe materials use the web globe's separate decorative palette and resolve
+the passed light/dark theme explicitly before drawing textures.
+
+Verification: 100 native tests pass (89 unit, 11 UI) on iPhone 17 Pro/iOS 26.5,
+including exact paired palette and AA text-contrast tests and title visibility
+before/after Today watch navigation. Final receipt: Test-Farelin Staging-
+2026.09.17_12-22-25-+0200.xcresult in /tmp/farelin-ci-debug-0916/Logs/Test.
+Light Today and dark accessibility-text price-action screenshots were inspected.
+Visual QA reproduced missing large titles with a global navigation appearance
+replacement; keeping native navigation rendering restores them. Title colors,
+background material and root foreground inheritance alone were not the cause.
+A preliminary focused rerun failed because the simulator was shutting down;
+after booting it, all 15 globe/theme checks pass, followed by the full green run.
+Both Production Release and Staging Release simulator builds pass. API:
+802 passed, two PostgreSQL-only tests skipped in SQLite (25.09s). Web:
+151 tests pass; the configured webpack production build produces 27 static pages.
+Staged Gitleaks scan passes with no leaks. No provider, auth, entitlement or
+notification-delivery logic changes, migrations, new Railway variables, tracking
+or forced theme. Xcode user state remains outside this commit. Physical-device,
+signing and hosted CI checks are not claimed. Local commit only; do not push.
+Next remains saved-intent/profile refinement, then globe opportunity overlays.
+
 ## Native retention — actionable Today (2026-09-17)
 
 Handoff: search polish and hosted CI are green. Improve the existing Today

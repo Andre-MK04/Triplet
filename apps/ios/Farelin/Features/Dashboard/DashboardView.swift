@@ -35,7 +35,7 @@ struct DashboardView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
             }
-            .background(Color(.systemBackground))
+            .background(FarelinColor.ink)
             .navigationTitle("Today")
             .refreshable { await store.load(force: true) }
             .task { await store.load() }
@@ -50,13 +50,13 @@ struct DashboardView: View {
                 .tracking(1.4)
                 .foregroundStyle(FarelinColor.action)
             Text(user.displayName?.firstName.map { "Hello, \($0)." } ?? "Hello.")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .font(.system(size: 34, weight: .bold, design: .default))
                 .tracking(-0.8)
             Text(store.dashboard.map {
                 TodayWatchOverview(watches: $0.savedSearches, now: Date()).message
             } ?? "Your next trip starts here.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
                 .accessibilityIdentifier("today-status")
         }
         .padding(.top, 8)
@@ -73,7 +73,7 @@ struct DashboardView: View {
                     .font(.headline)
                 Text(planDetail(billing))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
             Spacer()
             Text(billing.plan.uppercased())
@@ -141,7 +141,7 @@ struct DashboardView: View {
                         .font(.headline)
                     Text("Find a trip you like and Farelin can keep checking it for you.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                     Button("Find a trip", action: openDiscover)
                         .buttonStyle(FarelinPrimaryButtonStyle())
                         .accessibilityIdentifier("today-discover")
@@ -166,7 +166,7 @@ struct DashboardView: View {
             ProgressView()
             Text("Loading your Farelin world…")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
         }
         .frame(maxWidth: .infinity, minHeight: 180)
         .farelinCard()
@@ -178,7 +178,7 @@ struct DashboardView: View {
                 .font(.headline)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             Button("Try again") { Task { await store.load(force: true) } }
                 .buttonStyle(FarelinPrimaryButtonStyle())
         }
@@ -189,7 +189,7 @@ struct DashboardView: View {
         Text(title.uppercased())
             .font(.caption2.monospaced().weight(.semibold))
             .tracking(1.3)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FarelinColor.mist)
     }
 
     private func planName(_ plan: String) -> String {
@@ -225,7 +225,7 @@ private struct UsageCard: View {
                 .foregroundStyle(FarelinColor.mint)
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             if unlimited {
                 Text("Unlimited")
                     .font(.title3.weight(.semibold))
@@ -259,7 +259,7 @@ private struct WatchSummaryCard: View {
             }
             Text(state.rawValue)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(state == .watching ? FarelinColor.action : Color.secondary)
+                .foregroundStyle(state == .watching ? FarelinColor.action : FarelinColor.mist)
             Text(watch.routeDescription)
                 .font(.subheadline.monospaced().weight(.medium))
             VStack(alignment: .leading, spacing: 5) {
@@ -268,15 +268,15 @@ private struct WatchSummaryCard: View {
                 Text("\(TodayWatchOverview.displayDate(watch.startDate)) – \(TodayWatchOverview.displayDate(watch.endDate))")
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FarelinColor.mist)
             if let price = watch.lastBestPrice {
                 Text("Best observed: €\(price, specifier: "%.0f")")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(FarelinColor.action)
+                    .foregroundStyle(FarelinColor.coral)
             }
             if let checked = watch.lastCheckedAt {
                 Text("Last checked \(TodayWatchOverview.displayDate(checked)) · price may change")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(FarelinColor.mist)
             }
             Text(state == .expired ? "Choose new dates" : state == .paused ? "Review or resume" : "View trips & history")
                 .font(.subheadline.weight(.semibold))

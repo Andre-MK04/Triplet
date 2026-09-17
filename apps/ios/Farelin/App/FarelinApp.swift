@@ -9,6 +9,7 @@ struct FarelinApp: App {
     @State private var session: AuthSession
 
     init() {
+        FarelinNativeChrome.configure()
         do {
             let configuration = try AppConfiguration.current()
             let apiClient = APIClient(baseURL: configuration.apiBaseURL)
@@ -41,6 +42,7 @@ struct FarelinApp: App {
 
     var body: some Scene {
         WindowGroup {
+            Group {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-ui-testing"),
                ProcessInfo.processInfo.arguments.contains("-ui-testing-today") {
@@ -56,6 +58,8 @@ struct FarelinApp: App {
             RootView(configuration: configuration, session: session, apiClient: apiClient)
                 .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
             #endif
+            }
+            .farelinAppSurface()
         }
     }
 }

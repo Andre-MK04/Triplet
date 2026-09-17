@@ -107,7 +107,7 @@ struct WatchDetailView: View {
                     Section {
                         Text(watch.destinationDescription).font(.title3.bold())
                         Text("\(watch.originAirports.joined(separator: " + ")) · \(watch.tripPlan.replacingOccurrences(of: "_", with: " ").capitalized)")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                         LabeledContent("Status", value: watch.isActive ? "Active" : "Paused")
                         LabeledContent("Checks", value: watch.frequency.capitalized)
                         if let maxStops = watch.maxStops {
@@ -129,7 +129,7 @@ struct WatchDetailView: View {
                         }
                         Button("Edit airports & destinations", systemImage: "airplane") { editingRoute = true }
                         Text("Preview reads fare observations. It does not send an alert or use an AI search.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(FarelinColor.mist)
                     }
                     if busy { ProgressView("Checking your watch…") }
                     if let message { Text(message).font(.footnote).foregroundStyle(FarelinColor.coral) }
@@ -144,7 +144,7 @@ struct WatchDetailView: View {
                                 } label: {
                                     VStack(alignment: .leading, spacing: 5) {
                                         Text(trip.routeTitle).font(.headline)
-                                        Text("€\(Int(trip.totalPrice)) observed · check final price with provider").font(.caption).foregroundStyle(.secondary)
+                                        Text("€\(Int(trip.totalPrice)) observed · check final price with provider").font(.caption).foregroundStyle(FarelinColor.mist)
                                     }
                                 }
                             }
@@ -155,12 +155,12 @@ struct WatchDetailView: View {
                             LabeledContent("Checks recorded", value: String(insights.totalChecks))
                             LabeledContent("Notifications recorded", value: String(insights.notificationCount))
                             if let lowest = insights.lowestObservedPrice { LabeledContent("Lowest observed", value: "€\(Int(lowest))") }
-                            if insights.history.isEmpty { Text("History appears after the first scheduled check.").foregroundStyle(.secondary) }
+                            if insights.history.isEmpty { Text("History appears after the first scheduled check.").foregroundStyle(FarelinColor.mist) }
                             ForEach(insights.history) { check in
                                 HStack {
                                     VStack(alignment: .leading) {
                                         Text(check.checkedAt.prefix(10))
-                                        Text("\(check.status) · \(check.resultCount) trips").font(.caption).foregroundStyle(.secondary)
+                                        Text("\(check.status) · \(check.resultCount) trips").font(.caption).foregroundStyle(FarelinColor.mist)
                                     }
                                     Spacer()
                                     if let price = check.bestPrice { Text("€\(Int(price))").monospacedDigit() }
@@ -168,14 +168,14 @@ struct WatchDetailView: View {
                             }
                         }
                         Section("Email delivery history") {
-                            if insights.deliveries.isEmpty { Text("No delivery recorded yet.").foregroundStyle(.secondary) }
+                            if insights.deliveries.isEmpty { Text("No delivery recorded yet.").foregroundStyle(FarelinColor.mist) }
                             ForEach(insights.deliveries) { delivery in
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(delivery.subject).font(.subheadline)
-                                    Text("\(delivery.sentAt.prefix(10)) · \(delivery.status) · \(delivery.provider)").font(.caption).foregroundStyle(.secondary)
+                                    Text("\(delivery.sentAt.prefix(10)) · \(delivery.status) · \(delivery.provider)").font(.caption).foregroundStyle(FarelinColor.mist)
                                 }
                             }
-                            Text("Provider acceptance is not proof of inbox delivery.").font(.caption).foregroundStyle(.secondary)
+                            Text("Provider acceptance is not proof of inbox delivery.").font(.caption).foregroundStyle(FarelinColor.mist)
                         }
                     }
                 }
@@ -264,7 +264,7 @@ private struct WatchEditor: View {
                         Text("Weekly").tag("weekly")
                         if dailyChecks { Text("Daily").tag("daily") }
                     }
-                    if !dailyChecks { Text("Daily checks require a trial or Pro entitlement.").font(.caption).foregroundStyle(.secondary) }
+                    if !dailyChecks { Text("Daily checks require a trial or Pro entitlement.").font(.caption).foregroundStyle(FarelinColor.mist) }
                     Picker("Alert when", selection: $update.triggerMode) {
                         Text("Any qualifying deal").tag("any")
                         Text("Below budget").tag("below_budget")
@@ -280,7 +280,7 @@ private struct WatchEditor: View {
                 }
                 Section {
                     Text("The existing airports, destination scope and route order stay unchanged.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(FarelinColor.mist)
                     if let error { Text(error).foregroundStyle(FarelinColor.coral) }
                 }
             }

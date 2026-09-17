@@ -31,10 +31,10 @@ struct AuthenticationView: View {
                     brand
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Your trips, watched quietly.")
-                            .font(.system(size: 35, weight: .bold, design: .rounded))
+                            .font(.system(size: 35, weight: .bold, design: .default))
                             .tracking(-1)
                         Text("Sign in to search, save watches and keep every Farelin trip tied to you.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                             .lineSpacing(3)
                     }
 
@@ -126,12 +126,12 @@ struct AuthenticationView: View {
 
                     Text("The iPhone app requires an account before fare or AI search. You can still explore Farelin publicly on the web.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                         .lineSpacing(3)
                 }
                 .padding(24)
             }
-            .background(Color(.systemBackground))
+            .background(FarelinColor.ink)
         }
         .onChange(of: mode) {
             session.message = nil
@@ -151,13 +151,13 @@ struct AuthenticationView: View {
             HStack {
                 Text(label.uppercased())
                     .font(.caption2.monospaced().weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                     .tracking(1.2)
                 Spacer()
                 if let hint {
                     Text(hint)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
             }
             content()
@@ -202,7 +202,7 @@ struct AuthenticationView: View {
             if configuration.environment == .staging {
                 Text("STAGING")
                     .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
         }
     }
@@ -241,10 +241,10 @@ private struct FarelinTextFieldStyle: TextFieldStyle {
         configuration
             .padding(.horizontal, 16)
             .frame(minHeight: 54)
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+            .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
             .overlay {
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color(.separator).opacity(0.45), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius)
+                    .stroke(FarelinColor.line, lineWidth: 1)
             }
     }
 }

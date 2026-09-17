@@ -40,17 +40,17 @@ struct FoundationView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemBackground).ignoresSafeArea()
+                FarelinColor.ink.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 28) {
                     Spacer()
                     brandMark
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Find cheap trips,\nnot just cheap flights.")
-                            .font(.system(size: 38, weight: .bold, design: .rounded))
+                            .font(.system(size: 38, weight: .bold, design: .default))
                             .tracking(-1.2)
                         Text("Your native Farelin journey starts here. Sign-in and the complete travel experience arrive in the next stage.")
                             .font(.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                             .lineSpacing(4)
                     }
                     connectionPanel
@@ -80,7 +80,7 @@ struct FoundationView: View {
                     .tracking(3)
                 Text(configuration.environment == .staging ? "STAGING" : "TRAVEL INTELLIGENCE")
                     .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
         }
     }
@@ -102,13 +102,13 @@ struct FoundationView: View {
                 Text(connectionTitle).font(.headline)
                 Text(configuration.apiBaseURL.host ?? "Configured API")
                     .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                     .lineLimit(1)
             }
             Spacer()
         }
         .padding(18)
-        .background(.thinMaterial, in: .rect(cornerRadius: 18))
+        .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
         .accessibilityElement(children: .combine)
     }
 
@@ -120,4 +120,3 @@ struct FoundationView: View {
         }
     }
 }
-

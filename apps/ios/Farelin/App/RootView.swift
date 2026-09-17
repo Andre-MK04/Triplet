@@ -51,7 +51,7 @@ struct RootView: View {
 private struct RestoringSessionView: View {
     var body: some View {
         ZStack {
-            Color(.systemBackground).ignoresSafeArea()
+            FarelinColor.ink.ignoresSafeArea()
             VStack(spacing: 16) {
                 Image("BrandMark")
                     .resizable()
@@ -59,7 +59,7 @@ private struct RestoringSessionView: View {
                     .frame(width: 48, height: 48)
                     .accessibilityHidden(true)
                 ProgressView("Checking your Farelin account…")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
         }
     }

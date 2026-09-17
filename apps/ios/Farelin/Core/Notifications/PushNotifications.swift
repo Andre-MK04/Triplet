@@ -206,8 +206,8 @@ struct PushPreferencesSection: View {
                     }
                 }.disabled(notifications.working)
                 Text("Optional alerts from your saved watches. No marketing opt-in and no trip details on your lock screen.")
-                    .font(.caption).foregroundStyle(.secondary)
-            } else { Text("Push delivery is not configured for this build. Your email watch settings still apply.").font(.footnote).foregroundStyle(.secondary) }
+                    .font(.caption).foregroundStyle(FarelinColor.mist)
+            } else { Text("Push delivery is not configured for this build. Your email watch settings still apply.").font(.footnote).foregroundStyle(FarelinColor.mist) }
             Button("iPhone notification settings") {
                 if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
             }
@@ -219,10 +219,10 @@ struct PushPreferencesSection: View {
                         }.disabled(notifications.working)
                     }
                     Text("Device identifiers are private to your account. Disconnect an old device if you no longer use it.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(FarelinColor.mist)
                 }
             }
-            if let message = notifications.message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+            if let message = notifications.message { Text(message).font(.footnote).foregroundStyle(FarelinColor.mist) }
         }
         .sensoryFeedback(.selection, trigger: notifications.enabled)
     }

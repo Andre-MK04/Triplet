@@ -23,7 +23,7 @@ struct SignedInFoundationView: View {
                                 .font(.headline)
                             Text(user.email)
                                 .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(FarelinColor.mist)
                         }
                     }
                 }
@@ -60,7 +60,7 @@ struct SignedInFoundationView: View {
                             .foregroundStyle(FarelinColor.mint)
                         Text("The native dashboard, search, watches and My World arrive in the next stages. Your account already uses the same Farelin backend as the web app.")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                     }
                 }
 

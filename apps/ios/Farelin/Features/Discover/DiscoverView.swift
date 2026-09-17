@@ -77,7 +77,7 @@ struct DiscoverView: View {
                     hasResults && !(store.response?.trips.isEmpty ?? true)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .background(Color(.systemBackground))
+                .background(FarelinColor.ink)
                 .navigationTitle("Discover")
                 .task { await opportunities.load() }
                 .onChange(of: store.query) { _, newValue in
@@ -112,7 +112,7 @@ struct DiscoverView: View {
                 accented: true
             )
             Text(searchMode == .ai ? "Ask for a trip." : "Where to next?")
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold, design: .default))
                 .tracking(-0.8)
             Text(
                 searchMode == .ai
@@ -120,7 +120,7 @@ struct DiscoverView: View {
                     : "Your profile fills anything you skip."
             )
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
                 .lineSpacing(3)
         }
         .padding(.top, 8)
@@ -139,7 +139,7 @@ struct DiscoverView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("FARE SIGHTING · TAP TO EXPLORE")
                             .font(.caption2.monospaced().weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                         Text("\(first.routeTitle) · \(FarelinSearchFormat.priceHeadline(first))")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(2)
@@ -147,12 +147,12 @@ struct DiscoverView: View {
                 } else {
                     Text("See observed fares from your airports")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: showObservedBoard ? "chevron.up" : "chevron.down")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
             .padding(.vertical, 7)
         }
@@ -170,23 +170,23 @@ struct DiscoverView: View {
             } else if let error = opportunities.errorMessage {
                 Text("Your fare board could not load: \(error). Search trips below instead.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             } else if let feed = opportunities.feed {
                 if feed.isStale {
                     Text("Some fare sightings are older. Check the current price with the provider.")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(FarelinColor.coral)
                 }
                 if feed.trips.isEmpty {
                     Text(feed.originAirports.isEmpty
                          ? "Choose your departure airports in your travel profile to see your own opportunities."
                          : "No usable observed returns are cached for your airports yet. Search below to check more routes.")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 } else {
                     Text("Observed returns from \(feed.originAirports.joined(separator: ", ")). Prices can change.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                     ForEach(feed.trips.prefix(4)) { trip in
                         NativeTripCard(
                             trip: trip,
@@ -235,7 +235,7 @@ struct DiscoverView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Flying from")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                 if originAirports.isEmpty {
                     Text("No profile airports selected")
                         .font(.subheadline)
@@ -274,10 +274,10 @@ struct DiscoverView: View {
                 .accessibilityIdentifier("discover-prompt")
             }
             .padding(12)
-            .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 18))
+            .background(FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
             .overlay {
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(promptFocused ? FarelinColor.mint : Color(.separator), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius)
+                    .stroke(promptFocused ? FarelinColor.mint : FarelinColor.line, lineWidth: 1)
             }
 
             VStack(spacing: 8) {
@@ -292,8 +292,8 @@ struct DiscoverView: View {
                                 .multilineTextAlignment(.leading)
                                 .padding(.horizontal, 12)
                                 .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-                                .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 13))
-                                .overlay { RoundedRectangle(cornerRadius: 13).stroke(Color(.separator).opacity(0.5)) }
+                                .background(FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+                                .overlay { RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius).stroke(FarelinColor.line) }
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("prompt-example-\(index)")
@@ -366,7 +366,7 @@ struct DiscoverView: View {
                 }
                 .font(.caption.weight(.semibold))
             }
-            Text("WHEN").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
+            Text("WHEN").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(FarelinColor.mist)
             HStack(spacing: 8) {
                 quickButton("Soon", selected: dateWindowIs(7, 45)) { setDateWindow(7, 45); advance(to: 1) }
                 quickButton("Next 3 months", selected: dateWindowIs(21, 90)) { setDateWindow(21, 90); advance(to: 1) }
@@ -387,7 +387,7 @@ struct DiscoverView: View {
                 Button("Use these dates") { store.advanced.useProfileDates = false; advance(to: 1) }
             }
             if revealStep >= 1 {
-            Text("FLIGHT BUDGET").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
+            Text("FLIGHT BUDGET").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(FarelinColor.mist)
             HStack {
                 Text(store.advanced.flexibleBudget ? "Flexible" : store.advanced.budgetText.isEmpty ? "Profile default" : "Up to €\(store.advanced.budgetText)")
                     .font(.title3.weight(.semibold)).contentTransition(.numericText())
@@ -419,11 +419,11 @@ struct DiscoverView: View {
                 }
             }.padding(.horizontal, 7).accessibilityHidden(true)
             HStack { Text("€50"); Spacer(); Text("€1,500") }
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption2).foregroundStyle(FarelinColor.mist)
             Button("Use this budget") { chooseBudget() }.font(.caption.weight(.semibold))
             }
             if revealStep >= 2 {
-            Text("HOW LONG").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
+            Text("HOW LONG").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(FarelinColor.mist)
             Text(store.advanced.useProfileTripLength ? "Profile length" : "\(Int(durationNights)) nights")
                 .font(.title3.weight(.semibold)).contentTransition(.numericText())
                 .accessibilityIdentifier("explore-duration-value")
@@ -440,7 +440,7 @@ struct DiscoverView: View {
             Button("Use this length") { applyLength(); advance(to: 3) }.font(.caption.weight(.semibold))
             }
             if revealStep >= 3 {
-            Text("TRAVEL MOOD").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(.secondary)
+            Text("TRAVEL MOOD").font(.caption2.monospaced().weight(.semibold)).foregroundStyle(FarelinColor.mist)
             FlowLayout(spacing: 8) {
                     ForEach([("beach", "Beach"), ("food", "Food"), ("nature", "Nature"),
                              ("culture", "Culture"), ("cheap_adventure", "Adventure")], id: \.0) { mood in
@@ -491,8 +491,8 @@ struct DiscoverView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(selected ? FarelinColor.mint.opacity(0.18) : Color(.tertiarySystemBackground), in: .rect(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).stroke(selected ? FarelinColor.mint : Color(.separator), lineWidth: 1) }
+                .background(selected ? FarelinColor.mint.opacity(0.18) : FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+                .overlay { RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius).stroke(selected ? FarelinColor.mint : FarelinColor.line, lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -506,8 +506,8 @@ struct DiscoverView: View {
                 .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 16)
                 .frame(minHeight: 44)
-                .background(selected ? FarelinColor.mint.opacity(0.18) : Color(.tertiarySystemBackground), in: .rect(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).stroke(selected ? FarelinColor.mint : Color(.separator), lineWidth: 1) }
+                .background(selected ? FarelinColor.mint.opacity(0.18) : FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+                .overlay { RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius).stroke(selected ? FarelinColor.mint : FarelinColor.line, lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -564,7 +564,7 @@ struct DiscoverView: View {
 
             Text(tripShapeExplanation)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("trip-shape-explanation")
         }
@@ -590,14 +590,14 @@ struct DiscoverView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 62)
             .padding(.horizontal, 4)
-            .foregroundStyle(selected ? FarelinColor.ink : Color.primary)
+            .foregroundStyle(selected ? FarelinColor.mintInk : FarelinColor.cloud)
             .background(
-                selected ? FarelinColor.mint : Color(.tertiarySystemBackground),
-                in: .rect(cornerRadius: 14)
+                selected ? FarelinColor.mint : FarelinColor.soft,
+                in: .rect(cornerRadius: FarelinGeometry.controlRadius)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(selected ? FarelinColor.mint : Color(.separator).opacity(0.55))
+                RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius)
+                    .stroke(selected ? FarelinColor.mint : FarelinColor.line)
             }
         }
         .buttonStyle(.plain)
@@ -641,7 +641,7 @@ struct DiscoverView: View {
             } else {
                 Text(originAirports.joined(separator: " · "))
                     .font(.subheadline.monospaced().weight(.medium))
-                    .foregroundStyle(originAirports.isEmpty ? FarelinColor.coral : .secondary)
+                    .foregroundStyle(originAirports.isEmpty ? FarelinColor.coral : FarelinColor.mist)
             }
         }
     }
@@ -655,7 +655,7 @@ struct DiscoverView: View {
             if store.advanced.destinations.isEmpty {
                 Text(advancedDestinationHelp)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             } else {
                 VStack(spacing: 8) {
                     ForEach(Array(store.advanced.destinations.enumerated()), id: \.element.id) { index, place in
@@ -666,14 +666,14 @@ struct DiscoverView: View {
                                     .font(.subheadline.weight(.semibold))
                                 Text("\(place.code.uppercased()) · \(place.subtitle)")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(FarelinColor.mist)
                             }
                             Spacer()
                             Button {
                                 store.removeDestination(place)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(FarelinColor.mist)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Remove \(place.name)")
@@ -688,8 +688,8 @@ struct DiscoverView: View {
             ))
             .textInputAutocapitalization(.words)
             .padding(12)
-            .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 13))
-            .overlay { RoundedRectangle(cornerRadius: 13).stroke(Color(.separator).opacity(0.5)) }
+            .background(FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+            .overlay { RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius).stroke(FarelinColor.line) }
             .accessibilityIdentifier("advanced-destination")
 
             if store.isSearchingPlaces {
@@ -707,7 +707,7 @@ struct DiscoverView: View {
                                         .font(.subheadline.weight(.medium))
                                     Text("\(place.code.uppercased()) · \(place.subtitle)")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(FarelinColor.mist)
                                 }
                                 Spacer()
                                 Image(systemName: "plus.circle")
@@ -793,7 +793,7 @@ struct DiscoverView: View {
         Text(text.uppercased())
             .font(.system(size: 9, weight: .semibold, design: .monospaced))
             .tracking(0.6)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FarelinColor.mist)
     }
 
     private func selectableChip(_ text: String, selected: Bool) -> some View {
@@ -801,9 +801,9 @@ struct DiscoverView: View {
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 11)
             .padding(.vertical, 8)
-            .foregroundStyle(selected ? FarelinColor.ink : Color.primary)
-            .background(selected ? FarelinColor.mint : Color(.tertiarySystemBackground), in: Capsule())
-            .overlay { Capsule().stroke(selected ? FarelinColor.mint : Color(.separator).opacity(0.5)) }
+            .foregroundStyle(selected ? FarelinColor.mintInk : FarelinColor.cloud)
+            .background(selected ? FarelinColor.mint : FarelinColor.soft, in: Capsule())
+            .overlay { Capsule().stroke(selected ? FarelinColor.mint : FarelinColor.line) }
     }
 
     private var searchingState: some View {
@@ -815,7 +815,7 @@ struct DiscoverView: View {
                     .font(.headline)
                 Text("Farelin only summarizes fares returned by the backend.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -830,7 +830,7 @@ struct DiscoverView: View {
                 .foregroundStyle(FarelinColor.coral)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             Button("Try again") {
                 if searchMode == .ai {
                     store.submit(origins: originAirports)
@@ -847,7 +847,7 @@ struct DiscoverView: View {
                 .font(.subheadline)
                 Text("Explore uses the controls you choose there, not the unparsed prompt.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -867,7 +867,7 @@ struct DiscoverView: View {
                     : "Advanced search calls the fare engine directly. Explicit controls override your profile; untouched fields keep your defaults."
             )
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
                 .lineSpacing(3)
         }
         .farelinCard()
@@ -894,14 +894,14 @@ struct DiscoverView: View {
         if let notice = providerNotice(response.providerMetadata) {
             Label(notice.text, systemImage: notice.warning ? "exclamationmark.triangle" : "clock.arrow.circlepath")
                 .font(.footnote)
-                .foregroundStyle(notice.warning ? FarelinColor.coral : .secondary)
+                .foregroundStyle(notice.warning ? FarelinColor.coral : FarelinColor.mist)
                 .farelinCard()
         }
 
         if let relaxation = response.relaxationNote, !relaxation.isEmpty {
             Label(relaxation, systemImage: "arrow.triangle.2.circlepath")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
                 .farelinCard()
         }
 
@@ -921,11 +921,11 @@ struct DiscoverView: View {
                         .buttonStyle(.bordered)
                         Text("Keeps your route, budget and trip length. Review dates before searching again.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                     } else if store.lastSearchUsedAI {
                         Text("Editing does not use an AI search. Sending another request may count toward your allowance.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                     }
                 }
             }
@@ -938,7 +938,7 @@ struct DiscoverView: View {
                     Spacer()
                     Text("\(response.trips.count)")
                         .font(.caption.monospaced().weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 ForEach(response.trips) { trip in
                     NativeTripCard(
@@ -962,7 +962,7 @@ struct DiscoverView: View {
             Text("WHAT FARELIN UNDERSTOOD")
                 .font(.caption2.monospaced().weight(.semibold))
                 .tracking(1.1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     SearchFact(label: "FROM", value: parsed.originAirports.joined(separator: " + "), source: sourceMap?["originAirports"])
@@ -982,7 +982,7 @@ struct DiscoverView: View {
                     : "Search labels show which values came from this search and which came from your profile."
             )
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
         }
     }
 
@@ -1030,20 +1030,20 @@ private struct SearchFact: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
                 .font(.caption2.monospaced().weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             Text(value)
                 .font(.caption.weight(.medium))
                 .lineLimit(1)
             if let source {
                 Text(source == "search" ? "THIS SEARCH" : source == "profile" ? "PROFILE" : "DEFAULT")
                     .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(source == "search" ? FarelinColor.mint : .secondary)
+                    .foregroundStyle(source == "search" ? FarelinColor.mint : FarelinColor.mist)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
-        .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color(.separator).opacity(0.4)) }
+        .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+        .overlay { RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius).stroke(FarelinColor.line) }
     }
 }
 
@@ -1081,29 +1081,29 @@ private struct NativeTripCard: View {
                         .font(.headline)
                     Text("\(FarelinSearchFormat.shortDate(trip.outboundFlight.departureDateTime))–\(FarelinSearchFormat.shortDate(trip.returnFlight.departureDateTime)) · \(trip.nights) \(trip.nights == 1 ? "night" : "nights")")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(FarelinSearchFormat.priceHeadline(trip))
                         .font(.title3.bold())
-                        .foregroundStyle(FarelinColor.mint)
+                        .foregroundStyle(FarelinColor.coral)
                         .multilineTextAlignment(.trailing)
                     Text(trip.fareKind == "round_trip_bundle" ? "round trip" : "flight total")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
             }
 
             FlowLayout(spacing: 7) {
                     TripBadge(text: "\(trip.dealScore) deal", color: scoreColor(trip.dealScore))
                     if let fit = trip.fitScore {
-                        TripBadge(text: "\(fit) fit", color: scoreColor(fit))
+                        TripBadge(text: "\(fit) fit", color: fit >= 75 ? FarelinColor.sky : fit >= 50 ? FarelinColor.mist : FarelinColor.coral)
                     }
-                    TripBadge(text: trip.tripTypeLabel, color: .secondary)
+                    TripBadge(text: trip.tripTypeLabel, color: FarelinColor.mist)
                     TripBadge(text: FarelinSearchFormat.fareLabel(trip), color: FarelinColor.coral)
                     ForEach(trip.tags.prefix(2), id: \.self) { tag in
-                        TripBadge(text: tag, color: .secondary)
+                        TripBadge(text: tag, color: FarelinColor.mist)
                     }
             }
 
@@ -1118,7 +1118,7 @@ private struct NativeTripCard: View {
                 }
                 if let estimate = trip.transportTotalEstimate, (trip.groundEstimate ?? 0) > 0 {
                     Text("Estimated transport total \(FarelinSearchFormat.money(estimate, currency: trip.outboundFlight.currency)) including ground travel. Ground prices and schedules are unverified.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(FarelinColor.mist)
                 }
             } else {
             FlightSummaryRow(label: "Outbound", flight: trip.outboundFlight, bundle: trip.fareKind == "round_trip_bundle")
@@ -1128,7 +1128,7 @@ private struct NativeTripCard: View {
                         .foregroundStyle(FarelinColor.coral)
                     Text("\(transfer.fromCity) → \(transfer.toCity) · about \(FarelinSearchFormat.duration(hours: transfer.durationHours)) by \(transfer.mode) · estimated \(FarelinSearchFormat.money(transfer.estimatedCost, currency: "EUR"))")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
             }
             FlightSummaryRow(label: trip.tripType == "multi_city" ? "Homebound" : "Return", flight: trip.returnFlight, bundle: trip.fareKind == "round_trip_bundle")
@@ -1136,14 +1136,14 @@ private struct NativeTripCard: View {
             if trip.fareKind == "round_trip_bundle" {
                 Text("This observed return has dates and a total price, not verified times, stops or baggage. Confirm exact flights with the provider.")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(FarelinColor.coral)
             }
 
             DisclosureGroup("Why this works") {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(trip.explanation)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                     ForEach(trip.warnings, id: \.self) { warning in
                         Label(warning, systemImage: "exclamationmark.triangle")
                             .font(.caption)
@@ -1151,7 +1151,7 @@ private struct NativeTripCard: View {
                     }
                     Text(FarelinSearchFormat.observationDetail(trip))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 .padding(.top, 8)
             }
@@ -1179,7 +1179,7 @@ private struct NativeTripCard: View {
             } else {
                 Text("Saving is unavailable for this result because its fare record could not be stored.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
 
                 Button(action: onSaveWatch) {
@@ -1193,7 +1193,7 @@ private struct NativeTripCard: View {
                 VStack(alignment: .leading, spacing: 10) { detailAction; priceAction }
             }
             Text("Price may change. Check with the provider.")
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption2).foregroundStyle(FarelinColor.mist)
         }
         .farelinCard()
         .accessibilityElement(children: .contain)
@@ -1216,13 +1216,13 @@ private struct NativeTripCard: View {
                     .lineLimit(1).fixedSize(horizontal: true, vertical: false)
             }
             .buttonStyle(.borderedProminent)
-            .tint(FarelinColor.mint).foregroundStyle(FarelinColor.ink)
+            .tint(FarelinColor.mint).foregroundStyle(FarelinColor.mintInk)
             .accessibilityIdentifier("trip-check-price")
         }
     }
 
     private func scoreColor(_ score: Int) -> Color {
-        score >= 75 ? FarelinColor.mint : score >= 50 ? .orange : .secondary
+        score >= 75 ? FarelinColor.mint : score >= 50 ? FarelinColor.gold : FarelinColor.mist
     }
 
     private func saveFare(_ suggestionId: String) async {
@@ -1329,7 +1329,7 @@ private struct WatchCreationSheet: View {
                             .font(.title2.bold())
                         Text("Farelin will keep checking \(destinationLabel) from your selected airports, using this search's trip shape and dates. It won't reserve this price or route.")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -1347,7 +1347,7 @@ private struct WatchCreationSheet: View {
                         TextField("Budget, €20–€5,000", text: $budgetText)
                             .keyboardType(.decimalPad)
                             .padding(12)
-                            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
+                            .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
                         if budget == nil {
                             Text("Enter a flight budget between €20 and €5,000.")
                                 .font(.caption)
@@ -1372,7 +1372,7 @@ private struct WatchCreationSheet: View {
 
                     Text("An alert can only be sent to a confirmed account email. Fares are observations; check the final price with the provider.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 .padding(20)
             }
@@ -1386,7 +1386,7 @@ private struct WatchCreationSheet: View {
 
     private func watchRow(_ title: String, _ value: String) -> some View {
         HStack(alignment: .top) {
-            Text(title).foregroundStyle(.secondary).frame(width: 95, alignment: .leading)
+            Text(title).foregroundStyle(FarelinColor.mist).frame(width: 95, alignment: .leading)
             Text(value).fontWeight(.medium)
         }
         .font(.subheadline)
@@ -1498,7 +1498,7 @@ struct TripDetailView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 36)
         }
-        .background(Color(.systemBackground))
+        .background(FarelinColor.ink)
         .navigationTitle(store.title ?? "Trip idea")
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
@@ -1511,25 +1511,25 @@ struct TripDetailView: View {
                 .tracking(1.2)
                 .foregroundStyle(FarelinColor.mint)
             Text(store.trip.routeTitle)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold, design: .default))
                 .tracking(-0.7)
             Text("\(FarelinSearchFormat.shortDate(store.trip.outboundFlight.departureDateTime))–\(FarelinSearchFormat.shortDate(store.trip.returnFlight.departureDateTime)) · \(store.trip.nights) \(store.trip.nights == 1 ? "night" : "nights")")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
 
             HStack(alignment: .firstTextBaseline) {
                 Text(FarelinSearchFormat.priceHeadline(store.trip))
                     .font(.title2.bold())
-                    .foregroundStyle(FarelinColor.mint)
+                    .foregroundStyle(FarelinColor.coral)
                 Spacer()
                 TripBadge(text: "\(store.trip.dealScore) deal", color: detailScoreColor(store.trip.dealScore))
                 if let fit = store.trip.fitScore {
-                    TripBadge(text: "\(fit) fit", color: detailScoreColor(fit))
+                    TripBadge(text: "\(fit) fit", color: fit >= 75 ? FarelinColor.sky : fit >= 50 ? FarelinColor.mist : FarelinColor.coral)
                 }
             }
             Text(FarelinSearchFormat.observationDetail(store.trip))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
         }
         .padding(.top, 8)
     }
@@ -1555,7 +1555,7 @@ struct TripDetailView: View {
                     } icon: {
                         Image(systemName: "tram.fill")
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                     .farelinCard()
                 }
                 FlightSummaryRow(label: "Return", flight: store.trip.returnFlight, bundle: store.trip.fareKind == "round_trip_bundle")
@@ -1572,7 +1572,7 @@ struct TripDetailView: View {
             if !store.trip.tags.isEmpty {
                 FlowLayout(spacing: 7) {
                     ForEach(store.trip.tags, id: \.self) { tag in
-                        TripBadge(text: tag, color: .secondary)
+                        TripBadge(text: tag, color: FarelinColor.mist)
                     }
                 }
             }
@@ -1594,7 +1594,7 @@ struct TripDetailView: View {
                 if store.itineraryWasCached, store.itinerary != nil {
                     Text("SAVED PLAN")
                         .font(.caption2.monospaced().weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
             }
 
@@ -1620,7 +1620,7 @@ struct TripDetailView: View {
                                         .foregroundStyle(FarelinColor.coral)
                                     Text(item.description)
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(FarelinColor.mist)
                                         .lineSpacing(2)
                                 }
                             }
@@ -1632,17 +1632,17 @@ struct TripDetailView: View {
                 if let gettingAround = itinerary.gettingAround, !gettingAround.isEmpty {
                     Label(gettingAround, systemImage: "figure.walk")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 if let estimate = itinerary.extraCostEstimate, !estimate.isEmpty {
                     Label("Estimated extras: \(estimate)", systemImage: "eurosign.circle")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
                 ForEach(itinerary.disclaimers, id: \.self) { disclaimer in
                     Text(disclaimer)
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FarelinColor.mist)
                 }
             } else if store.isGenerating {
                 HStack(spacing: 12) {
@@ -1652,13 +1652,13 @@ struct TripDetailView: View {
                             .font(.subheadline.weight(.semibold))
                         Text("This may take a few moments. Farelin will cache the finished plan.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FarelinColor.mist)
                     }
                 }
             } else if store.suggestionID != nil {
                 Text("Build a realistic day-by-day idea around the observed arrival and departure times, your profile, and this trip’s length.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                 Button {
                     store.submitItineraryGeneration()
                 } label: {
@@ -1668,7 +1668,7 @@ struct TripDetailView: View {
             } else {
                 Text("This result does not have a saved suggestion to plan. Run a fresh search and open it again.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
             }
 
             if let error = store.errorMessage {
@@ -1688,7 +1688,7 @@ struct TripDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(store.disclaimer)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FarelinColor.mist)
             if let url = store.trip.checkPriceURL {
                 Link(destination: url) {
                     Label("Check trip prices", systemImage: "arrow.up.right")
@@ -1704,7 +1704,7 @@ struct TripDetailView: View {
         Text(value.uppercased())
             .font(.caption2.monospaced().weight(.semibold))
             .tracking(1.2)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(FarelinColor.mist)
     }
 
     private func itinerarySymbol(_ category: String) -> String {
@@ -1718,7 +1718,7 @@ struct TripDetailView: View {
     }
 
     private func detailScoreColor(_ score: Int) -> Color {
-        score >= 75 ? FarelinColor.mint : score >= 50 ? .orange : .secondary
+        score >= 75 ? FarelinColor.mint : score >= 50 ? FarelinColor.gold : FarelinColor.mist
     }
 }
 
@@ -1780,7 +1780,7 @@ private struct TripBadge: View {
             .padding(.horizontal, 9)
             .padding(.vertical, 6)
             .foregroundStyle(color)
-            .background(color.opacity(0.13), in: Capsule())
+            .background(color.opacity(0.13), in: .rect(cornerRadius: FarelinGeometry.controlRadius))
     }
 }
 
@@ -1808,10 +1808,10 @@ private struct RouteSegmentRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(segment.origin) → \(segment.destination)").font(.subheadline.monospaced().bold())
                     Text("\(FarelinSearchFormat.shortDate(segment.departureDate)) · \(statusLabel)")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(FarelinColor.mist)
                     if let transfer = segment.transfer {
                         Text("About \(FarelinSearchFormat.duration(hours: transfer.durationHours)) · estimated \(FarelinSearchFormat.money(transfer.estimatedCost, currency: "EUR")) · arrange separately")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(FarelinColor.mist)
                     }
                 }
                 Spacer(minLength: 4)
@@ -1825,11 +1825,11 @@ private struct RouteSegmentRow: View {
                 Link("Check \(segment.origin) → \(segment.destination)", destination: url)
                     .font(.caption.weight(.semibold)).tint(FarelinColor.mint)
             } else if showPriceLink, segment.kind == "flight" {
-                Text("Provider link unavailable for this flight.").font(.caption).foregroundStyle(.secondary)
+                Text("Provider link unavailable for this flight.").font(.caption).foregroundStyle(FarelinColor.mist)
             }
         }
         .padding(12)
-        .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 14))
+        .background(FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
     }
 }
 
@@ -1843,12 +1843,12 @@ private struct FlightSummaryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(label.uppercased())
                     .font(.caption2.monospaced().weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                 Text("\(flight.origin) → \(flight.destination)")
                     .font(.subheadline.monospaced().weight(.semibold))
                 Text(bundle ? "\(FarelinSearchFormat.shortDate(flight.departureDateTime)) · exact flight details unavailable" : FarelinSearchFormat.flightDetail(flight))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FarelinColor.mist)
                 if !bundle {
                     Text(flight.airline)
                         .font(.caption2)
@@ -1862,7 +1862,7 @@ private struct FlightSummaryRow: View {
             }
         }
         .padding(13)
-        .background(Color(.tertiarySystemBackground), in: .rect(cornerRadius: 14))
+        .background(FarelinColor.soft, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
     }
 }
 

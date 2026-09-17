@@ -34,7 +34,7 @@ struct AccountControls: View {
                 deleting = true
             }
             if busy { ProgressView("Updating your account…") }
-            if let message { Text(message).font(.footnote).foregroundStyle(.secondary) }
+            if let message { Text(message).font(.footnote).foregroundStyle(FarelinColor.mist) }
         }
         .disabled(busy)
         .sheet(isPresented: $changingPassword) {
