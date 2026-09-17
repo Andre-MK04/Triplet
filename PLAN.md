@@ -13,8 +13,12 @@ Verify the 83-test suite locally and inspect the new hosted run before claiming
 the CI failure is resolved. Preserve the user's Xcode window-state file.
 
 Local receipt: all 83 tests pass on iPhone 17 Pro/iOS 26.5 with early-exit
-loops, no assertion removal and no further timeout increase. Hosted verification
-pending; production UI/auth/provider code is unchanged in this fix.
+loops, no assertion removal and no further timeout increase. Hosted run
+35204175080 also passes all 83 tests on iOS 26.4.1; the long-results regression
+finishes all three cycles in 58.5 seconds (previously exceeded 120 seconds).
+Production UI/auth/provider code is unchanged in this fix. Both local Release
+builds and both hosted Release build steps pass. All five jobs in hosted run
+35204175080 are green; the iPhone job is confirmed resolved for commit bd4671a.
 
 ## Progressive native Explore revision (2026-09-16)
 

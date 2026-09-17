@@ -30,6 +30,13 @@ scroll loops. All three search/edit cycles and the original assertions remain.
 The architecture choice only removes duplicate-destination resolution; LLDB
 metadata warnings occur in passing runs too and were not the root-cause proof.
 
+Proof: hosted run 35204175080 passes all 83 tests on the same iOS 26.4.1
+simulator. The repeated long-results test finishes in 58.5 seconds within the
+unchanged 120-second limit. Local iOS 26.5 also passes all 83 tests; both local
+Release simulator builds pass. Both hosted Release builds also pass, and all
+five CI jobs are green for commit bd4671a. No production UI or API changes were
+required. Proof run: https://github.com/Andre-MK04/Triplet/actions/runs/35204175080
+
 ## Backend deployment
 
 Run `python -m alembic upgrade head` on staging before testing a new native build.
