@@ -48,7 +48,8 @@ end
   group = project.main_group.groups.find { |g| g.path == name }
   next unless target && group
   Dir.glob(File.join(root, name, "**", "*"), File::FNM_DOTMATCH).sort.each do |path|
-    next unless File.file?(path) && %w[.swift .xcprivacy].include?(File.extname(path))
+    next unless File.file?(path) && (%w[.swift .xcprivacy .ttf].include?(File.extname(path)) ||
+      (path.include?("/Resources/Fonts/") && path.end_with?("-OFL.txt")))
     relative = path.delete_prefix(File.join(root, name) + "/")
     next if group.recursive_children.any? { |ref| ref.respond_to?(:real_path) && ref.real_path.to_s == path }
     ref = group.new_file(relative)

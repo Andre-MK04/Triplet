@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02CB36B9C553398F336BED91 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 32BF6BFC8B03D9F4722F3BFA /* JetBrainsMono-Medium.ttf */; };
 		05FC29BCD7DB4CA4653E43C8 /* AccountModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32A2128652A54C9EDD295D9 /* AccountModels.swift */; };
+		0970923BD0BB2AD2C963C31E /* BricolageGrotesque-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 20B628011DAE782773230F1F /* BricolageGrotesque-Medium.ttf */; };
 		0A61D8E72A8E4F7CB227A101 /* AuthenticatedAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B101 /* AuthenticatedAppView.swift */; };
 		0A61D8E72A8E4F7CB227A102 /* DashboardModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B102 /* DashboardModels.swift */; };
 		0A61D8E72A8E4F7CB227A103 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B103 /* DashboardView.swift */; };
@@ -22,36 +24,53 @@
 		0A61D8E72A8E4F7CB227A112 /* MyWorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B112 /* MyWorldView.swift */; };
 		0A61D8E72A8E4F7CB227A113 /* NaturalEarthCountries.geojson in Resources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B113 /* NaturalEarthCountries.geojson */; };
 		0A61D8E72A8E4F7CB227A114 /* MyWorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61D8E72A8E4F7CB227B114 /* MyWorldTests.swift */; };
+		0FC78C449540B5FFEF99512D /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E6219C65E1C3B7961899D18F /* JetBrainsMono-Regular.ttf */; };
 		1DD43B10804A2D771D726581 /* PurchaseProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */; };
 		27F1C1BEDE2CFA413335B4BB /* WatchDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4DF4B702A40FEEE8A35C3FD /* WatchDetailView.swift */; };
+		2EC26789522511E826BC4689 /* HankenGrotesk-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 596B9ADFC5A911E4305AACF4 /* HankenGrotesk-SemiBold.ttf */; };
 		3722841C84B17BBEB4AD17A3 /* WatchRouteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70473DDEE46FA9AA9FD71B52 /* WatchRouteEditor.swift */; };
 		38AAD244EF2401BCC475E373 /* RefreshTokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B04D492B4A86E8958E26F7A /* RefreshTokenStore.swift */; };
 		3CC7B9FCEF9929BBC182A468 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
 		3F1336578A6B726713EA4633 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */; };
-		40F355545E9077A11F9ECB8F /* ThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17B728C0C17DEAC015C29D0A /* ThemeTests.swift */; };
+		3F7F98133E2F495A39B43C2D /* JetBrainsMono-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EB775C9B922C41905A9B8D6B /* JetBrainsMono-ExtraBold.ttf */; };
 		466DD45BE0B19F63D797DD1D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5861B6F214DECDEE399F7A /* APIClient.swift */; };
 		4D315C90D9E66B6C55B1C0A6 /* FarelinUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */; };
 		50E7E05D232B524B3F71FE69 /* AuthModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0729BD432C52D74BA203D10A /* AuthModels.swift */; };
+		57E92D71A34B97BD3C5203EC /* BricolageGrotesque-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 343F0AB448E500A623FA51FD /* BricolageGrotesque-SemiBold.ttf */; };
+		5F2E8F7C20BE87BD99336157 /* HankenGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BC40FA65FD22E5C3A61B422 /* HankenGrotesk-Regular.ttf */; };
 		5F6AB25ACABE2A4202FA6B88 /* PurchaseProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */; };
 		60CC47A716B92285C2F9768F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2DB8726886ABB13C8FD9E60 /* RootView.swift */; };
 		642B0EFAC2353A001243444D /* NativeReleaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */; };
+		69580631BFD46F4EA0FED178 /* JetBrainsMono-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A8439EEBB24308BC24B5301C /* JetBrainsMono-SemiBold.ttf */; };
 		77CAE90C8AEF0DC5A3DEA3F6 /* AppConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */; };
+		793A3EEE65418B1AF1036DB3 /* HankenGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E036BD0396A2751A6B1069CA /* HankenGrotesk-Medium.ttf */; };
+		7E7B4F78EFBC9B6677D34F8F /* bricolagegrotesque-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 24BD30497A490E760BC050AA /* bricolagegrotesque-OFL.txt */; };
 		80FDF7929F391A4456B71EF1 /* NativeIdentityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 265A36FDE693B95AAF3F38ED /* NativeIdentityModels.swift */; };
 		810E9493E949EDE7E5FFCCA5 /* AuthSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */; };
 		819E450D643860B33671141C /* FarelinTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1269DB89080FF7783FD656C9 /* FarelinTheme.swift */; };
+		831E0279B2C750244162B88B /* HankenGrotesk-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4C5095B148CE622341F0A671 /* HankenGrotesk-ExtraBold.ttf */; };
+		898AFD38C2B12775C9CBE40E /* jetbrainsmono-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3480A57CC32ADDF9DE007B03 /* jetbrainsmono-OFL.txt */; };
 		90B2F135958E88862E11A3B7 /* NativeIdentityButtons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE86B3D075A37E7EDBC049F /* NativeIdentityButtons.swift */; };
 		92C4E5229CA49538C5E75469 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 64A752AE3474B2064DBAC587 /* PrivacyInfo.xcprivacy */; };
+		9A839BA51D34E510706A3572 /* HankenGrotesk-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A096F3D0AFDF26FD91D7DB16 /* HankenGrotesk-Bold.ttf */; };
 		A52425F4D56F30508E2F25A2 /* FoundationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCEC713499788706E4F6405 /* FoundationView.swift */; };
+		A5EB3E5659D4AD3C584468C4 /* hankengrotesk-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6826B12B52921B69696A794F /* hankengrotesk-OFL.txt */; };
 		A6A26270416E07DB30168BE2 /* PushNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C33B1873E94ED237BAA3EAA /* PushNotifications.swift */; };
+		B576A6203E56AE480BAEF791 /* BricolageGrotesque-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7A2DDAF8E8D15ED4D8908768 /* BricolageGrotesque-Bold.ttf */; };
 		BE9BFC2A3DBF91BD2B3AEA83 /* FarelinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */; };
 		C07BCD3ED8167FD774B87B1F /* UITestAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6FA9069DF8563D4940FBEE7 /* UITestAuthService.swift */; };
+		C4C961D6AC1D41E4B7B6A2F3 /* BricolageGrotesque-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6FEFB3730607A93BF7A5F135 /* BricolageGrotesque-Regular.ttf */; };
+		CC511F688FE7D9D98A34F375 /* JetBrainsMono-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 718A72976C8710E51EE44137 /* JetBrainsMono-Bold.ttf */; };
 		CD8AE505795C0C24F7D27009 /* AccountControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA163F87B202903E8B90D813 /* AccountControls.swift */; };
 		CF21CDCA2098B4E0200F27B9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
 		CFF0B32D41537A7F48F0EF25 /* AuthenticationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5746754D4228EE40472EEC57 /* AuthenticationView.swift */; };
+		D15E55F2B6998E5458D77EBA /* FarelinTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0CD61FDB840CF556779CB4F /* FarelinTypography.swift */; };
+		D3578BB2A153B418D8D4D927 /* BricolageGrotesque-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 84D16F5EF2D6B3A2F8E3D6AA /* BricolageGrotesque-ExtraBold.ttf */; };
 		DBCD654DEA36239F6E6FE8FD /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = E981FBD863077978B6DCB426 /* GoogleSignIn */; };
 		DD3A83F197147BC2775374DB /* SignedInFoundationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */; };
 		E49556F163966923FCC30CA1 /* AuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3E956A59DBCBF5112B0967 /* AuthSession.swift */; };
 		E4F04A2A78B55563F52060BB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C64792974BA8FAF5EB57C01 /* Foundation.framework */; };
+		E58BA57CF9CAD6EB2C59F34F /* TypographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2453F8522AC51691652E67F /* TypographyTests.swift */; };
 		F500B1AC1089748768BD7C79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B7EC2B1555142D5DAE4159C /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -92,35 +111,54 @@
 		0C64792974BA8FAF5EB57C01 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		1269DB89080FF7783FD656C9 /* FarelinTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinTheme.swift; sourceTree = "<group>"; };
 		14317EE2C3E02FB8FEDED638 /* FarelinApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinApp.swift; sourceTree = "<group>"; };
-		17B728C0C17DEAC015C29D0A /* ThemeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThemeTests.swift; sourceTree = "<group>"; };
 		1B209CC4BAD7BD0209CB325C /* AuthSessionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthSessionTests.swift; sourceTree = "<group>"; };
 		1D5861B6F214DECDEE399F7A /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		20B628011DAE782773230F1F /* BricolageGrotesque-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "BricolageGrotesque-Medium.ttf"; path = "Resources/Fonts/BricolageGrotesque-Medium.ttf"; sourceTree = "<group>"; };
+		24BD30497A490E760BC050AA /* bricolagegrotesque-OFL.txt */ = {isa = PBXFileReference; includeInIndex = 1; name = "bricolagegrotesque-OFL.txt"; path = "Resources/Fonts/bricolagegrotesque-OFL.txt"; sourceTree = "<group>"; };
 		265A36FDE693B95AAF3F38ED /* NativeIdentityModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeIdentityModels.swift; path = Core/Auth/NativeIdentityModels.swift; sourceTree = "<group>"; };
 		2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeReleaseTests.swift; sourceTree = "<group>"; };
 		2B7EC2B1555142D5DAE4159C /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2BB31926108580C33BA20A7C /* AppConfigurationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
+		32BF6BFC8B03D9F4722F3BFA /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "JetBrainsMono-Medium.ttf"; path = "Resources/Fonts/JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
+		343F0AB448E500A623FA51FD /* BricolageGrotesque-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "BricolageGrotesque-SemiBold.ttf"; path = "Resources/Fonts/BricolageGrotesque-SemiBold.ttf"; sourceTree = "<group>"; };
+		3480A57CC32ADDF9DE007B03 /* jetbrainsmono-OFL.txt */ = {isa = PBXFileReference; includeInIndex = 1; name = "jetbrainsmono-OFL.txt"; path = "Resources/Fonts/jetbrainsmono-OFL.txt"; sourceTree = "<group>"; };
 		351A52F5DE1A15D31E28061E /* Production.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
 		3EE86B3D075A37E7EDBC049F /* NativeIdentityButtons.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NativeIdentityButtons.swift; path = Features/Authentication/NativeIdentityButtons.swift; sourceTree = "<group>"; };
 		3F7537FAA321197EFB4EB779 /* PurchaseProviding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PurchaseProviding.swift; sourceTree = "<group>"; };
+		4C5095B148CE622341F0A671 /* HankenGrotesk-ExtraBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "HankenGrotesk-ExtraBold.ttf"; path = "Resources/Fonts/HankenGrotesk-ExtraBold.ttf"; sourceTree = "<group>"; };
 		4EA50D453C9CA64E9ADFEF7F /* PurchaseProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PurchaseProviderTests.swift; sourceTree = "<group>"; };
 		5746754D4228EE40472EEC57 /* AuthenticationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthenticationView.swift; sourceTree = "<group>"; };
+		596B9ADFC5A911E4305AACF4 /* HankenGrotesk-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "HankenGrotesk-SemiBold.ttf"; path = "Resources/Fonts/HankenGrotesk-SemiBold.ttf"; sourceTree = "<group>"; };
 		5C33B1873E94ED237BAA3EAA /* PushNotifications.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PushNotifications.swift; path = Core/Notifications/PushNotifications.swift; sourceTree = "<group>"; };
 		64A752AE3474B2064DBAC587 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6826B12B52921B69696A794F /* hankengrotesk-OFL.txt */ = {isa = PBXFileReference; includeInIndex = 1; name = "hankengrotesk-OFL.txt"; path = "Resources/Fonts/hankengrotesk-OFL.txt"; sourceTree = "<group>"; };
+		6FEFB3730607A93BF7A5F135 /* BricolageGrotesque-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "BricolageGrotesque-Regular.ttf"; path = "Resources/Fonts/BricolageGrotesque-Regular.ttf"; sourceTree = "<group>"; };
 		70473DDEE46FA9AA9FD71B52 /* WatchRouteEditor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchRouteEditor.swift; path = Features/Dashboard/WatchRouteEditor.swift; sourceTree = "<group>"; };
+		718A72976C8710E51EE44137 /* JetBrainsMono-Bold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "JetBrainsMono-Bold.ttf"; path = "Resources/Fonts/JetBrainsMono-Bold.ttf"; sourceTree = "<group>"; };
 		720180BB4A06118BC877FB22 /* FarelinUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FarelinUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A2DDAF8E8D15ED4D8908768 /* BricolageGrotesque-Bold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "BricolageGrotesque-Bold.ttf"; path = "Resources/Fonts/BricolageGrotesque-Bold.ttf"; sourceTree = "<group>"; };
+		7BC40FA65FD22E5C3A61B422 /* HankenGrotesk-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "HankenGrotesk-Regular.ttf"; path = "Resources/Fonts/HankenGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		7D12C88FFE591AA5FC4BCC86 /* AppConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		84D16F5EF2D6B3A2F8E3D6AA /* BricolageGrotesque-ExtraBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "BricolageGrotesque-ExtraBold.ttf"; path = "Resources/Fonts/BricolageGrotesque-ExtraBold.ttf"; sourceTree = "<group>"; };
 		86978127302CBB600410B49C /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A096F3D0AFDF26FD91D7DB16 /* HankenGrotesk-Bold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "HankenGrotesk-Bold.ttf"; path = "Resources/Fonts/HankenGrotesk-Bold.ttf"; sourceTree = "<group>"; };
 		A2DB8726886ABB13C8FD9E60 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A32A2128652A54C9EDD295D9 /* AccountModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountModels.swift; path = Core/Auth/AccountModels.swift; sourceTree = "<group>"; };
 		A6FA9069DF8563D4940FBEE7 /* UITestAuthService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UITestAuthService.swift; path = Core/Auth/UITestAuthService.swift; sourceTree = "<group>"; };
+		A8439EEBB24308BC24B5301C /* JetBrainsMono-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "JetBrainsMono-SemiBold.ttf"; path = "Resources/Fonts/JetBrainsMono-SemiBold.ttf"; sourceTree = "<group>"; };
 		AA163F87B202903E8B90D813 /* AccountControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AccountControls.swift; path = Features/Authentication/AccountControls.swift; sourceTree = "<group>"; };
 		AB5FD9DC36BE66D69C0FB348 /* FarelinTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FarelinTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFAA37090D1EBFB04BE1C870 /* FarelinUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FarelinUITests.swift; sourceTree = "<group>"; };
 		B3E60B20BE5DB9C49D19BF91 /* SignedInFoundationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedInFoundationView.swift; sourceTree = "<group>"; };
+		C0CD61FDB840CF556779CB4F /* FarelinTypography.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FarelinTypography.swift; path = Core/DesignSystem/FarelinTypography.swift; sourceTree = "<group>"; };
+		C2453F8522AC51691652E67F /* TypographyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTests.swift; sourceTree = "<group>"; };
 		CE3E956A59DBCBF5112B0967 /* AuthSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthSession.swift; sourceTree = "<group>"; };
 		D4768987DB99830432970AA4 /* Base.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		D87E83E03B2AA55AF5E83709 /* Staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
 		DBCEC713499788706E4F6405 /* FoundationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FoundationView.swift; sourceTree = "<group>"; };
+		E036BD0396A2751A6B1069CA /* HankenGrotesk-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "HankenGrotesk-Medium.ttf"; path = "Resources/Fonts/HankenGrotesk-Medium.ttf"; sourceTree = "<group>"; };
+		E6219C65E1C3B7961899D18F /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "JetBrainsMono-Regular.ttf"; path = "Resources/Fonts/JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
+		EB775C9B922C41905A9B8D6B /* JetBrainsMono-ExtraBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; name = "JetBrainsMono-ExtraBold.ttf"; path = "Resources/Fonts/JetBrainsMono-ExtraBold.ttf"; sourceTree = "<group>"; };
 		F4DF4B702A40FEEE8A35C3FD /* WatchDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchDetailView.swift; path = Features/Dashboard/WatchDetailView.swift; sourceTree = "<group>"; };
 		F970F9EC1A97CD28DBBCC822 /* Farelin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Farelin.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -165,7 +203,7 @@
 				0A61D8E72A8E4F7CB227B110 /* TripSearchTests.swift */,
 				0A61D8E72A8E4F7CB227B114 /* MyWorldTests.swift */,
 				2B3BF492FF3339958FB8ADB6 /* NativeReleaseTests.swift */,
-				17B728C0C17DEAC015C29D0A /* ThemeTests.swift */,
+				C2453F8522AC51691652E67F /* TypographyTests.swift */,
 			);
 			path = FarelinTests;
 			sourceTree = "<group>";
@@ -272,6 +310,25 @@
 				A6FA9069DF8563D4940FBEE7 /* UITestAuthService.swift */,
 				64A752AE3474B2064DBAC587 /* PrivacyInfo.xcprivacy */,
 				70473DDEE46FA9AA9FD71B52 /* WatchRouteEditor.swift */,
+				C0CD61FDB840CF556779CB4F /* FarelinTypography.swift */,
+				7A2DDAF8E8D15ED4D8908768 /* BricolageGrotesque-Bold.ttf */,
+				84D16F5EF2D6B3A2F8E3D6AA /* BricolageGrotesque-ExtraBold.ttf */,
+				20B628011DAE782773230F1F /* BricolageGrotesque-Medium.ttf */,
+				6FEFB3730607A93BF7A5F135 /* BricolageGrotesque-Regular.ttf */,
+				343F0AB448E500A623FA51FD /* BricolageGrotesque-SemiBold.ttf */,
+				A096F3D0AFDF26FD91D7DB16 /* HankenGrotesk-Bold.ttf */,
+				4C5095B148CE622341F0A671 /* HankenGrotesk-ExtraBold.ttf */,
+				E036BD0396A2751A6B1069CA /* HankenGrotesk-Medium.ttf */,
+				7BC40FA65FD22E5C3A61B422 /* HankenGrotesk-Regular.ttf */,
+				596B9ADFC5A911E4305AACF4 /* HankenGrotesk-SemiBold.ttf */,
+				718A72976C8710E51EE44137 /* JetBrainsMono-Bold.ttf */,
+				EB775C9B922C41905A9B8D6B /* JetBrainsMono-ExtraBold.ttf */,
+				32BF6BFC8B03D9F4722F3BFA /* JetBrainsMono-Medium.ttf */,
+				E6219C65E1C3B7961899D18F /* JetBrainsMono-Regular.ttf */,
+				A8439EEBB24308BC24B5301C /* JetBrainsMono-SemiBold.ttf */,
+				24BD30497A490E760BC050AA /* bricolagegrotesque-OFL.txt */,
+				6826B12B52921B69696A794F /* hankengrotesk-OFL.txt */,
+				3480A57CC32ADDF9DE007B03 /* jetbrainsmono-OFL.txt */,
 			);
 			path = Farelin;
 			sourceTree = "<group>";
@@ -505,6 +562,24 @@
 				F500B1AC1089748768BD7C79 /* Assets.xcassets in Resources */,
 				0A61D8E72A8E4F7CB227A113 /* NaturalEarthCountries.geojson in Resources */,
 				92C4E5229CA49538C5E75469 /* PrivacyInfo.xcprivacy in Resources */,
+				B576A6203E56AE480BAEF791 /* BricolageGrotesque-Bold.ttf in Resources */,
+				D3578BB2A153B418D8D4D927 /* BricolageGrotesque-ExtraBold.ttf in Resources */,
+				0970923BD0BB2AD2C963C31E /* BricolageGrotesque-Medium.ttf in Resources */,
+				C4C961D6AC1D41E4B7B6A2F3 /* BricolageGrotesque-Regular.ttf in Resources */,
+				57E92D71A34B97BD3C5203EC /* BricolageGrotesque-SemiBold.ttf in Resources */,
+				9A839BA51D34E510706A3572 /* HankenGrotesk-Bold.ttf in Resources */,
+				831E0279B2C750244162B88B /* HankenGrotesk-ExtraBold.ttf in Resources */,
+				793A3EEE65418B1AF1036DB3 /* HankenGrotesk-Medium.ttf in Resources */,
+				5F2E8F7C20BE87BD99336157 /* HankenGrotesk-Regular.ttf in Resources */,
+				2EC26789522511E826BC4689 /* HankenGrotesk-SemiBold.ttf in Resources */,
+				CC511F688FE7D9D98A34F375 /* JetBrainsMono-Bold.ttf in Resources */,
+				3F7F98133E2F495A39B43C2D /* JetBrainsMono-ExtraBold.ttf in Resources */,
+				02CB36B9C553398F336BED91 /* JetBrainsMono-Medium.ttf in Resources */,
+				0FC78C449540B5FFEF99512D /* JetBrainsMono-Regular.ttf in Resources */,
+				69580631BFD46F4EA0FED178 /* JetBrainsMono-SemiBold.ttf in Resources */,
+				7E7B4F78EFBC9B6677D34F8F /* bricolagegrotesque-OFL.txt in Resources */,
+				A5EB3E5659D4AD3C584468C4 /* hankengrotesk-OFL.txt in Resources */,
+				898AFD38C2B12775C9CBE40E /* jetbrainsmono-OFL.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -523,7 +598,7 @@
 				0A61D8E72A8E4F7CB227A110 /* TripSearchTests.swift in Sources */,
 				0A61D8E72A8E4F7CB227A114 /* MyWorldTests.swift in Sources */,
 				642B0EFAC2353A001243444D /* NativeReleaseTests.swift in Sources */,
-				40F355545E9077A11F9ECB8F /* ThemeTests.swift in Sources */,
+				E58BA57CF9CAD6EB2C59F34F /* TypographyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -568,6 +643,7 @@
 				A6A26270416E07DB30168BE2 /* PushNotifications.swift in Sources */,
 				C07BCD3ED8167FD774B87B1F /* UITestAuthService.swift in Sources */,
 				3722841C84B17BBEB4AD17A3 /* WatchRouteEditor.swift in Sources */,
+				D15E55F2B6998E5458D77EBA /* FarelinTypography.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

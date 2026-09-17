@@ -27,7 +27,6 @@ final class FoundationModel {
         }
     }
 }
-
 struct FoundationView: View {
     let configuration: AppConfiguration
     @State private var model: FoundationModel
@@ -40,17 +39,17 @@ struct FoundationView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FarelinColor.ink.ignoresSafeArea()
+                Color(.systemBackground).ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 28) {
                     Spacer()
                     brandMark
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Find cheap trips,\nnot just cheap flights.")
-                            .font(.system(size: 38, weight: .bold, design: .default))
+                            .font(FarelinTypography.display(size: 38, weight: .bold))
                             .tracking(-1.2)
                         Text("Your native Farelin journey starts here. Sign-in and the complete travel experience arrive in the next stage.")
-                            .font(.body)
-                            .foregroundStyle(FarelinColor.mist)
+                            .font(FarelinTypography.font(.body))
+                            .foregroundStyle(.secondary)
                             .lineSpacing(4)
                     }
                     connectionPanel
@@ -76,11 +75,11 @@ struct FoundationView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("FARELIN")
-                    .font(.system(.headline, design: .monospaced, weight: .bold))
+                    .font(FarelinTypography.font(.headline, weight: .bold, family: .mono))
                     .tracking(3)
                 Text(configuration.environment == .staging ? "STAGING" : "TRAVEL INTELLIGENCE")
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.caption2, family: .mono))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -99,16 +98,16 @@ struct FoundationView: View {
             }
             .frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
-                Text(connectionTitle).font(.headline)
+                Text(connectionTitle).font(FarelinTypography.font(.headline))
                 Text(configuration.apiBaseURL.host ?? "Configured API")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.caption, family: .mono))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer()
         }
         .padding(18)
-        .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+        .background(.thinMaterial, in: .rect(cornerRadius: 18))
         .accessibilityElement(children: .combine)
     }
 

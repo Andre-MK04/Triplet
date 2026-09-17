@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Farelin — native-inspired website concept</title>
+  <link rel="stylesheet" href="farelin-native-web.css">
+  <script src="farelin-native-web.js" defer></script>
+</head>
+<body>
+  <div class="preview-note">DESIGN PREVIEW <span>Fictional demo fares · no live searches or account changes</span></div>
+  <header class="nav-shell">
+    <a class="brand" href="#top" aria-label="Farelin home"><img src="../../apps/web/public/farelin-icon.svg" alt=""><span>FARELIN</span></a>
+    <nav aria-label="Main navigation">
+      <a class="active" href="#discover"><svg><use href="#search-icon"/></svg>Discover</a>
+      <a href="#today"><svg><use href="#spark-icon"/></svg>Today</a>
+      <a href="#today"><svg><use href="#bell-icon"/></svg>Watches</a>
+      <a href="#world"><svg><use href="#world-icon"/></svg>My World</a>
+    </nav>
+    <button class="theme-button" aria-label="Switch to light mode"><svg><use href="#sun-icon"/></svg></button>
+    <a class="account-link" href="#today">Your space <span>↗</span></a>
+  </header>
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">YOUR TRIPS. WATCHED QUIETLY.</p>
+        <h1>Find cheap trips,<br>not just<br><span>cheap flights.</span></h1>
+        <p class="intro">A little flexibility. A world of possibilities.<br>Choose your airports, tell us your travel mood, and let Farelin keep an eye out.</p>
+        <div class="hero-actions"><a class="button primary" href="#discover">Find your next trip <svg><use href="#arrow-icon"/></svg></a><a class="button secondary" href="#method">How it works</a></div>
+        <p class="quiet-note"><span class="status-dot"></span>Fares refreshed hourly · indicative, never guaranteed.</p>
+      </div>
+      <div class="hero-visual" id="world">
+        <canvas id="earth" aria-label="Interactive globe. Drag to rotate." tabindex="0"></canvas>
+        <div class="globe-caption"><span class="status-dot"></span> YOUR WORLD, A LITTLE CLOSER</div>
+        <div class="origin-bubble"><span class="tiny-label">FLYING FROM</span><strong>Copenhagen <span>CPH</span></strong><div class="bubble-divider"></div><span class="mini-note">Your airports. More possibilities.</span></div>
+        <button class="rotate-button" aria-label="Pause globe rotation"><svg><use href="#pause-icon"/></svg></button>
+        <span class="globe-hint">Drag to explore</span>
+      </div>
+    </section>
+    <section class="discover-section" id="discover">
+      <div class="section-heading"><div><p class="eyebrow">MAKE ROOM FOR SOMETHING GOOD</p><h2>Where to next?</h2></div><span class="soft-pill">Demo fares</span></div>
+      <div class="search-surface">
+        <div class="segmented" role="group" aria-label="Search mode"><button class="selected" data-mode="explore">Explore</button><button data-mode="ask">Ask Farelin</button></div>
+        <form id="preview-search">
+          <div class="search-fields">
+            <label>Flying from<select><option>Copenhagen + 2 airports</option><option>Ljubljana + nearby airports</option><option>Paris + nearby airports</option></select></label>
+            <label>When<select><option>Next 3 months</option><option>Soon</option><option>Flexible</option></select></label>
+            <label>Flight budget<select><option>Up to €200</option><option>Up to €400</option><option>Flexible</option></select></label>
+            <button class="button primary" type="submit"><svg><use href="#search-icon"/></svg>Find trips</button>
+          </div>
+          <div class="ask-field" hidden><label for="ask-query">What kind of trip are you thinking of?</label><input id="ask-query" placeholder="A Nordic city break with good food, sometime this autumn…"><button class="button primary" type="submit">Find trips <svg><use href="#arrow-icon"/></svg></button></div>
+        </form>
+        <div class="mood-row"><span class="tiny-label">TRAVEL MOOD</span><button aria-pressed="false">Beach</button><button aria-pressed="true">Food</button><button aria-pressed="true">Nature</button><button aria-pressed="false">Culture</button><button aria-pressed="false">Adventure</button></div>
+        <p id="search-status" class="mini-note" role="status">Try the controls. This concept uses fictional demo trips, not provider data.</p>
+      </div>
+      <div class="results-heading"><h3>A few possibilities</h3><span class="mini-note">Final prices must be checked with the provider.</span></div>
+      <div class="trip-grid">
+        <article class="trip-card"><div class="trip-top"><div class="destination">Stockholm<span>SWEDEN · SIMPLE RETURN</span></div><div class="price">€68<span>demo flight total</span></div></div><div class="route-line"><span>CPH</span><div><svg><use href="#plane-icon"/></svg></div><span>ARN</span></div><p class="trip-date">16–19 October · 3 nights</p><div class="tags"><span class="mint-tag">82 fit</span><span>Direct</span><span>Demo fare</span></div><p class="trip-description">Long lunches, island walks and a very good excuse for fika.</p><div class="card-footer"><button class="save-button" aria-label="Save Stockholm demo fare"><svg><use href="#bookmark-icon"/></svg></button><button class="button card-action" data-trip="Stockholm">View demo trip <svg><use href="#arrow-icon"/></svg></button></div></article>
+        <article class="trip-card"><div class="trip-top"><div class="destination">Lisbon<span>PORTUGAL · SIMPLE RETURN</span></div><div class="price">€126<span>demo flight total</span></div></div><div class="route-line"><span>CPH</span><div><svg><use href="#plane-icon"/></svg></div><span>LIS</span></div><p class="trip-date">6–11 November · 5 nights</p><div class="tags"><span class="mint-tag">76 fit</span><span>1 stop</span><span>Demo fare</span></div><p class="trip-description">A slower week of tiled streets, sea air and something sweet.</p><div class="card-footer"><button class="save-button" aria-label="Save Lisbon demo fare"><svg><use href="#bookmark-icon"/></svg></button><button class="button card-action" data-trip="Lisbon">View demo trip <svg><use href="#arrow-icon"/></svg></button></div></article>
+        <article class="trip-card"><div class="trip-top"><div class="destination">Helsinki & Tallinn<span>FINLAND + ESTONIA · OPEN-JAW</span></div><div class="price">€154<span>demo flight total</span></div></div><div class="route-line"><span>CPH</span><div><svg><use href="#plane-icon"/></svg></div><span>HEL / TLL</span></div><p class="trip-date">20–25 November · 5 nights</p><div class="tags"><span class="mint-tag">88 fit</span><span>Open-jaw</span><span>Demo fare</span></div><p class="trip-description">Two cities, one little adventure. Ground transfer costs extra.</p><div class="card-footer"><button class="save-button" aria-label="Save Helsinki and Tallinn demo fare"><svg><use href="#bookmark-icon"/></svg></button><button class="button card-action" data-trip="Helsinki & Tallinn">View demo trip <svg><use href="#arrow-icon"/></svg></button></div></article>
+      </div>
+    </section>
+    <section class="today-section" id="today"><div><p class="eyebrow">YOUR TRIPS, IN THE BACKGROUND</p><h2>Good things.<br>Without the refresh habit.</h2><p class="intro">Save a watch and get on with your day.<br>Farelin checks. You decide when it’s worth going.</p><a class="button secondary" href="#discover">Create a watch <svg><use href="#arrow-icon"/></svg></a></div><div class="watch-card"><div class="watch-heading"><div class="watch-icon"><svg><use href="#bell-icon"/></svg></div><span class="tiny-label">SAVED WATCH · DEMO</span><span class="soft-pill mint-tag">Watching</span></div><h3>Nordic weekends</h3><p class="mini-note">Copenhagen → the Nordics</p><div class="watch-details"><span>3–5 nights</span><span>Up to €200</span><span>Weekly checks</span></div><div class="watch-bottom"><span class="status-dot"></span>Quiet alerts. No pressure to book.</div></div></section>
+    <section class="method" id="method"><p class="eyebrow">LESS SEARCHING. MORE GOING.</p><div class="method-grid"><article><span>01 / DESCRIBE</span><h3>A rough idea is enough.</h3><p>Your airports, your budget, your kind of trip.</p></article><article><span>02 / WATCH</span><h3>Leave the checking to us.</h3><p>Fare observations become clearer trip possibilities.</p></article><article><span>03 / GO</span><h3>You’ll know when it’s good.</h3><p>A quiet alert. A clear idea. The final choice is yours.</p></article></div></section>
+  </main>
+  <footer><a class="brand" href="#top"><img src="../../apps/web/public/farelin-icon.svg" alt=""><span>FARELIN</span></a><p>Find cheap trips, not just cheap flights.</p><span class="mini-note">Design concept only. Farelin does not sell flights directly.</span></footer>
+  <dialog id="trip-dialog"><button class="dialog-close" aria-label="Close trip preview">×</button><p class="eyebrow">DEMO TRIP</p><h2 id="dialog-title"></h2><p>This is a visual concept, not a real fare. In the product, this sheet would show the itinerary, observed prices and a provider link.</p><p class="mini-note">No account changes or provider requests were made.</p><button class="button primary dialog-done">Done</button></dialog>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg"><defs>
+    <symbol id="search-icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="arrow-icon" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="spark-icon" viewBox="0 0 24 24"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5Z"/></symbol>
+    <symbol id="bell-icon" viewBox="0 0 24 24"><path d="M5 16V10a7 7 0 0 1 14 0v6l2 3H3Zm5 6h4"/></symbol>
+    <symbol id="world-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 6h14M5 18h14"/></symbol>
+    <symbol id="sun-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/></symbol>
+    <symbol id="pause-icon" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+    <symbol id="play-icon" viewBox="0 0 24 24"><path d="m7 4 14 8-14 8Z"/></symbol>
+    <symbol id="plane-icon" viewBox="0 0 24 24"><path d="m3 13 7-2 3-8 2-1 1 8 5 1v2l-5 1-1 8-2-1-3-8-7-2Z"/></symbol>
+    <symbol id="bookmark-icon" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4Z"/></symbol>
+  </defs></svg>
+</body></html>

@@ -35,7 +35,7 @@ struct MyWorldView: View {
                 .padding(.horizontal, 18)
                 .padding(.bottom, 36)
             }
-            .background(FarelinColor.ink)
+            .background(Color(.systemBackground))
             .navigationTitle("My World")
             .refreshable { await store.load(force: true) }
             .task { await store.load() }
@@ -79,11 +79,11 @@ struct MyWorldView: View {
         VStack(alignment: .leading, spacing: 7) {
             FarelinSectionLabel(title: "MY WORLD", accented: true)
             Text("The places that made you.")
-                .font(.system(size: 29, weight: .bold, design: .default))
+                .font(FarelinTypography.display(size: 29, weight: .bold))
                 .tracking(-0.8)
             Text("Turn the Earth. Tap a place. Make it yours.")
-                .font(.subheadline)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.subheadline))
+                .foregroundStyle(.secondary)
                 .lineSpacing(3)
         }
         .padding(.top, 8)
@@ -112,10 +112,9 @@ struct MyWorldView: View {
                 autoRotate.toggle()
             } label: {
                 Image(systemName: autoRotate ? "pause.fill" : "play.fill")
-                    .font(.caption.weight(.bold))
-                    .frame(width: 44, height: 44)
-                    .background(FarelinColor.raised, in: Circle())
-                    .overlay { Circle().stroke(FarelinColor.line, lineWidth: 1) }
+                    .font(FarelinTypography.font(.caption, weight: .bold))
+                    .frame(width: 38, height: 38)
+                    .background(.ultraThinMaterial, in: Circle())
             }
             .padding(12)
             .accessibilityLabel(autoRotate ? "Pause globe rotation" : "Resume globe rotation")
@@ -123,14 +122,13 @@ struct MyWorldView: View {
             VStack {
                 Spacer()
                 HStack(spacing: 7) {
-                    legendDot(FarelinColor.globeVisited, "Visited")
-                    legendDot(FarelinColor.globeLived, "Lived")
-                    legendDot(FarelinColor.globeWishlist, "Wishlist")
+                    legendDot(FarelinColor.mint, "Visited")
+                    legendDot(FarelinColor.coral, "Lived")
+                    legendDot(FarelinColor.gold, "Wishlist")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
-                .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
-                .overlay { Rectangle().stroke(FarelinColor.line, lineWidth: 1) }
+                .background(.ultraThinMaterial, in: Capsule())
                 .padding(12)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,7 +140,7 @@ struct MyWorldView: View {
     private func legendDot(_ color: Color, _ label: String) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(label).font(.system(size: 9, weight: .semibold, design: .monospaced))
+            Text(label).font(FarelinTypography.mono(size: 9, weight: .semibold))
         }
     }
 
@@ -151,13 +149,13 @@ struct MyWorldView: View {
             FarelinSectionLabel(title: "YOUR FOOTPRINT")
             HStack(alignment: .firstTextBaseline) {
                 Text("\(stats.countriesVisited)")
-                    .font(.system(size: 44, weight: .bold, design: .default).monospacedDigit())
+                    .font(FarelinTypography.display(size: 44, weight: .bold).monospacedDigit())
                 Text("countries visited")
-                    .font(.subheadline)
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.subheadline))
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Text(String(format: "%.1f%%", stats.worldExploredPercentage))
-                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .font(FarelinTypography.font(.title3, weight: .semibold).monospacedDigit())
                     .foregroundStyle(FarelinColor.mint)
             }
             Divider()
@@ -167,7 +165,7 @@ struct MyWorldView: View {
                 WorldStat(value: "\(stats.continentsVisited)", label: "Continents")
             }
             Text("Your history stays in sync with Farelin on the web.")
-                .font(.caption)
+                .font(FarelinTypography.font(.caption))
                 .foregroundStyle(.tertiary)
         }
         .contentTransition(.numericText())
@@ -184,11 +182,11 @@ struct MyWorldView: View {
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
             } icon: {
-                Image(systemName: "magnifyingglass").foregroundStyle(FarelinColor.mist)
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
             .frame(minHeight: 48)
-            .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
 
             LazyVStack(spacing: 0) {
                 ForEach(store.filteredCatalog) { country in
@@ -201,15 +199,15 @@ struct MyWorldView: View {
                                 .frame(width: 9, height: 9)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(country.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(FarelinColor.cloud)
+                                    .font(FarelinTypography.font(.subheadline, weight: .semibold))
+                                    .foregroundStyle(.primary)
                                 Text("\(country.continent) · \(country.code)")
-                                    .font(.caption)
-                                    .foregroundStyle(FarelinColor.mist)
+                                    .font(FarelinTypography.font(.caption))
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
+                                .font(FarelinTypography.font(.caption, weight: .semibold))
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(.vertical, 12)
@@ -219,8 +217,8 @@ struct MyWorldView: View {
                 }
             }
             Text("Browse the full country list, or search by name or code.")
-                .font(.caption)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.caption))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -228,8 +226,8 @@ struct MyWorldView: View {
         VStack(spacing: 14) {
             ProgressView().tint(FarelinColor.mint)
             Text("Drawing your world…")
-                .font(.subheadline)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.subheadline))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 360)
         .farelinCard()
@@ -238,10 +236,10 @@ struct MyWorldView: View {
     private var errorState: some View {
         VStack(alignment: .leading, spacing: 13) {
             Label("Your world could not load", systemImage: "globe.badge.chevron.backward")
-                .font(.headline)
+                .font(FarelinTypography.font(.headline))
             Text(store.errorMessage ?? "Check your connection and try again.")
-                .font(.subheadline)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.subheadline))
+                .foregroundStyle(.secondary)
             Button("Try again") { Task { await store.load(force: true) } }
                 .buttonStyle(FarelinPrimaryButtonStyle())
         }
@@ -253,7 +251,7 @@ struct MyWorldView: View {
         case "lived": FarelinColor.coral
         case "visited": FarelinColor.mint
         case "wishlist": FarelinColor.gold
-        default: FarelinColor.mist.opacity(0.35)
+        default: Color.secondary.opacity(0.35)
         }
     }
 }
@@ -265,10 +263,10 @@ private struct WorldStat: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(value)
-                .font(.title3.monospacedDigit().weight(.semibold))
+                .font(FarelinTypography.font(.title3, weight: .semibold).monospacedDigit())
             Text(label)
-                .font(.caption)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.caption))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -294,14 +292,14 @@ private struct CountrySheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("\(metadata.continent.uppercased()) · \(metadata.code)")
-                            .font(.caption2.monospaced().weight(.semibold))
+                            .font(FarelinTypography.font(.caption2, weight: .semibold, family: .mono))
                             .tracking(1.2)
                             .foregroundStyle(FarelinColor.mint)
                         Text(metadata.name)
-                            .font(.system(size: 34, weight: .bold, design: .default))
+                            .font(FarelinTypography.display(size: 34, weight: .bold))
                         Text(statusLabel)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(FarelinColor.mist)
+                            .font(FarelinTypography.font(.subheadline, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(spacing: 0) {
@@ -327,40 +325,40 @@ private struct CountrySheet: View {
                         )
                     }
                     .padding(.horizontal, 16)
-                    .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+                    .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 20))
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("OBSERVED RETURNS")
-                            .font(.caption2.monospaced().weight(.semibold))
+                            .font(FarelinTypography.font(.caption2, weight: .semibold, family: .mono))
                             .foregroundStyle(FarelinColor.mint)
                         if trips.isEmpty {
                             Text(boardLoaded
                                  ? "No return fares to this country are in your current opportunity board. This is not proof that there are no flights; explore a wider search."
                                  : "Your personal observed-fare board is still loading or unavailable. Explore a wider search below.")
-                                .font(.subheadline)
-                                .foregroundStyle(FarelinColor.mist)
+                                .font(FarelinTypography.font(.subheadline))
+                                .foregroundStyle(.secondary)
                         } else {
                             Text("\(trips.count) observed \(trips.count == 1 ? "trip" : "trips") from your airports. Check final prices with the provider.")
-                                .font(.caption)
-                                .foregroundStyle(FarelinColor.mist)
+                                .font(FarelinTypography.font(.caption))
+                                .foregroundStyle(.secondary)
                             ForEach(trips.prefix(3)) { trip in
                                 NavigationLink {
                                     TripDetailView(trip: trip, service: tripDetailService, reauthenticate: reauthenticate)
                                 } label: {
                                     HStack {
                                         VStack(alignment: .leading) {
-                                            Text(trip.routeTitle).font(.subheadline.weight(.semibold))
+                                            Text(trip.routeTitle).font(FarelinTypography.font(.subheadline, weight: .semibold))
                                             Text("\(FarelinSearchFormat.shortDate(trip.outboundFlight.departureDateTime))–\(FarelinSearchFormat.shortDate(trip.returnFlight.departureDateTime))")
-                                                .font(.caption).foregroundStyle(FarelinColor.mist)
+                                                .font(FarelinTypography.font(.caption)).foregroundStyle(.secondary)
                                         }
                                         Spacer()
-                                        Text(FarelinSearchFormat.priceHeadline(trip)).font(.subheadline.weight(.semibold))
+                                        Text(FarelinSearchFormat.priceHeadline(trip)).font(FarelinTypography.font(.subheadline, weight: .semibold))
                                     }
                                 }
                                 .buttonStyle(.plain)
                                 if let url = trip.checkPriceURL {
                                     Link("Check price with provider ↗", destination: url)
-                                        .font(.caption.weight(.semibold))
+                                        .font(FarelinTypography.font(.caption, weight: .semibold))
                                         .foregroundStyle(FarelinColor.mint)
                                 }
                             }
@@ -371,18 +369,18 @@ private struct CountrySheet: View {
                     if let country, !country.visits.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("MEMORIES")
-                                .font(.caption2.monospaced().weight(.semibold))
+                                .font(FarelinTypography.font(.caption2, weight: .semibold, family: .mono))
                                 .tracking(1.1)
-                                .foregroundStyle(FarelinColor.mist)
+                                .foregroundStyle(.secondary)
                             ForEach(country.visits) { visit in
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(visit.kind == "lived" ? "Lived here" : "Visit")
-                                        .font(.subheadline.weight(.semibold))
+                                        .font(FarelinTypography.font(.subheadline, weight: .semibold))
                                     Text(visitPeriod(visit))
-                                        .font(.caption)
-                                        .foregroundStyle(FarelinColor.mist)
+                                        .font(FarelinTypography.font(.caption))
+                                        .foregroundStyle(.secondary)
                                     if let note = visit.note, !note.isEmpty {
-                                        Text(note).font(.caption).foregroundStyle(FarelinColor.mist)
+                                        Text(note).font(FarelinTypography.font(.caption)).foregroundStyle(.secondary)
                                     }
                                 }
                                 .farelinCard()
@@ -395,7 +393,7 @@ private struct CountrySheet: View {
                 }
                 .padding(20)
             }
-            .background(FarelinColor.ink)
+            .background(Color(.systemBackground))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
@@ -424,9 +422,9 @@ private struct CountrySheet: View {
         } label: {
             HStack {
                 Image(systemName: symbol)
-                    .foregroundStyle(selected ? FarelinColor.mint : FarelinColor.mist)
+                    .foregroundStyle(selected ? FarelinColor.mint : .secondary)
                     .frame(width: 26)
-                Text(title).foregroundStyle(FarelinColor.cloud)
+                Text(title).foregroundStyle(.primary)
                 Spacer()
                 if busy {
                     ProgressView().controlSize(.small)
@@ -576,9 +574,9 @@ private struct InteractiveTravelGlobe: UIViewRepresentable {
             styleSignature = signature
             view.backgroundColor = .clear
             view.scene?.background.contents = UIColor.clear
-            wireframe?.geometry?.firstMaterial?.diffuse.contents =
-                UIColor(FarelinColor.globeWire).resolvedColor(with:
-                    UITraitCollection(userInterfaceStyle: light ? .light : .dark))
+            wireframe?.geometry?.firstMaterial?.diffuse.contents = light
+                ? UIColor(red: 0.51, green: 0.60, blue: 0.64, alpha: 1)
+                : UIColor(red: 0.09, green: 0.15, blue: 0.19, alpha: 1)
             earth?.geometry?.firstMaterial?.diffuse.contents =
                 geometry.texture(states: states, selected: selected, home: home, light: light)
         }
@@ -787,13 +785,11 @@ struct EarthCountryGeometry {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = true
-        let traits = UITraitCollection(userInterfaceStyle: light ? .light : .dark)
-        func token(_ color: Color) -> UIColor {
-            UIColor(color).resolvedColor(with: traits)
-        }
         return UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { output in
             let ctx = output.cgContext
-            let sea = token(FarelinColor.globeSea)
+            let sea = light
+                ? UIColor(red: 0.85, green: 0.92, blue: 0.94, alpha: 1)
+                : UIColor(red: 0.055, green: 0.115, blue: 0.155, alpha: 1)
             ctx.setFillColor(sea.cgColor)
             ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
             ctx.setStrokeColor((light ? UIColor.black : UIColor.white).withAlphaComponent(0.07).cgColor)
@@ -808,11 +804,13 @@ struct EarthCountryGeometry {
             for polygon in polygons {
                 let color: UIColor
                 switch states[polygon.code] {
-                case "lived": color = token(FarelinColor.globeLived)
-                case "visited": color = token(FarelinColor.globeVisited)
-                case "wishlist": color = token(FarelinColor.globeWishlist)
+                case "lived": color = UIColor(FarelinColor.coral)
+                case "visited": color = UIColor(FarelinColor.mint)
+                case "wishlist": color = UIColor(FarelinColor.gold)
                 default:
-                    color = token(FarelinColor.globeLand)
+                    color = light
+                        ? UIColor(red: 0.51, green: 0.60, blue: 0.64, alpha: 1)
+                        : UIColor(red: 0.37, green: 0.50, blue: 0.56, alpha: 1)
                 }
                 ctx.setFillColor(color.cgColor)
                 ctx.setStrokeColor((light ? UIColor.white : UIColor.black)
@@ -865,7 +863,7 @@ struct EarthCountryGeometry {
             if let home {
                 let origin = CGPoint(x: home.longitude, y: home.latitude)
                 let wishlist = states.filter { $0.value == "wishlist" }.keys.sorted().prefix(4)
-                ctx.setStrokeColor(token(FarelinColor.globeVisited).withAlphaComponent(0.68).cgColor)
+                ctx.setStrokeColor(UIColor(FarelinColor.mint).withAlphaComponent(0.68).cgColor)
                 ctx.setLineWidth(1.8)
                 ctx.setLineDash(phase: 0, lengths: [5, 5])
                 for code in wishlist {
@@ -888,7 +886,7 @@ struct EarthCountryGeometry {
                 }
                 ctx.setLineDash(phase: 0, lengths: [])
                 let marker = pixel(origin, width: width, height: height, offset: 0)
-                ctx.setFillColor(token(FarelinColor.coral).cgColor)
+                ctx.setFillColor(UIColor(FarelinColor.coral).cgColor)
                 ctx.fillEllipse(in: CGRect(x: marker.x - 4, y: marker.y - 4, width: 8, height: 8))
             }
         }

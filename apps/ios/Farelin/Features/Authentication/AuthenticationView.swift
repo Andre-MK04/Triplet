@@ -31,10 +31,10 @@ struct AuthenticationView: View {
                     brand
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Your trips, watched quietly.")
-                            .font(.system(size: 35, weight: .bold, design: .default))
+                            .font(FarelinTypography.display(size: 35, weight: .bold))
                             .tracking(-1)
                         Text("Sign in to search, save watches and keep every Farelin trip tied to you.")
-                            .foregroundStyle(FarelinColor.mist)
+                            .foregroundStyle(.secondary)
                             .lineSpacing(3)
                     }
 
@@ -84,12 +84,12 @@ struct AuthenticationView: View {
                         Toggle(isOn: $acceptedLegal) {
                             VStack(alignment: .leading, spacing: 5) {
                                 Text("I accept Farelin’s Terms and Privacy Policy")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(FarelinTypography.font(.subheadline, weight: .semibold))
                                 HStack(spacing: 14) {
                                     Link("Read terms", destination: URL(string: "https://www.farelin.com/terms")!)
                                     Link("Privacy", destination: URL(string: "https://www.farelin.com/privacy")!)
                                 }
-                                .font(.caption)
+                                .font(FarelinTypography.font(.caption))
                             }
                         }
                         .accessibilityIdentifier("auth-legal-toggle")
@@ -97,7 +97,7 @@ struct AuthenticationView: View {
 
                     if let message = validationMessage ?? session.message {
                         Text(message)
-                            .font(.subheadline)
+                            .font(FarelinTypography.font(.subheadline))
                             .foregroundStyle(FarelinColor.coral)
                             .accessibilityIdentifier("auth-form-message")
                     }
@@ -119,19 +119,19 @@ struct AuthenticationView: View {
 
                     if mode == .signIn {
                         Button("Forgot password?") { forgotPassword = true }
-                            .font(.subheadline.weight(.semibold))
+                            .font(FarelinTypography.font(.subheadline, weight: .semibold))
                     }
                     NativeIdentityButtons(session: session, service: identityService,
                                           creatingAccount: mode == .createAccount, acceptedLegal: acceptedLegal)
 
                     Text("The iPhone app requires an account before fare or AI search. You can still explore Farelin publicly on the web.")
-                        .font(.caption)
-                        .foregroundStyle(FarelinColor.mist)
+                        .font(FarelinTypography.font(.caption))
+                        .foregroundStyle(.secondary)
                         .lineSpacing(3)
                 }
                 .padding(24)
             }
-            .background(FarelinColor.ink)
+            .background(Color(.systemBackground))
         }
         .onChange(of: mode) {
             session.message = nil
@@ -150,14 +150,14 @@ struct AuthenticationView: View {
         VStack(alignment: .leading, spacing: 7) {
             HStack {
                 Text(label.uppercased())
-                    .font(.caption2.monospaced().weight(.semibold))
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.caption2, weight: .semibold, family: .mono))
+                    .foregroundStyle(.secondary)
                     .tracking(1.2)
                 Spacer()
                 if let hint {
                     Text(hint)
-                        .font(.caption)
-                        .foregroundStyle(FarelinColor.mist)
+                        .font(FarelinTypography.font(.caption))
+                        .foregroundStyle(.secondary)
                 }
             }
             content()
@@ -196,13 +196,13 @@ struct AuthenticationView: View {
                 .frame(width: 36, height: 36)
                 .accessibilityHidden(true)
             Text("FARELIN")
-                .font(.system(.headline, design: .monospaced, weight: .bold))
+                .font(FarelinTypography.font(.headline, weight: .bold, family: .mono))
                 .tracking(3)
             Spacer()
             if configuration.environment == .staging {
                 Text("STAGING")
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.caption2, family: .mono))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -241,10 +241,10 @@ private struct FarelinTextFieldStyle: TextFieldStyle {
         configuration
             .padding(.horizontal, 16)
             .frame(minHeight: 54)
-            .background(FarelinColor.raised, in: .rect(cornerRadius: FarelinGeometry.controlRadius))
+            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
             .overlay {
-                RoundedRectangle(cornerRadius: FarelinGeometry.controlRadius)
-                    .stroke(FarelinColor.line, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(.separator).opacity(0.45), lineWidth: 1)
             }
     }
 }

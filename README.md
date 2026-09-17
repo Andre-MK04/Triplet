@@ -676,18 +676,20 @@ does not trigger fare previews, AI searches or automatic watch resumption;
 pull to refresh only reloads the account dashboard. A failed refresh keeps the
 previous dashboard visible with a retry warning.
 
-Native content shares the web's exact paired light/dark theme tokens from
-`apps/web/app/globals.css`: ink/raised surfaces, cloud/mist text, teal actions,
-coral prices, gold deal and sky fit-score tones, and translucent hairlines.
-Custom cards, form choices and primary buttons use the web's flat geometry;
-custom headings use clean sans-serif rather than rounded display styling.
-SF typography, native navigation/tabs/sheets/pickers and Apple's identity
-control remain platform-native. Globe materials separately match the web globe
-palette; colors are explicitly resolved for its light/dark texture renderer.
-System appearance selects the theme; no forced-dark setting or new tracking.
-Navigation titles retain native rendering: a global navigation appearance
-replacement hid large titles on iOS 26.5, so it is intentionally not installed.
-The Today UI regressions check title visibility before and after watch navigation.
+The iPhone app retains its rounded native cards, controls, colors and navigation.
+Typography now uses the same actual families as the website: Bricolage Grotesque
+for display headings, Hanken Grotesk for body/control text, and JetBrains Mono
+for compact labels. Fonts and SIL OFL licenses ship inside the app; no font
+download is needed at runtime. Semantic custom fonts retain Dynamic Type scaling.
+System symbols and official identity-provider controls retain platform styling.
+Font sources and reproducible weight generation are documented in
+`apps/ios/FontSources/README.md`.
+
+A separate, non-production website concept translates the restored app design
+onto the web: `design/previews/farelin-native-web.html`. See its README for local
+preview instructions and screenshots. Its fares are fictional demo data; it
+does not perform searches, send alerts or save anything to a real account.
+The live web pages have not been redesigned by this concept.
 
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using

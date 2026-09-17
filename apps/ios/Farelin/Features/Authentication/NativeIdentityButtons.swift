@@ -38,8 +38,8 @@ struct NativeIdentityButtons: View {
                     Task { await signInWithGoogle() }
                 } label: {
                     HStack { Text("Continue with Google"); if busy { ProgressView() } }
-                        .font(.headline).frame(maxWidth: .infinity).frame(height: 50)
-                        .background(FarelinColor.raised, in: .rect(cornerRadius: 14))
+                        .font(FarelinTypography.font(.headline)).frame(maxWidth: .infinity).frame(height: 50)
+                        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
                 .disabled(!canContinue)
@@ -47,9 +47,9 @@ struct NativeIdentityButtons: View {
             }
             if creatingAccount, !acceptedLegal, providers?.apple == true || providers?.google == true {
                 Text("Accept the terms above before creating an account with Apple or Google.")
-                    .font(.caption).foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.caption)).foregroundStyle(.secondary)
             }
-            if let message { Text(message).font(.footnote).foregroundStyle(FarelinColor.coral) }
+            if let message { Text(message).font(FarelinTypography.font(.footnote)).foregroundStyle(FarelinColor.coral) }
         }
         .task { await load() }
     }

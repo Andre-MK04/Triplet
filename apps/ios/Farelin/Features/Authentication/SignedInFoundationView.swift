@@ -20,10 +20,10 @@ struct SignedInFoundationView: View {
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(user.displayName ?? "Welcome to Farelin")
-                                .font(.headline)
+                                .font(FarelinTypography.font(.headline))
                             Text(user.email)
-                                .font(.subheadline)
-                                .foregroundStyle(FarelinColor.mist)
+                                .font(FarelinTypography.font(.subheadline))
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -31,7 +31,7 @@ struct SignedInFoundationView: View {
                 if !user.isVerified {
                     Section("Confirm your email") {
                         Text("Enter the six-digit code sent to \(user.email) before using Farelin’s AI and fare-search tools.")
-                            .font(.subheadline)
+                            .font(FarelinTypography.font(.subheadline))
                         TextField("6-digit code", text: $verificationCode)
                             .keyboardType(.numberPad)
                             .textContentType(.oneTimeCode)
@@ -59,14 +59,14 @@ struct SignedInFoundationView: View {
                         Label("Your account is ready", systemImage: "checkmark.seal.fill")
                             .foregroundStyle(FarelinColor.mint)
                         Text("The native dashboard, search, watches and My World arrive in the next stages. Your account already uses the same Farelin backend as the web app.")
-                            .font(.subheadline)
-                            .foregroundStyle(FarelinColor.mist)
+                            .font(FarelinTypography.font(.subheadline))
+                            .foregroundStyle(.secondary)
                     }
                 }
 
                 if let message = session.message {
                     Section {
-                        Text(message).font(.subheadline)
+                        Text(message).font(FarelinTypography.font(.subheadline))
                     }
                 }
 

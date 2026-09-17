@@ -34,7 +34,7 @@ struct AccountControls: View {
                 deleting = true
             }
             if busy { ProgressView("Updating your account…") }
-            if let message { Text(message).font(.footnote).foregroundStyle(FarelinColor.mist) }
+            if let message { Text(message).font(FarelinTypography.font(.footnote)).foregroundStyle(.secondary) }
         }
         .disabled(busy)
         .sheet(isPresented: $changingPassword) {
@@ -44,7 +44,7 @@ struct AccountControls: View {
             NavigationStack {
                 Form {
                     Section {
-                        Text("Permanently delete your account?").font(.title2.bold())
+                        Text("Permanently delete your account?").font(FarelinTypography.font(.title2, weight: .bold))
                         Text("Your profile, travel map, saved fares, watches and sessions will be removed. Any paid subscription must be canceled successfully first. This cannot be undone.")
                         TextField("Type DELETE to confirm", text: $confirmation)
                             .textInputAutocapitalization(.characters).autocorrectionDisabled()
@@ -62,7 +62,7 @@ struct AccountControls: View {
                         }
                         .disabled(confirmation != "DELETE" || busy)
                         if busy { ProgressView("Deleting…") }
-                        if let message { Text(message).font(.footnote) }
+                        if let message { Text(message).font(FarelinTypography.font(.footnote)) }
                     }
                 }
                 .navigationTitle("Delete account")
@@ -143,7 +143,7 @@ struct PasswordRecoveryView: View {
                         else { Text(mode == .forgot ? "Send reset link" : "Save new password") }
                     }
                     .disabled(busy || succeeded)
-                    if let message { Text(message).font(.footnote).accessibilityIdentifier("password-message") }
+                    if let message { Text(message).font(FarelinTypography.font(.footnote)).accessibilityIdentifier("password-message") }
                 }
             }
             .navigationTitle(mode == .forgot ? "Forgot password" : "Change password")

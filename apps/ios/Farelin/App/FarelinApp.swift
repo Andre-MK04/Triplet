@@ -9,7 +9,7 @@ struct FarelinApp: App {
     @State private var session: AuthSession
 
     init() {
-        FarelinNativeChrome.configure()
+        FarelinTypography.configureNativeLabels()
         do {
             let configuration = try AppConfiguration.current()
             let apiClient = APIClient(baseURL: configuration.apiBaseURL)
@@ -59,7 +59,7 @@ struct FarelinApp: App {
                 .onOpenURL { url in _ = GIDSignIn.sharedInstance.handle(url) }
             #endif
             }
-            .farelinAppSurface()
+            .font(FarelinTypography.font(.body))
         }
     }
 }

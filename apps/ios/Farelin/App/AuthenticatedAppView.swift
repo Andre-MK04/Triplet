@@ -80,7 +80,7 @@ struct AuthenticatedAppView: View {
                 HStack {
                     Spacer()
                     Button("Account", systemImage: "person.crop.circle") { showingAccount = true }
-                        .font(.subheadline)
+                        .font(FarelinTypography.font(.subheadline))
                 }.padding(.horizontal, 24)
             }
         }
@@ -181,10 +181,10 @@ struct AuthenticatedAppView: View {
                     .font(.system(size: 36))
                     .foregroundStyle(FarelinColor.coral)
                 Text("Your travel profile could not load")
-                    .font(.headline)
+                    .font(FarelinTypography.font(.headline))
                 Text(profileStore.errorMessage ?? "Check your connection and try again.")
-                    .font(.subheadline)
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.subheadline))
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                 Button("Try again") { Task { await profileStore.load() } }
                     .buttonStyle(.borderedProminent)
@@ -217,12 +217,12 @@ struct WatchesView: View {
                         if let error = store.errorMessage {
                             Label(error, systemImage: "exclamationmark.triangle")
                                 .foregroundStyle(FarelinColor.coral)
-                                .font(.subheadline)
+                                .font(FarelinTypography.font(.subheadline))
                         }
                         ForEach(watches) { watch in
                         HStack(spacing: 12) {
                             Circle()
-                                .fill(watch.isActive ? FarelinColor.mint : FarelinColor.mist.opacity(0.45))
+                                .fill(watch.isActive ? FarelinColor.mint : Color.secondary.opacity(0.45))
                                 .frame(width: 9, height: 9)
                             VStack(alignment: .leading, spacing: 6) {
                                 NavigationLink("Details & history") {
@@ -232,14 +232,14 @@ struct WatchesView: View {
                                         Task { await store.load(force: true) }
                                     }
                                 }
-                                .font(.caption.weight(.semibold))
+                                .font(FarelinTypography.font(.caption, weight: .semibold))
                                 Text(watch.name ?? "Trip watch")
-                                    .font(.headline)
+                                    .font(FarelinTypography.font(.headline))
                                 Text(watch.routeDescription)
-                                    .font(.subheadline.monospaced())
+                                    .font(FarelinTypography.font(.subheadline, family: .mono))
                                 Text("\(watch.isActive ? "Active" : "Paused") · \(watch.frequency.capitalized) · up to €\(watch.maxBudget, specifier: "%.0f")")
-                                    .font(.caption)
-                                    .foregroundStyle(FarelinColor.mist)
+                                    .font(FarelinTypography.font(.caption))
+                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if store.workingWatchID == watch.id {
@@ -254,8 +254,8 @@ struct WatchesView: View {
                                     }
                                 } label: {
                                     Image(systemName: "ellipsis.circle")
-                                        .font(.title3)
-                                        .foregroundStyle(FarelinColor.mist)
+                                        .font(FarelinTypography.font(.title3))
+                                        .foregroundStyle(.secondary)
                                 }
                                 .accessibilityLabel("Actions for \(watch.name ?? "trip watch")")
                             }
@@ -277,7 +277,7 @@ struct WatchesView: View {
                         savedFareSection
                         Section("Active watches") {
                             Text("No active watches yet. Saved fares are bookmarks, not alerts.")
-                                .font(.subheadline).foregroundStyle(FarelinColor.mist)
+                                .font(FarelinTypography.font(.subheadline)).foregroundStyle(.secondary)
                         }
                     }
                 } else if store.isLoading || loadingFares {
@@ -349,34 +349,34 @@ struct WatchesView: View {
     private var savedFareSection: some View {
         if let fareError {
             Label(fareError, systemImage: "wifi.exclamationmark")
-                .font(.caption).foregroundStyle(FarelinColor.coral)
+                .font(FarelinTypography.font(.caption)).foregroundStyle(FarelinColor.coral)
         }
         if !savedFares.isEmpty {
             Section("Saved fares · not monitored") {
                 ForEach(savedFares) { fare in
                     VStack(alignment: .leading, spacing: 5) {
                         HStack {
-                            Text(fare.title).font(.headline)
+                            Text(fare.title).font(FarelinTypography.font(.headline))
                             Spacer()
                             Text("\(fare.currency) \(fare.observedPrice, specifier: "%.0f")")
-                                .font(.subheadline.weight(.bold))
+                                .font(FarelinTypography.font(.subheadline, weight: .bold))
                                 .foregroundStyle(FarelinColor.mint)
                         }
                         Text("\(fare.fareStatus.capitalized) fare · last observed \(String(fare.observedAt.prefix(10))) · price may change")
-                            .font(.caption).foregroundStyle(FarelinColor.mist)
+                            .font(FarelinTypography.font(.caption)).foregroundStyle(.secondary)
                         if !["multi_city", "open_jaw"].contains(fare.tripType), let url = fare.checkPriceURL {
                             Link("Check final price", destination: url)
-                                .font(.subheadline.weight(.semibold))
+                                .font(FarelinTypography.font(.subheadline, weight: .semibold))
                         }
                         if let trip = fare.trip {
                             NavigationLink("View saved route") {
                                 TripDetailView(trip: trip, service: tripDetailService,
                                                reauthenticate: reauthenticate, isSavedSnapshot: true)
                             }
-                            .font(.subheadline.weight(.semibold))
+                            .font(FarelinTypography.font(.subheadline, weight: .semibold))
                         } else {
                             Text("This older bookmark has no complete itinerary snapshot.")
-                                .font(.caption).foregroundStyle(FarelinColor.mist)
+                                .font(FarelinTypography.font(.caption)).foregroundStyle(.secondary)
                         }
                     }
                     .padding(.vertical, 5)
@@ -437,10 +437,10 @@ private struct AccountView: View {
                             .frame(width: 42, height: 42)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(user.displayName ?? "Farelin traveller")
-                                .font(.headline)
+                                .font(FarelinTypography.font(.headline))
                             Text(user.email)
-                                .font(.subheadline)
-                                .foregroundStyle(FarelinColor.mist)
+                                .font(FarelinTypography.font(.subheadline))
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }

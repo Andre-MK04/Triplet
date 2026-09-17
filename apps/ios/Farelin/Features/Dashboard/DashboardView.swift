@@ -35,7 +35,7 @@ struct DashboardView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
             }
-            .background(FarelinColor.ink)
+            .background(Color(.systemBackground))
             .navigationTitle("Today")
             .refreshable { await store.load(force: true) }
             .task { await store.load() }
@@ -46,17 +46,17 @@ struct DashboardView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("WELCOME BACK")
-                .font(.caption2.monospaced().weight(.semibold))
+                .font(FarelinTypography.font(.caption2, weight: .semibold, family: .mono))
                 .tracking(1.4)
                 .foregroundStyle(FarelinColor.action)
             Text(user.displayName?.firstName.map { "Hello, \($0)." } ?? "Hello.")
-                .font(.system(size: 34, weight: .bold, design: .default))
+                .font(FarelinTypography.display(size: 34, weight: .bold))
                 .tracking(-0.8)
             Text(store.dashboard.map {
                 TodayWatchOverview(watches: $0.savedSearches, now: Date()).message
             } ?? "Your next trip starts here.")
-                .font(.body)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.body))
+                .foregroundStyle(.secondary)
                 .accessibilityIdentifier("today-status")
         }
         .padding(.top, 8)
@@ -65,19 +65,19 @@ struct DashboardView: View {
     private func planCard(_ billing: DashboardBilling) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: billing.plan == "pro" ? "sparkles" : "paperplane.fill")
-                .font(.title2)
+                .font(FarelinTypography.font(.title2))
                 .foregroundStyle(FarelinColor.mint)
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 5) {
                 Text(planName(billing.plan))
-                    .font(.headline)
+                    .font(FarelinTypography.font(.headline))
                 Text(planDetail(billing))
-                    .font(.subheadline)
-                    .foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.subheadline))
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             Text(billing.plan.uppercased())
-                .font(.caption2.monospaced().weight(.bold))
+                .font(FarelinTypography.font(.caption2, weight: .bold, family: .mono))
                 .tracking(1)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -112,7 +112,7 @@ struct DashboardView: View {
                 Image(systemName: "clock.arrow.circlepath")
                     .foregroundStyle(FarelinColor.mint)
                 Text(usage.dailyWatchChecks ? "Daily and weekly fare checks available" : "Weekly fare checks")
-                    .font(.subheadline)
+                    .font(FarelinTypography.font(.subheadline))
                 Spacer()
             }
             .farelinCard()
@@ -127,7 +127,7 @@ struct DashboardView: View {
                 Spacer()
                 if !watches.isEmpty {
                     Button("See all", action: openWatches)
-                        .font(.subheadline.weight(.semibold))
+                        .font(FarelinTypography.font(.subheadline, weight: .semibold))
                         .accessibilityIdentifier("today-all-watches")
                 }
             }
@@ -135,13 +135,13 @@ struct DashboardView: View {
             if watches.isEmpty {
                 VStack(alignment: .leading, spacing: 14) {
                     Image(systemName: "bell.slash")
-                        .font(.title2)
+                        .font(FarelinTypography.font(.title2))
                         .foregroundStyle(FarelinColor.coral)
                     Text("No saved watches yet")
-                        .font(.headline)
+                        .font(FarelinTypography.font(.headline))
                     Text("Find a trip you like and Farelin can keep checking it for you.")
-                        .font(.subheadline)
-                        .foregroundStyle(FarelinColor.mist)
+                        .font(FarelinTypography.font(.subheadline))
+                        .foregroundStyle(.secondary)
                     Button("Find a trip", action: openDiscover)
                         .buttonStyle(FarelinPrimaryButtonStyle())
                         .accessibilityIdentifier("today-discover")
@@ -165,8 +165,8 @@ struct DashboardView: View {
         VStack(spacing: 14) {
             ProgressView()
             Text("Loading your Farelin world…")
-                .font(.subheadline)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.subheadline))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 180)
         .farelinCard()
@@ -175,10 +175,10 @@ struct DashboardView: View {
     private func errorState(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Your dashboard could not load", systemImage: "wifi.exclamationmark")
-                .font(.headline)
+                .font(FarelinTypography.font(.headline))
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.subheadline))
+                .foregroundStyle(.secondary)
             Button("Try again") { Task { await store.load(force: true) } }
                 .buttonStyle(FarelinPrimaryButtonStyle())
         }
@@ -187,9 +187,9 @@ struct DashboardView: View {
 
     private func sectionTitle(_ title: String) -> some View {
         Text(title.uppercased())
-            .font(.caption2.monospaced().weight(.semibold))
+            .font(FarelinTypography.font(.caption2, weight: .semibold, family: .mono))
             .tracking(1.3)
-            .foregroundStyle(FarelinColor.mist)
+            .foregroundStyle(.secondary)
     }
 
     private func planName(_ plan: String) -> String {
@@ -224,15 +224,15 @@ private struct UsageCard: View {
             Image(systemName: symbol)
                 .foregroundStyle(FarelinColor.mint)
             Text(title)
-                .font(.caption)
-                .foregroundStyle(FarelinColor.mist)
+                .font(FarelinTypography.font(.caption))
+                .foregroundStyle(.secondary)
             if unlimited {
                 Text("Unlimited")
-                    .font(.title3.weight(.semibold))
+                    .font(FarelinTypography.font(.title3, weight: .semibold))
                     .foregroundStyle(FarelinColor.mint)
             } else {
                 Text("\(used) / \(limit)")
-                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .font(FarelinTypography.font(.title3, weight: .semibold).monospacedDigit())
                 ProgressView(value: Double(used), total: Double(max(limit, 1)))
                     .tint(FarelinColor.mint)
             }
@@ -251,35 +251,35 @@ private struct WatchSummaryCard: View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .firstTextBaseline) {
                 Text(watch.name ?? "Trip watch")
-                    .font(.headline)
+                    .font(FarelinTypography.font(.headline))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .font(FarelinTypography.font(.caption, weight: .semibold))
                     .accessibilityHidden(true)
             }
             Text(state.rawValue)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(state == .watching ? FarelinColor.action : FarelinColor.mist)
+                .font(FarelinTypography.font(.caption, weight: .semibold))
+                .foregroundStyle(state == .watching ? FarelinColor.action : Color.secondary)
             Text(watch.routeDescription)
-                .font(.subheadline.monospaced().weight(.medium))
+                .font(FarelinTypography.font(.subheadline, weight: .medium, family: .mono))
             VStack(alignment: .leading, spacing: 5) {
                 Label("Up to €\(watch.maxBudget, specifier: "%.0f")", systemImage: "eurosign.circle")
                 Label(watch.frequency.capitalized, systemImage: "calendar")
                 Text("\(TodayWatchOverview.displayDate(watch.startDate)) – \(TodayWatchOverview.displayDate(watch.endDate))")
             }
-            .font(.caption)
-            .foregroundStyle(FarelinColor.mist)
+            .font(FarelinTypography.font(.caption))
+            .foregroundStyle(.secondary)
             if let price = watch.lastBestPrice {
                 Text("Best observed: €\(price, specifier: "%.0f")")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(FarelinColor.coral)
+                    .font(FarelinTypography.font(.subheadline, weight: .semibold))
+                    .foregroundStyle(FarelinColor.action)
             }
             if let checked = watch.lastCheckedAt {
                 Text("Last checked \(TodayWatchOverview.displayDate(checked)) · price may change")
-                    .font(.caption).foregroundStyle(FarelinColor.mist)
+                    .font(FarelinTypography.font(.caption)).foregroundStyle(.secondary)
             }
             Text(state == .expired ? "Choose new dates" : state == .paused ? "Review or resume" : "View trips & history")
-                .font(.subheadline.weight(.semibold))
+                .font(FarelinTypography.font(.subheadline, weight: .semibold))
                 .foregroundStyle(FarelinColor.action)
         }
         .farelinCard()
