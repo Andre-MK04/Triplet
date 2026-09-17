@@ -189,6 +189,9 @@ unavailable and prices indicative, never guaranteed.
 - Structured/AI search; no double charge on repeated taps; over-budget labels.
 - Return/open-jaw/multi-city chronology and per-leg provider links.
 - Save/reopen/delete fare; edit/preview/pause/resume/delete watch, history.
+- Today: empty state opens Discover; watch card opens its details in Watches;
+  back navigation and See all work. Check paused/ended-window labels, expanded
+  Plan & usage with large text, and press/disclosure feedback with Reduce Motion.
 - My World touch/pinch/country selection in light/dark/reduced-motion/Low Power.
 - Dynamic Type, VoiceOver country browser, keyboard dismissal and small iPhone layout.
 - Push denied/granted, foreground/background/cold-launch tap, logout then another

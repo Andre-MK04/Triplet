@@ -22,6 +22,7 @@ struct AuthenticatedAppView: View {
     @State private var worldStore: MyWorldStore
     @State private var showingProfile = false
     @State private var showingAccount = false
+    @State private var selectedWatchID: String?
 
     init(
         configuration: AppConfiguration,
@@ -114,14 +115,18 @@ struct AuthenticatedAppView: View {
             .tabItem { Label("Discover", systemImage: "magnifyingglass") }
             .tag(FarelinTab.discover)
 
-            DashboardView(user: user, store: dashboardStore) {
+            DashboardView(user: user, store: dashboardStore, openDiscover: {
                 selectedTab = .discover
-            }
+            }, openWatch: { id in
+                selectedWatchID = id
+                selectedTab = .watches
+            }, openWatches: { selectedTab = .watches })
             .tabItem { Label("Today", systemImage: "sparkles") }
             .tag(FarelinTab.dashboard)
 
             WatchesView(store: dashboardStore, fareService: apiClient, tripDetailService: apiClient,
                         watchService: apiClient, session: session,
+                        selectedWatchID: $selectedWatchID,
                         reauthenticate: { await session.refreshAccess() }) {
                 selectedTab = .discover
             }
@@ -189,12 +194,13 @@ struct AuthenticatedAppView: View {
     }
 }
 
-private struct WatchesView: View {
+struct WatchesView: View {
     let store: DashboardStore
     let fareService: any NativeFareSaving
     let tripDetailService: any TripDetailServicing
     let watchService: any WatchManagementServicing
     let session: AuthSession
+    @Binding var selectedWatchID: String?
     let reauthenticate: (@MainActor @Sendable () async -> Bool)?
     let discoverTrips: () -> Void
     @State private var pendingDeletion: SavedWatchSummary?
@@ -229,7 +235,7 @@ private struct WatchesView: View {
                                 .font(.caption.weight(.semibold))
                                 Text(watch.name ?? "Trip watch")
                                     .font(.headline)
-                                Text("\(watch.originAirports.joined(separator: " + ")) → \(watch.destinationAirports?.joined(separator: " + ") ?? "Anywhere")")
+                                Text(watch.routeDescription)
                                     .font(.subheadline.monospaced())
                                 Text("\(watch.isActive ? "Active" : "Paused") · \(watch.frequency.capitalized) · up to €\(watch.maxBudget, specifier: "%.0f")")
                                     .font(.caption)
@@ -303,10 +309,10 @@ private struct WatchesView: View {
                 }
             }
             .navigationDestination(isPresented: Binding(
-                get: { PushNotifications.shared.destination != nil },
-                set: { if !$0 { PushNotifications.shared.destination = nil } }
+                get: { selectedWatchID != nil || PushNotifications.shared.destination != nil },
+                set: { if !$0 { selectedWatchID = nil; PushNotifications.shared.destination = nil } }
             )) {
-                if case .watch(let id) = PushNotifications.shared.destination {
+                if let id = destinationWatchID {
                     WatchDetailView(id: id, service: watchService, tripService: tripDetailService,
                                     session: session, dailyChecks: store.dashboard?.usage.dailyWatchChecks ?? false,
                                     originLimit: store.dashboard?.usage.maxOriginAirports ?? 3) {
@@ -332,6 +338,11 @@ private struct WatchesView: View {
                 Text("Farelin will stop checking this search. This cannot be undone.")
             }
         }
+    }
+
+    private var destinationWatchID: String? {
+        if case .watch(let id) = PushNotifications.shared.destination { return id }
+        return selectedWatchID
     }
 
     @ViewBuilder

@@ -2,6 +2,53 @@ import XCTest
 
 @MainActor
 final class FarelinUITests: XCTestCase {
+    func testTodayWatchOpensExistingDetailAndReturns() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-ui-testing-today"]
+        app.launch()
+        let watch = app.buttons["today-watch-nordic"]
+        XCTAssertTrue(watch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["today-status"].label.contains("set to check on schedule"))
+        XCTAssertFalse(app.staticTexts["THIS MONTH"].exists)
+        watch.tap()
+        XCTAssertTrue(app.buttons["Preview matching trips"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Edit watch"].exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.tabBars.buttons["Today"].tap()
+        XCTAssertTrue(watch.waitForExistence(timeout: 3))
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Actionable Today"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    func testEmptyTodayOffersDiscoveryAndUsageWithLargeText() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-ui-testing-today", "-ui-testing-empty", "-ui-testing-large-text", "-ui-testing-dark"]
+        app.launch()
+        XCTAssertTrue(app.buttons["today-discover"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["today-status"].label.contains("Find a trip"))
+        tapVisible("today-usage", in: app)
+        XCTAssertTrue(app.staticTexts["THIS MONTH"].waitForExistence(timeout: 3))
+        for _ in 0..<6 {
+            if app.buttons["today-discover"].isHittable { break }
+            app.swipeDown()
+        }
+        app.buttons["today-discover"].tap()
+        XCTAssertTrue(app.staticTexts["today-discover-destination"].waitForExistence(timeout: 3))
+    }
+
+    func testPausedTodayShowsHonestStatusAndReviewAction() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing", "-ui-testing-today", "-ui-testing-paused", "-ui-testing-dark"]
+        app.launch()
+        let watch = app.buttons["today-watch-nordic"]
+        XCTAssertTrue(watch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["today-status"].label.contains("No watches are checking"))
+        XCTAssertTrue(watch.label.contains("Review or resume"))
+        watch.tap()
+        XCTAssertTrue(app.buttons["Edit watch"].waitForExistence(timeout: 5))
+    }
     // Visibility checks request accessibility snapshots. Exit bounded scroll
     // loops once visible: `for ... where` still checks every remaining iteration.
     func testLongAdvancedResultsNeverLeaveBlankViewport() {

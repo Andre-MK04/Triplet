@@ -4,6 +4,11 @@ struct DashboardView: View {
     let user: AuthUser
     let store: DashboardStore
     let openDiscover: () -> Void
+    let openWatch: (String) -> Void
+    let openWatches: () -> Void
+    @State private var showingUsage = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var textSize
 
     var body: some View {
         NavigationStack {
@@ -12,9 +17,15 @@ struct DashboardView: View {
                     welcome
 
                     if let dashboard = store.dashboard {
-                        planCard(dashboard.billing)
-                        usageSection(dashboard.usage)
+                        if let error = store.errorMessage { errorState(error) }
                         watchesSection(dashboard.savedSearches)
+                        DisclosureGroup("Plan & usage", isExpanded: $showingUsage) {
+                            VStack(spacing: 16) {
+                                planCard(dashboard.billing)
+                                usageSection(dashboard.usage)
+                            }.padding(.top, 12)
+                        }
+                        .accessibilityIdentifier("today-usage")
                     } else if store.isLoading {
                         loadingState
                     } else if let error = store.errorMessage {
@@ -28,6 +39,7 @@ struct DashboardView: View {
             .navigationTitle("Today")
             .refreshable { await store.load(force: true) }
             .task { await store.load() }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: showingUsage)
         }
     }
 
@@ -36,13 +48,16 @@ struct DashboardView: View {
             Text("WELCOME BACK")
                 .font(.caption2.monospaced().weight(.semibold))
                 .tracking(1.4)
-                .foregroundStyle(FarelinColor.mint)
+                .foregroundStyle(FarelinColor.action)
             Text(user.displayName?.firstName.map { "Hello, \($0)." } ?? "Hello.")
                 .font(.system(size: 34, weight: .bold, design: .rounded))
                 .tracking(-0.8)
-            Text("Your fares are being watched quietly.")
+            Text(store.dashboard.map {
+                TodayWatchOverview(watches: $0.savedSearches, now: Date()).message
+            } ?? "Your next trip starts here.")
                 .font(.body)
                 .foregroundStyle(.secondary)
+                .accessibilityIdentifier("today-status")
         }
         .padding(.top, 8)
     }
@@ -75,7 +90,9 @@ struct DashboardView: View {
     private func usageSection(_ usage: DashboardUsage) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("This month")
-            HStack(spacing: 12) {
+            let layout = textSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+            layout {
                 UsageCard(
                     title: "AI searches",
                     used: usage.aiSearchesThisMonth,
@@ -103,14 +120,15 @@ struct DashboardView: View {
     }
 
     private func watchesSection(_ watches: [SavedWatchSummary]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let overview = TodayWatchOverview(watches: watches, now: Date())
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 sectionTitle("Saved watches")
                 Spacer()
                 if !watches.isEmpty {
-                    Text("\(watches.filter(\.isActive).count) active")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Button("See all", action: openWatches)
+                        .font(.subheadline.weight(.semibold))
+                        .accessibilityIdentifier("today-all-watches")
                 }
             }
 
@@ -126,12 +144,19 @@ struct DashboardView: View {
                         .foregroundStyle(.secondary)
                     Button("Find a trip", action: openDiscover)
                         .buttonStyle(FarelinPrimaryButtonStyle())
+                        .accessibilityIdentifier("today-discover")
                 }
                 .farelinCard()
             } else {
-                ForEach(watches.prefix(3)) { watch in
-                    WatchSummaryCard(watch: watch)
+                ForEach(overview.orderedWatches.prefix(3)) { watch in
+                    Button { openWatch(watch.id) } label: {
+                        WatchSummaryCard(watch: watch, state: overview.state(of: watch))
+                    }
+                    .buttonStyle(TodayWatchButtonStyle())
+                    .accessibilityIdentifier("today-watch-\(watch.id)")
                 }
+                Button("Explore another trip", systemImage: "magnifyingglass", action: openDiscover)
+                    .frame(minHeight: 44)
             }
         }
     }
@@ -220,41 +245,57 @@ private struct UsageCard: View {
 
 private struct WatchSummaryCard: View {
     let watch: SavedWatchSummary
+    let state: TodayWatchOverview.State
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .firstTextBaseline) {
                 Text(watch.name ?? "Trip watch")
                     .font(.headline)
-                    .lineLimit(1)
                 Spacer()
-                Circle()
-                    .fill(watch.isActive ? FarelinColor.mint : Color.secondary)
-                    .frame(width: 8, height: 8)
-                    .accessibilityLabel(watch.isActive ? "Active" : "Paused")
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .accessibilityHidden(true)
             }
-            Text(route)
+            Text(state.rawValue)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(state == .watching ? FarelinColor.action : Color.secondary)
+            Text(watch.routeDescription)
                 .font(.subheadline.monospaced().weight(.medium))
-            HStack {
+            VStack(alignment: .leading, spacing: 5) {
                 Label("Up to €\(watch.maxBudget, specifier: "%.0f")", systemImage: "eurosign.circle")
-                Spacer()
                 Label(watch.frequency.capitalized, systemImage: "calendar")
+                Text("\(TodayWatchOverview.displayDate(watch.startDate)) – \(TodayWatchOverview.displayDate(watch.endDate))")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
             if let price = watch.lastBestPrice {
                 Text("Best observed: €\(price, specifier: "%.0f")")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(FarelinColor.mint)
+                    .foregroundStyle(FarelinColor.action)
             }
+            if let checked = watch.lastCheckedAt {
+                Text("Last checked \(TodayWatchOverview.displayDate(checked)) · price may change")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Text(state == .expired ? "Choose new dates" : state == .paused ? "Review or resume" : "View trips & history")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FarelinColor.action)
         }
         .farelinCard()
+        .accessibilityElement(children: .combine)
     }
 
-    private var route: String {
-        let origins = watch.originAirports.joined(separator: " + ")
-        let destinations = watch.destinationAirports?.joined(separator: " + ") ?? "Anywhere"
-        return "\(origins) → \(destinations)"
+}
+
+private struct TodayWatchButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(reduceMotion ? 1 : configuration.isPressed ? 0.988 : 1)
+            .opacity(configuration.isPressed ? 0.84 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
 

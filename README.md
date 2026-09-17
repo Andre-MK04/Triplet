@@ -663,6 +663,19 @@ seven), omitting ground crossings. This is not one protected quote; prices and
 separate-ticket/ground warnings remain. Prompt suggestions have equal widths;
 price actions stack when larger text needs more room.
 
+Today puts saved watches before plan/usage counters. Watch cards open the existing
+watch detail and history in the Watches tab; See all opens watch management.
+Active windows awaiting their first check, checked watches, paused watches and
+ended windows have distinct labels. Ended windows do not count as monitoring;
+these are presentation states, not changes to the server scheduler. Historical
+best prices remain observed and carry a last-check date when available. Region
+and ordered-route watches preserve their scope in summaries instead of saying
+Anywhere. Plan & usage expands on demand, with stacked meters at accessibility
+text sizes. Press feedback and disclosure motion respect Reduce Motion. Today
+does not trigger fare previews, AI searches or automatic watch resumption;
+pull to refresh only reloads the account dashboard. A failed refresh keeps the
+previous dashboard visible with a retry warning.
+
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using
 ownership-checked API routes. Search results can save watches for return,

@@ -51,8 +51,70 @@ struct UITestDiscoverScreen: View {
     }
 }
 
+@MainActor
+struct UITestTodayScreen: View {
+    let session: AuthSession
+    @State private var store = DashboardStore(service: UITestDiscoverService())
+    @State private var tab = 0
+    @State private var watchID: String?
+    private let service = UITestDiscoverService()
+
+    var body: some View {
+        TabView(selection: $tab) {
+            DashboardView(user: UITestDiscoverService.dashboardUser, store: store,
+                openDiscover: { tab = 2 }, openWatch: { watchID = $0; tab = 1 }, openWatches: { tab = 1 })
+                .tabItem { Label("Today", systemImage: "sparkles") }.tag(0)
+            WatchesView(store: store, fareService: service, tripDetailService: service,
+                watchService: service, session: session, selectedWatchID: $watchID,
+                reauthenticate: nil, discoverTrips: { tab = 2 })
+                .tabItem { Label("Watches", systemImage: "bell") }.tag(1)
+            Text("Discover trips").accessibilityIdentifier("today-discover-destination")
+                .tabItem { Label("Discover", systemImage: "magnifyingglass") }.tag(2)
+        }
+        .tint(FarelinColor.action)
+        .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("-ui-testing-dark") ? .dark : .light)
+        .dynamicTypeSize(ProcessInfo.processInfo.arguments.contains("-ui-testing-large-text") ? .accessibility3 : .large)
+    }
+}
+
 private actor UITestDiscoverService: TripSearchServicing, OpportunityServicing,
-    TripDetailServicing, NativeWatchCreating, NativeFareSaving {
+    TripDetailServicing, NativeWatchCreating, NativeFareSaving, DashboardServicing, WatchManagementServicing {
+    static let dashboardUser = AuthUser(id: "ui-test", email: "ui-test@example.invalid",
+        displayName: "Traveler", isVerified: true, createdAt: "2026-09-17", hasPassword: true, connectedProviders: [])
+    func dashboard() -> DashboardResponse {
+        let usage = DashboardUsage(aiSearchesThisMonth: 1, aiSearchesPerMonth: 3, activeSavedSearches: 1,
+            savedSearchLimit: 1, maxOriginAirports: 3, dailyWatchChecks: false, unlimited: false)
+        let watches = ProcessInfo.processInfo.arguments.contains("-ui-testing-empty") ? [] : [testWatch]
+        return DashboardResponse(user: Self.dashboardUser,
+            billing: DashboardBilling(plan: "free", subscriptionStatus: "none", trialDaysRemaining: 0,
+                usage: usage, canStartTrial: true, canUpgrade: true, canManageBilling: false),
+            usage: usage, savedSearches: watches,
+            savedSearchSummary: SavedSearchSummary(total: watches.count, active: watches.filter(\.isActive).count))
+    }
+    private var testWatch: SavedWatchSummary {
+        SavedWatchSummary(id: "nordic", name: "Nordic weekends", originAirports: ["CPH"], destinationAirports: ["ARN"],
+            startDate: "2099-10-01", endDate: "2099-12-01", maxBudget: 200, frequency: "weekly",
+            isActive: !ProcessInfo.processInfo.arguments.contains("-ui-testing-paused"),
+            lastCheckedAt: "2026-09-17T12:00:00Z", lastNotifiedAt: nil, lastBestPrice: 125)
+    }
+    func pauseWatch(id: String) throws -> SavedWatchSummary { throw APIError.unavailable }
+    func resumeWatch(id: String) throws -> SavedWatchSummary { throw APIError.unavailable }
+    func deleteWatch(id: String) throws { throw APIError.unavailable }
+    func watch(id: String) -> NativeWatchDetail {
+        NativeWatchDetail(id: id, name: "Nordic weekends", originAirports: ["CPH"], destinationAirports: ["ARN"],
+            destinationCountries: [], destinationRegions: [], destinationContinents: [], tripPlan: "return",
+            routeStops: nil, returnOriginAirports: nil, startDate: "2099-10-01", endDate: "2099-12-01",
+            minTripLengthDays: 3, maxTripLengthDays: 5, maxBudget: 200, maxGroundTransferHours: 4,
+            frequency: "weekly", triggerMode: "any", directOnly: false, includeBaggage: false, isActive: testWatch.isActive)
+    }
+    func watchInsights(id: String) -> NativeWatchInsights {
+        NativeWatchInsights(totalChecks: 1, notificationCount: 0, lowestObservedPrice: 125, history: [], deliveries: [])
+    }
+    func updateWatch(id: String, update: NativeWatchUpdate) throws -> NativeWatchDetail { throw APIError.unavailable }
+    func previewWatch(id: String) -> NativeWatchPreview { NativeWatchPreview(matchingTrips: []) }
+    func updateWatchRoute(id: String, update: NativeWatchRouteUpdate) throws -> NativeWatchDetail { throw APIError.unavailable }
+    func watchAirports(query: String) -> [AirportResult] { [] }
+    func watchPlaces(query: String) -> [FlightPlaceResult] { [] }
     func searchTrips(_ request: FarelinAISearchRequest) throws -> FarelinAISearchResponse { throw APIError.unavailable }
     func searchPlaces(_ query: String) -> [FlightPlaceResult] { [] }
     func advancedSearch(_ request: FarelinAdvancedSearchRequest) async throws -> FarelinAISearchResponse {

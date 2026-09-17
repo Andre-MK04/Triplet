@@ -1,5 +1,49 @@
 # Farelin product plan
 
+## Native retention — actionable Today (2026-09-17)
+
+Handoff: search polish and hosted CI are green. Improve the existing Today
+and watch navigation before adding more onboarding questions. Paid native
+purchases, APNs setup and physical-device release QA remain external gates.
+
+Decision: reuse dashboard observations and watch details for a clear next
+action. Rejected: an extra opportunity feed fetch on Today (extra calls and
+duplicated Discover), or streaks/engagement tracking (pressure and privacy cost).
+
+- [x] A — derive truthful active/paused/expired states and useful ordering.
+  Where: DashboardModels/tests. Verify fixed-date tests, end-day boundary,
+  malformed dates and paused watches. Fence: no new fare requests or alerts;
+  observed price is historical, never a current guaranteed fare.
+- [x] B — put watch actions first, fold usage behind an accessible disclosure,
+  and open the existing watch detail from Today. Where: DashboardView and
+  authenticated tab routing. Verify empty/paused/active simulator flows,
+  large text; inspect Reduce Motion guards and retain physical QA. Fence: keep backend ownership and session checks;
+  do not automatically resume, preview, or run an AI search.
+- [x] C — full native tests, both Release builds, API tests, web build and
+  staged secret scan; update README and commit locally. Fence: do not push or
+  describe simulator QA as physical-device/TestFlight proof.
+
+Tripwires: a watch's end date has passed -> offer editing, not active-check
+claims; dates are malformed -> show unavailable, not invented timestamps;
+refresh fails with cached content -> keep content with a visible retry warning.
+Next: deeper saved-intent/profile refinement and globe opportunity overlays.
+
+Local receipt: 97 native tests pass (86 unit, 11 UI) on iPhone 17 Pro/iOS 26.5.
+Simulator flows exercise watch -> details -> back, paused-watch review, and
+large-text/dark-mode empty Today -> usage -> Discover. The final light-mode
+screenshot was inspected, including readable teal status/observed-price text.
+Both Production Release and Staging Release simulator builds pass. API:
+802 passed, two PostgreSQL-only tests skipped in SQLite (20.28s). Web:
+151 tests pass and the configured webpack production build compiles all routes.
+A preliminary Turbopack invocation failed with a local Node architecture error;
+the repository's configured webpack build passes, without web code changes.
+No new migration, Railway variables, analytics, fare/AI calls or native payment
+links. Hosted CI for this stage is not claimed; it will run after the owner pushes.
+Staged Gitleaks scan passes with no leaks. Local commit headline: Improve native
+Today watch actions and truthful monitoring states. No push in this stage.
+Reduce Motion guards are implemented; actual accessibility-setting, signing,
+APNs and physical-device release checks remain on the release checklist.
+
 ## Native CI visibility-loop investigation (2026-09-17)
 
 Run 35146124574: 82 tests passed; long-results UI regression exceeded its

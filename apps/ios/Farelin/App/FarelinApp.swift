@@ -43,6 +43,9 @@ struct FarelinApp: App {
         WindowGroup {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-ui-testing"),
+               ProcessInfo.processInfo.arguments.contains("-ui-testing-today") {
+                UITestTodayScreen(session: session)
+            } else if ProcessInfo.processInfo.arguments.contains("-ui-testing"),
                ProcessInfo.processInfo.arguments.contains("-ui-testing-discover") {
                 UITestDiscoverScreen()
             } else {

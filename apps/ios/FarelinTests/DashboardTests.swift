@@ -3,6 +3,97 @@ import XCTest
 
 @MainActor
 final class DashboardTests: XCTestCase {
+    private var today: Date { Date(timeIntervalSince1970: 1_789_646_400) } // 17 September 2026 UTC
+
+    private func summary(id: String = "watch", active: Bool = true, end: String = "2026-12-01",
+                         checked: String? = nil, notified: String? = nil) -> SavedWatchSummary {
+        SavedWatchSummary(id: id, name: "Nordic weekends", originAirports: ["CPH"],
+            destinationAirports: ["ARN"], startDate: "2026-10-01", endDate: end,
+            maxBudget: 200, frequency: "weekly", isActive: active, lastCheckedAt: checked,
+            lastNotifiedAt: notified, lastBestPrice: nil)
+    }
+
+    func testEmptyTodayInvitesDiscoveryWithoutClaimingMonitoring() {
+        let overview = TodayWatchOverview(watches: [], now: today)
+        XCTAssertEqual(overview.monitoringCount, 0)
+        XCTAssertTrue(overview.message.contains("Find a trip"))
+    }
+
+    func testPausedTodayDoesNotClaimActiveChecks() {
+        let watch = summary(active: false)
+        let overview = TodayWatchOverview(watches: [watch], now: today)
+        XCTAssertEqual(overview.state(of: watch), .paused)
+        XCTAssertEqual(overview.monitoringCount, 0)
+        XCTAssertTrue(overview.message.contains("No watches are checking"))
+    }
+
+    func testExpiredActiveWatchIsNotMonitoring() {
+        let watch = summary(end: "2026-09-01")
+        let overview = TodayWatchOverview(watches: [watch], now: today)
+        XCTAssertEqual(overview.state(of: watch), .expired)
+        XCTAssertEqual(overview.monitoringCount, 0)
+        XCTAssertTrue(overview.message.contains("windows have ended"))
+    }
+
+    func testWatchRemainsCurrentThroughEndDate() {
+        let watch = summary(end: "2026-09-17")
+        let overview = TodayWatchOverview(watches: [watch], now: today.addingTimeInterval(3600 * 11))
+        XCTAssertEqual(overview.state(of: watch), .waiting)
+        XCTAssertEqual(overview.monitoringCount, 1)
+    }
+
+    func testTodayPrioritizesObservedWatchesThenWaitingPausedExpired() {
+        let watches = [summary(id: "expired", end: "2020-01-01"), summary(id: "paused", active: false),
+                       summary(id: "waiting"), summary(id: "observed", checked: "2026-09-15T12:00:00Z")]
+        let overview = TodayWatchOverview(watches: watches, now: today)
+        XCTAssertEqual(overview.orderedWatches.map(\.id), ["observed", "waiting", "paused", "expired"])
+        XCTAssertEqual(overview.monitoringCount, 2)
+    }
+
+    func testRecentRecordedNotificationSortsBeforeOlderNotification() {
+        let watches = [summary(id: "old", checked: "2026-09-15", notified: "2026-09-14T12:00:00Z"),
+                       summary(id: "new", checked: "2026-09-15", notified: "2026-09-16T12:00:00Z")]
+        XCTAssertEqual(TodayWatchOverview(watches: watches, now: today).orderedWatches.first?.id, "new")
+    }
+
+    func testNaiveUTCNotificationTimestampsKeepWithinDayOrdering() {
+        let watches = [summary(id: "a-old", checked: "2026-09-15", notified: "2026-09-16T09:00:00.123456"),
+                       summary(id: "z-new", checked: "2026-09-15", notified: "2026-09-16T18:00:00")]
+        XCTAssertEqual(TodayWatchOverview(watches: watches, now: today).orderedWatches.first?.id, "z-new")
+    }
+
+    func testUnavailableDateDoesNotInventExpiryOrTimestamp() {
+        let watch = summary(end: "not-a-date")
+        XCTAssertEqual(TodayWatchOverview(watches: [watch], now: today).state(of: watch), .waiting)
+        XCTAssertEqual(TodayWatchOverview.displayDate("not-a-date"), "Date unavailable")
+        XCTAssertFalse(TodayWatchOverview.displayDate("2026-09-17T12:00:00.123456").contains("T12"))
+    }
+
+    func testGeographicWatchSummaryPreservesScopeInsteadOfClaimingAnywhere() throws {
+        let data = Data("""
+        {"id":"region","originAirports":["CPH"],"destinationRegions":["nordics"],
+         "destinationCountries":[],"destinationContinents":[],"startDate":"2026-10-01",
+         "endDate":"2026-12-01","maxBudget":200,"frequency":"weekly","isActive":true}
+        """.utf8)
+        let watch = try JSONDecoder().decode(SavedWatchSummary.self, from: data)
+        XCTAssertEqual(watch.routeDescription, "CPH → nordics")
+    }
+
+    func testOrderedWatchSummaryKeepsStopOrder() {
+        var watch = summary()
+        watch.routeStops = ["ATH", "SKP", "SOF"]
+        XCTAssertEqual(watch.routeDescription, "CPH → ATH → SKP → SOF")
+    }
+
+    func testFailedRefreshRetainsCachedDashboardAndShowsError() async {
+        let service = RefreshFailingDashboardService()
+        let store = DashboardStore(service: service)
+        await store.load()
+        await store.load(force: true)
+        XCTAssertNotNil(store.dashboard)
+        XCTAssertNotNil(store.errorMessage)
+        XCTAssertFalse(store.isLoading)
+    }
     func testDashboardPayloadDecodesBackendShape() throws {
         let data = Data(Self.dashboardJSON.utf8)
 
@@ -123,6 +214,18 @@ final class DashboardTests: XCTestCase {
       "savedSearchSummary": {"total": 1, "active": 1}
     }
     """
+}
+
+private actor RefreshFailingDashboardService: DashboardServicing {
+    var calls = 0
+    func dashboard() throws -> DashboardResponse {
+        calls += 1
+        if calls > 1 { throw APIError.unavailable }
+        return .fixture
+    }
+    func pauseWatch(id: String) throws -> SavedWatchSummary { throw APIError.unavailable }
+    func resumeWatch(id: String) throws -> SavedWatchSummary { throw APIError.unavailable }
+    func deleteWatch(id: String) throws { throw APIError.unavailable }
 }
 
 private actor FakeDashboardService: DashboardServicing {
