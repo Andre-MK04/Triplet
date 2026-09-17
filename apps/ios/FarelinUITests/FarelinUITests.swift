@@ -2,6 +2,8 @@ import XCTest
 
 @MainActor
 final class FarelinUITests: XCTestCase {
+    // Visibility checks request accessibility snapshots. Exit bounded scroll
+    // loops once visible: `for ... where` still checks every remaining iteration.
     func testLongAdvancedResultsNeverLeaveBlankViewport() {
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing", "-ui-testing-discover", "-ui-testing-results", "-ui-testing-dark"]
@@ -9,7 +11,10 @@ final class FarelinUITests: XCTestCase {
         app.buttons["Use my defaults"].tap()
         for round in 0..<3 {
             let search = app.buttons["advanced-search"]
-            for _ in 0..<6 where !search.isHittable { app.swipeUp() }
+            for _ in 0..<6 {
+                if search.isHittable { break }
+                app.swipeUp()
+            }
             XCTAssertTrue(search.isHittable)
             search.tap()
             let edit = app.buttons["discover-edit-search"]
@@ -25,7 +30,10 @@ final class FarelinUITests: XCTestCase {
             cardShot.lifetime = .keepAlways
             add(cardShot)
             app.swipeDown()
-            for _ in 0..<3 where !edit.isHittable { app.swipeDown() }
+            for _ in 0..<3 {
+                if edit.isHittable { break }
+                app.swipeDown()
+            }
             edit.tap()
         }
     }
@@ -37,7 +45,10 @@ final class FarelinUITests: XCTestCase {
         completeExplore(app)
         let budget = app.staticTexts["explore-budget-value"]
         let search = app.buttons["Find trips"]
-        for _ in 0..<5 where !search.isHittable { app.swipeUp() }
+        for _ in 0..<5 {
+            if search.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(search.isHittable)
         search.tap()
         let edit = app.buttons["discover-edit-search"]
@@ -60,7 +71,10 @@ final class FarelinUITests: XCTestCase {
         app.launch()
         completeExplore(app)
         let search = app.buttons["Find trips"]
-        for _ in 0..<5 where !search.isHittable { app.swipeUp() }
+        for _ in 0..<5 {
+            if search.isHittable { break }
+            app.swipeUp()
+        }
         search.tap()
         let widen = app.buttons["Review 30 more days"]
         XCTAssertTrue(widen.waitForExistence(timeout: 5))
@@ -101,7 +115,10 @@ final class FarelinUITests: XCTestCase {
         tapVisible("advanced-search", in: app)
         XCTAssertTrue(app.buttons["discover-edit-search"].waitForExistence(timeout: 5))
         let price = app.descendants(matching: .any).matching(identifier: "trip-check-price").firstMatch
-        for _ in 0..<8 where !price.isHittable { app.swipeUp() }
+        for _ in 0..<8 {
+            if price.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(price.isHittable)
         XCTAssertLessThanOrEqual(price.frame.maxX, app.frame.width - 20)
         XCTAssertLessThan(price.frame.height, 90, "The action should remain a single line at larger text sizes")
@@ -113,7 +130,10 @@ final class FarelinUITests: XCTestCase {
 
     private func tapVisible(_ title: String, in app: XCUIApplication) {
         let button = app.buttons[title]
-        for _ in 0..<6 where !button.isHittable { app.swipeUp() }
+        for _ in 0..<6 {
+            if button.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(button.isHittable, title)
         button.tap()
     }
@@ -143,7 +163,10 @@ final class FarelinUITests: XCTestCase {
         tapVisible("explore-flexible-budget", in: app)
         XCTAssertEqual(app.staticTexts["explore-budget-value"].label, "Flexible")
         let duration = app.sliders["explore-duration-slider"]
-        for _ in 0..<4 where !duration.isHittable || duration.frame.maxY > app.frame.height - 180 { app.swipeUp() }
+        for _ in 0..<4 {
+            if duration.isHittable && duration.frame.maxY <= app.frame.height - 180 { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(duration.isHittable)
         XCTAssertLessThan(duration.frame.maxY, app.frame.height - 160, "Move the slider above the floating tab bar before dragging")
         duration.adjust(toNormalizedSliderPosition: 1)

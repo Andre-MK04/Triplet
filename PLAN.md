@@ -1,5 +1,21 @@
 # Farelin product plan
 
+## Native CI visibility-loop investigation (2026-09-17)
+
+Run 35146124574: 82 tests passed; long-results UI regression exceeded its
+two-minute execution allowance. Saved screenshots show the results header, not
+a blank viewport. Activity timing attributes about 47 seconds to three
+redundant visibility checks after the Edit search control was already visible;
+the spindump shows accessibility snapshot work. Replace Swift `for ... where`
+scroll filters with early-exit loops, including sibling UI tests. Keep all
+three repeated search/edit cycles, screenshots, assertions and scroll bounds.
+Verify the 83-test suite locally and inspect the new hosted run before claiming
+the CI failure is resolved. Preserve the user's Xcode window-state file.
+
+Local receipt: all 83 tests pass on iPhone 17 Pro/iOS 26.5 with early-exit
+loops, no assertion removal and no further timeout increase. Hosted verification
+pending; production UI/auth/provider code is unchanged in this fix.
+
 ## Progressive native Explore revision (2026-09-16)
 
 Handoff: user reported blank advanced-search viewport, cramped price CTA and

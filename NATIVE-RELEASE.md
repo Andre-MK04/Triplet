@@ -17,7 +17,18 @@ Investigation receipt (2026-09-16): commit cbf7044 failed the long-results UI te
 on GitHub's iOS 26.4.1/Xcode 26.6 runner, but the original workflow suppressed the
 failure detail and discarded the bundle. Unchanged source passed the exact test
 on local iOS 26.5 (42 seconds), then all 83 tests passed on that simulator. This
-is not proof that the hosted failure is fixed; inspect the diagnostic CI run.
+is not proof that the hosted failure is fixed.
+
+Follow-up (2026-09-17): run 35146124574 reports 82 passes and one **execution
+timeout**, not a blank-viewport assertion. Its screenshots show the results
+header correctly visible. The activity trace spends about 47 seconds evaluating
+three redundant visibility queries after scrolling back to an already visible
+Edit search button; the spindump shows accessibility snapshot work. Swift's
+`for ... where !element.isHittable` filters iterations but does not terminate
+the loop when the element becomes visible. Use an explicit `break` in bounded
+scroll loops. All three search/edit cycles and the original assertions remain.
+The architecture choice only removes duplicate-destination resolution; LLDB
+metadata warnings occur in passing runs too and were not the root-cause proof.
 
 ## Backend deployment
 
