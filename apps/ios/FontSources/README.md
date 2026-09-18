@@ -9,8 +9,8 @@ sources were obtained from the official Google Fonts repository on 2026-09-17:
 - https://github.com/google/fonts/tree/main/ofl/jetbrainsmono
 
 SIL Open Font License notices are included in `../Farelin/Resources/Fonts` and
-bundled in the app. Sources live here for reproducibility and the local website
-concept; they are not copied into the app bundle. Native weights are generated
+bundled in the app. Sources live here for reproducibility;
+they are not copied into the app bundle. Native weights are generated
 static instances, not hand-drawn substitutes. Bricolage uses regular width and
 optical size 32. Native rendering/optical sizing can differ slightly from web.
 

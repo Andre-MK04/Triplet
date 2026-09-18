@@ -1,5 +1,27 @@
 # Farelin product plan
 
+## Keep original web design and restore search-first Discover (2026-09-18)
+
+Owner rejected the isolated app-inspired website concept. Remove its eight
+tracked prototype/screenshot files; they remain recoverable in Git history.
+Keep the native rollback/shared typography from a2def3a intact. The concept
+never replaced production web pages, so reverting that whole commit would
+incorrectly undo native typography rather than repair Discover.
+
+Cause reproduced by failing layout contracts: the pre-existing signed-in
+opportunity rail was rendered before the search composer, and its search link
+pointed at /discover without an anchor. A full board pushed search below the
+visible viewport. Move the composer ahead of the board and give it a named
+trip-search anchor. Preserve all existing styling, search behavior and feed.
+
+Verification: 153 web tests pass, including both formerly failing layout
+contracts. API: 802 passed, two PostgreSQL-only tests skipped (20.75s). Local
+browser: structured controls visible on entry; AI request and advanced options
+open correctly without any AI/fare submissions. Production deployment and an
+authenticated live search are not claimed. No iOS source or backend changes.
+Production webpack build passes (27 pages); staged Gitleaks scan finds no leaks.
+No push; owner deploys after review. Resume native retention roadmap next.
+
 ## Restore native design, share typography and preview reverse direction (2026-09-17)
 
 User decision: undo e1c7f02's flattened web-to-native styling, retaining the
@@ -21,14 +43,15 @@ schemes build. API: 802 passed, two PostgreSQL-only tests skipped. Web: 151 test
 pass and production webpack build succeeds (27 pages). Local prototype has no
 horizontal overflow at 360/390/768/1024/1440px after fixing narrow nav and tablet
 card-grid minimum widths. Demo search/bookmark feedback and trip sheet verified.
-Dark/light screenshots are under design/previews/screenshots. The prototype's
+Dark/light screenshots were under design/previews/screenshots (prototype removed
+at owner's request on 2026-09-18; recoverable from a2def3a). The prototype's
 globe is a draggable Canvas projection, not the production native 3D renderer.
 Physical-device typography QA remains manual. No migration, env change, push or
 deployment. Staged Gitleaks scan passes with no leaks; Xcode window state is
 excluded from the local commit.
 
-Next: review the website concept with the owner before applying any production
-web changes; then resume the existing retention roadmap.
+Update 2026-09-18: owner chose the original website design; concept review is
+closed. Resume the existing retention roadmap.
 
 ## Native retention — actionable Today (2026-09-17)
 

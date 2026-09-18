@@ -685,11 +685,9 @@ System symbols and official identity-provider controls retain platform styling.
 Font sources and reproducible weight generation are documented in
 `apps/ios/FontSources/README.md`.
 
-A separate, non-production website concept translates the restored app design
-onto the web: `design/previews/farelin-native-web.html`. See its README for local
-preview instructions and screenshots. Its fares are fictional demo data; it
-does not perform searches, send alerts or save anything to a real account.
-The live web pages have not been redesigned by this concept.
+The website retains its original visual design. Discover keeps its search
+composer above the personalized observed-fare board, so a long list of fares
+cannot bury structured or AI search. Board links jump directly to the composer.
 
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using

@@ -584,8 +584,6 @@ export function DiscoverClient() {
             same one. Renders nothing the vast majority of the time. */}
         <FareCheckPrompt />
 
-        {!hasSearched && user ? <OpportunityRail {...opportunities} /> : null}
-
         {showWelcome ? (
           <div className="mb-6">
             <Notice tone="success">
@@ -596,7 +594,7 @@ export function DiscoverClient() {
 
         {/* Structured exploration costs no AI search. Ask Farelin only when
             explicitly opened; a hidden old prompt cannot spend credits. */}
-        <section className="border-y border-line py-6">
+        <section id="trip-search" aria-label="Search trips" className="scroll-mt-24 border-y border-line py-6">
           <form onSubmit={runSearch} className="space-y-6">
             <div>
               <OriginPicker
@@ -865,6 +863,9 @@ export function DiscoverClient() {
             ))}
           </div> : null}
         </section>
+        {/* Search stays first: a long observed-fare board must never bury the
+            controls. The board remains available below the composer. */}
+        {!hasSearched && user ? <OpportunityRail {...opportunities} /> : null}
         {/* Results */}
         <section className="mt-8 space-y-4" aria-live="polite">
           {isLoading ? <ScanningRoutes /> : null}

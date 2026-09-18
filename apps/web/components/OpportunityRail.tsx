@@ -30,7 +30,7 @@ export function OpportunityRail({
             </p>
           ) : null}
         </div>
-        <Link href="/discover" className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
+        <Link href="/discover#trip-search" className="font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
           Shape a search ↗
         </Link>
       </div>
@@ -40,7 +40,7 @@ export function OpportunityRail({
       ) : null}
       {status === "error" ? (
         <div className="border-y border-line py-8 text-sm text-mist">
-          Your fare board could not load. You can still <Link href="/discover" className="text-mint underline">search trips</Link>.
+          Your fare board could not load. You can still <Link href="/discover#trip-search" className="text-mint underline">search trips</Link>.
         </div>
       ) : null}
       {status === "ready" && feed?.originAirports.length === 0 ? (
