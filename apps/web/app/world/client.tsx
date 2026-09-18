@@ -5,8 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../../components/AppShell";
 import { useAuth } from "../../components/AuthContext";
-import { TripRow } from "../../components/TripRow";
-import { useOpportunities } from "../../hooks/useOpportunities";
 import { Button, ButtonLink } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
@@ -19,7 +17,6 @@ import type {
   TravelDatePrecision,
   TravelMapCountry,
   TravelMapResponse,
-  TripOption,
 } from "../../lib/types";
 
 const TravelMapGlobe = dynamic(
@@ -114,8 +111,6 @@ function Legend() {
 function CountryPanel({
   metadata,
   country,
-  observedTrips,
-  boardLoaded,
   busy,
   onClose,
   onUpdate,
@@ -125,8 +120,6 @@ function CountryPanel({
 }: {
   metadata: CountryCatalogEntry;
   country?: TravelMapCountry;
-  observedTrips: TripOption[];
-  boardLoaded: boolean;
   busy: boolean;
   onClose: () => void;
   onUpdate: (patch: CountryPatch) => void;
@@ -158,29 +151,14 @@ function CountryPanel({
 
       {country?.wishlist ? (
         <div className="mt-6 space-y-2 border-y border-line py-4">
-          <ButtonLink href={`/discover?countries=${encodeURIComponent(metadata.name)}`} className="w-full">
-            Explore trips
+          <ButtonLink href={`/discover?q=${encodeURIComponent(`Find me a trip to ${metadata.name}`)}`} className="w-full">
+            Plan a trip
           </ButtonLink>
           <Button className="w-full" variant="ghost" onClick={() => onUpdate({ wishlist: false })} disabled={busy}>
             Remove from wishlist
           </Button>
         </div>
       ) : null}
-
-      <div className="mt-6 border-t border-line pt-4">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mint">Observed returns to {metadata.name}</p>
-        {observedTrips.length ? (
-          <div className="mt-2">
-            <p className="text-xs text-mist">From your airports; indicative fares, not guaranteed. Check final prices with the provider.</p>
-            {observedTrips.slice(0, 2).map((trip) => <TripRow key={trip.id} trip={trip} />)}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-mist">{boardLoaded
-            ? "Nothing to this country in your current observed board. That doesn't mean no flights are available."
-            : "Your personal fare board is loading or unavailable."}</p>
-        )}
-        <ButtonLink href={`/discover?countries=${encodeURIComponent(metadata.name)}`} className="mt-3">Explore this country →</ButtonLink>
-      </div>
 
       {country?.visited ? (
         <div className="mt-6">
@@ -377,7 +355,6 @@ function AddCountries({
 
 export function TravelMapClient() {
   const { user, isLoading: authLoading } = useAuth();
-  const { feed: opportunities, status: opportunityStatus } = useOpportunities(user?.id ?? null);
   const [catalog, setCatalog] = useState<CountryCatalogResponse | null>(null);
   const [travelMap, setTravelMap] = useState<TravelMapResponse | null>(null);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -415,9 +392,6 @@ export function TravelMapClient() {
   const metadataByCode = useMemo(() => new Map(catalog?.countries.map((country) => [country.code, country]) ?? []), [catalog]);
   const countryByCode = useMemo(() => new Map(travelMap?.countries.map((country) => [country.code, country]) ?? []), [travelMap]);
   const selectedMetadata = selectedCode ? metadataByCode.get(selectedCode) : undefined;
-  const countryTrips = selectedCode
-    ? (opportunities?.trips ?? []).filter((trip) => trip.destination?.countryCode === selectedCode)
-    : [];
   const selectedCountry = selectedCode ? countryByCode.get(selectedCode) : undefined;
 
   async function updateCountry(patch: CountryPatch) {
@@ -523,7 +497,7 @@ export function TravelMapClient() {
                 </div>
               </div>
               <div className="hidden lg:block">
-                {selectedMetadata ? <CountryPanel metadata={selectedMetadata} country={selectedCountry} observedTrips={countryTrips} boardLoaded={opportunityStatus === "ready"} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /> : <div className="border border-line p-8"><p className="font-mono text-[10px] uppercase tracking-label text-mint">Explore</p><h2 className="mt-2 font-display text-2xl font-bold text-cloud">Select a country</h2><p className="mt-3 text-sm leading-relaxed text-mist">Rotate the globe, or browse the same countries as a searchable list.</p></div>}
+                {selectedMetadata ? <CountryPanel metadata={selectedMetadata} country={selectedCountry} busy={busy} onClose={() => setSelectedCode(null)} onUpdate={(patch) => void updateCountry(patch)} onAddVisit={(kind) => openVisit(kind)} onEditVisit={(visit) => openVisit(visit.kind, visit)} onDeleteVisit={(visit) => void deleteVisit(visit)} /> : <div className="border border-line p-8"><p className="font-mono text-[10px] uppercase tracking-label text-mint">Explore</p><h2 className="mt-2 font-display text-2xl font-bold text-cloud">Select a country</h2><p className="mt-3 text-sm leading-relaxed text-mist">Rotate the globe, or browse the same countries as a searchable list.</p></div>}
               </div>
             </div>
             <section className="mt-12 border-t border-line pt-7"><div className="flex items-baseline justify-between gap-4"><div><p className="font-mono text-[10px] uppercase tracking-label text-mint">Continents</p><h2 className="mt-1 font-display text-2xl font-bold text-cloud">Progress, without pressure.</h2></div><span className="font-mono text-[10px] uppercase tracking-label text-mist">{travelMap.stats.continentsVisited} explored</span></div><div className="mt-5 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">{travelMap.stats.continentProgress.map((continent) => <div key={continent.name} className="border-b border-line py-4"><div className="flex justify-between"><span className="text-sm font-medium text-cloud">{continent.name}</span><span className="mono-num font-mono text-xs text-mist">{continent.visited} / {continent.total}</span></div><div className="mt-2 h-px bg-line"><div className="h-px bg-mint" style={{ width: `${continent.total ? Math.min(100, (continent.visited / continent.total) * 100) : 0}%` }} /></div></div>)}</div></section>
@@ -545,8 +519,6 @@ export function TravelMapClient() {
             <CountryPanel
               metadata={selectedMetadata}
               country={selectedCountry}
-              observedTrips={countryTrips}
-              boardLoaded={opportunityStatus === "ready"}
               busy={busy}
               onClose={() => setSelectedCode(null)}
               onUpdate={(patch) => void updateCountry(patch)}

@@ -615,10 +615,11 @@ Farelin now opens Discover on iPhone with observed opportunities from the
 signed-in user's profile airports. `GET /me/opportunities` reads at most 500
 future-dated cached return rows from PostgreSQL, ranks them into at most 12
 distinct trip ideas, and calls neither the language model nor Travelpayouts.
-The same private, uncached API powers the web home and Discover opportunity
-board. A cold cache is shown as empty, never filled with a different user's
-or demo origins. Both clients now put structured date/budget/length choices
-first and offer AI as a separate route. This feed does not imply exhaustive
+This private API powers native opportunity boards. A cold cache is shown as
+empty, never filled with a different user's or demo origins. Native Discover
+puts structured date/budget/length choices first and offers AI separately.
+The website retains its earlier search-led layout rather than the native
+opportunity-board design. This feed does not imply exhaustive
 inventory: Travelpayouts observations remain indicative and provider prices
 must be checked before purchase. Cached round-trip fares have known dates and
 one observed total, not verified departure clock times, baggage or per-leg
@@ -626,7 +627,7 @@ prices; cards suppress those internal placeholder values. Deeper destination
 alternatives and geography overlays are planned in `PLAN.md`.
 Hard direct-only searches do not treat date-only round-trip bundles as
 verified direct flights; they need provider offers with per-leg details.
-Selecting a country in My World on either client now surfaces observed
+Selecting a country in native My World surfaces observed
 round-trip opportunities from the same private board when available. The
 personal board is limited to twelve trip ideas, so an empty country panel
 does not mean that the country has no flights; a wider structured Discover
@@ -685,9 +686,12 @@ System symbols and official identity-provider controls retain platform styling.
 Font sources and reproducible weight generation are documented in
 `apps/ios/FontSources/README.md`.
 
-The website retains its original visual design. Discover keeps its search
-composer above the personalized observed-fare board, so a long list of fares
-cannot bury structured or AI search. Board links jump directly to the composer.
+The website uses its pre-Explore-first layout: the homepage shows “Europe,
+on a whim.” with a search box. Discover immediately shows the AI prompt, origin
+picker, trip-shape choices and Find trips button, with dates/budget/destination
+under the existing disclosure. Its newer quick-choice composer and personalized
+opportunity boards have been removed from the web UI. My World retains its
+earlier country/memory panels. Native opportunity boards remain unchanged.
 
 The signed-in iPhone tabs now include Discover (opening tab), Today, Watches, My World, and
 Account. Watches can be edited, previewed, paused, resumed, or deleted using

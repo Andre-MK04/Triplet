@@ -3,17 +3,15 @@
 import { motion, useReducedMotion } from "framer-motion";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../components/AppShell";
-import { useAuth } from "../components/AuthContext";
-import { OpportunityRail } from "../components/OpportunityRail";
 import { ScoreDial } from "../components/ScoreDial";
 import type { GlobeMarker } from "../components/RouteGlobe";
 import { ButtonLink } from "../components/ui/Button";
 import { apiGet } from "../lib/api";
 import { formatPrice, timeAgo } from "../lib/format";
-import { useOpportunities } from "../hooks/useOpportunities";
 import type { FeaturedDeals, TripOption } from "../lib/types";
 
 const RouteGlobe = dynamic(() => import("../components/RouteGlobe"), { ssr: false });
@@ -82,22 +80,35 @@ function useFeaturedDeals() {
   return { deals, status, markers, board };
 }
 
-function QuickStart() {
+function HeroSearch() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/discover?q=${encodeURIComponent(q)}` : "/discover");
+  }
+
   return (
-    <div>
-      <ButtonLink href="/discover" size="lg">Explore trips →</ButtonLink>
-      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-sm text-mist">
-        <Link href="/discover?budget=100&minDays=2&maxDays=4" className="border-b border-line pb-1 hover:text-mint">
-          Under €100 · short escape
-        </Link>
-        <Link href="/discover?budget=200&minDays=4&maxDays=7" className="border-b border-line pb-1 hover:text-mint">
-          Under €200 · a week away
-        </Link>
-        <Link href="/discover?ask=1" className="border-b border-line pb-1 hover:text-mint">
-          Ask Farelin in your own words
-        </Link>
-      </div>
-    </div>
+    <form onSubmit={submit} className="flex items-end gap-3">
+      <label className="flex-1">
+        <span className="sr-only">Describe the trip you want</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="somewhere warm in August, under €150"
+          className="cmd-input w-full py-3 font-mono text-sm text-cloud placeholder:text-mist-dim"
+        />
+      </label>
+      <button
+        type="submit"
+        aria-label="Search trips"
+        className="border-b border-line pb-3 font-mono text-xl leading-none text-mint transition-colors hover:text-cloud"
+      >
+        →
+      </button>
+    </form>
   );
 }
 
@@ -235,22 +246,6 @@ const methodology = [
 
 export function HomeClient() {
   const { deals, status, markers, board } = useFeaturedDeals();
-  const { user, isLoading: authLoading } = useAuth();
-  const { feed, status: personalStatus } = useOpportunities(user?.id ?? null);
-  const globeMarkers = useMemo<GlobeMarker[]>(() => {
-    if (!user) return markers;
-    if (!feed) return [];
-    const seen = new Set<string>();
-    return feed.trips.filter((trip) => {
-      const code = trip.outboundFlight.destination;
-      if (seen.has(code)) return false;
-      seen.add(code);
-      return true;
-    }).slice(0, 4).map((trip) => ({
-      code: trip.outboundFlight.destination,
-      label: `${trip.outboundFlight.destination} ${formatPrice(trip.totalPrice)}`,
-    }));
-  }, [user, feed, markers]);
 
   return (
     <AppShell wide>
@@ -262,18 +257,18 @@ export function HomeClient() {
               Trip-first flight watching
             </p>
             <h1 className="font-display text-6xl font-extrabold leading-[1.05] tracking-tight text-cloud sm:text-7xl">
-              Look where
+              Europe,
               <br />
-              you could go.
+              on a whim.
             </h1>
             <p className="mt-7 max-w-md font-display text-xl font-medium leading-relaxed text-mist">
-              Cheap trips from airports you can actually use. Explore observed fares first;
-              narrow the dates, budget and mood only when you want to.
+              Tell us roughly what you want. Farelin watches the fares from your airports and tells you
+              when it&apos;s worth flying.
             </p>
             <div className="mt-10">
-              <QuickStart />
+              <HeroSearch />
               <p className="mt-4 font-mono text-[10px] uppercase tracking-label text-mist-dim">
-                Fares are observed, not guaranteed · check the provider price
+                Checked hourly for new observations · never guaranteed
               </p>
             </div>
             <p className="mt-8">
@@ -290,20 +285,14 @@ export function HomeClient() {
               stays fully inside its column at every width. */}
           <div className="relative flex min-h-[clamp(320px,44vw,620px)] items-center justify-center" aria-hidden>
             <div className="mx-auto aspect-square w-[min(88vw,420px)] max-w-full lg:w-[min(46vw,640px)]">
-              <RouteGlobe markers={globeMarkers} cameraDistance={6.25} />
+              <RouteGlobe markers={markers} cameraDistance={6.25} />
             </div>
           </div>
         </div>
       </section>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {authLoading ? (
-          <div className="border-b border-line py-16 text-sm text-mist">Preparing the fare board…</div>
-        ) : user ? (
-          <OpportunityRail feed={feed} status={personalStatus} compact />
-        ) : (
-          <DeparturesBoard deals={deals} status={status} board={board} />
-        )}
+        <DeparturesBoard deals={deals} status={status} board={board} />
 
         {/* Methodology */}
         <section className="border-t border-line py-24">

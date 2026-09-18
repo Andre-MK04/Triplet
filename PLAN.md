@@ -1,5 +1,30 @@
 # Farelin product plan
 
+## Restore actual pre-Explore-first web layouts (2026-09-18)
+
+Owner clarified that moving the form was not the requested rollback. Restore
+the actual preceding website layout from b075a758 (before 21a8fdd), not merely
+the temporary concept or form ordering. Homepage and My World page sources
+match that baseline. Discover's render layout matches it, while retaining
+newer explicit-search/profile precedence and compatible search payload logic.
+AI input is always visible again; empty input still uses structured search.
+Keep fare-data honesty corrections in TripRow/TripCard, security/auth/billing,
+backend and all native code. Remove three unused web-only opportunity/quick
+composer files; Git history retains them if needed later.
+
+Restore homepage HeroSearch and Europe/on-a-whim hero, always-visible prompt,
+origins and trip-shape controls, Dates/budget/destination disclosure, and earlier
+My World country panels. Supersedes the search-first-board adjustment below.
+Regression contracts now assert the intended old layout rather than retaining
+the rejected board. Verification: 154 web tests pass; 802 API tests pass with
+two PostgreSQL-only skips (20.74s). Final webpack production build passes all
+27 pages. Browser confirms old homepage hero/search, homepage -> Discover
+navigation, always-visible prompt/shape, and working advanced disclosure.
+Homepage and My World page sources match b075a758 exactly. Authenticated fare
+searches and deployed UI are not claimed; no iOS verification needed because
+native code is untouched. Staged Gitleaks scan passes with no leaks.
+No push, deployment, provider/AI calls or database changes.
+
 ## Keep original web design and restore search-first Discover (2026-09-18)
 
 Owner rejected the isolated app-inspired website concept. Remove its eight

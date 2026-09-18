@@ -15,9 +15,6 @@ import { ResultsToolbar } from "../../components/ResultsToolbar";
 import { ScanningRoutes } from "../../components/ScanningRoutes";
 import { ShareSearch } from "../../components/ShareSearch";
 import { TripRow } from "../../components/TripRow";
-import { QuickSearchControls } from "../../components/QuickSearchControls";
-import { OpportunityRail } from "../../components/OpportunityRail";
-import { useOpportunities } from "../../hooks/useOpportunities";
 import { Button } from "../../components/ui/Button";
 import { Chip } from "../../components/ui/Chip";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input";
@@ -153,8 +150,6 @@ export function DiscoverClient() {
   const explicitSearchFields = useRef(new Set<keyof AdvancedForm>());
 
   const [refineOpen, setRefineOpen] = useState(false);
-  const [askOpen, setAskOpen] = useState(searchParams.get("ask") === "1" || Boolean(searchParams.get("q")));
-  const opportunities = useOpportunities(user?.id ?? null);
   const [aiExplained, setAiExplained] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
   const [form, setForm] = useState<AdvancedForm>(defaultForm);
@@ -192,7 +187,6 @@ export function DiscoverClient() {
     if (!previous) return;
     setTrips(previous.trips);
     setAiMessage(previous.aiMessage);
-    if (previous.answeredQuery) setAskOpen(true);
     setAiSummary(previous.aiSummary);
     setAiMissingFields(previous.aiMissingFields);
     setRelaxationNote(previous.relaxationNote);
@@ -218,7 +212,6 @@ export function DiscoverClient() {
     if (!incomingQuery || autoSearchedQuery.current === incomingQuery) return;
     autoSearchedQuery.current = incomingQuery;
     setAiMessage(incomingQuery);
-    setAskOpen(true);
     void performAiSearch(incomingQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per incoming query
   }, [incomingQuery]);
@@ -430,7 +423,7 @@ export function DiscoverClient() {
     event.preventDefault();
     // One button, two engines: a described trip goes through the parser, an
     // empty box means "use exactly what I picked".
-    if (askOpen && aiMessage.trim().length >= 8) {
+    if (aiMessage.trim().length >= 8) {
       void performAiSearch(aiMessage);
       return;
     }
@@ -592,40 +585,12 @@ export function DiscoverClient() {
           </div>
         ) : null}
 
-        {/* Structured exploration costs no AI search. Ask Farelin only when
-            explicitly opened; a hidden old prompt cannot spend credits. */}
-        <section id="trip-search" aria-label="Search trips" className="scroll-mt-24 border-y border-line py-6">
+        {/* One search. Describe the trip, say where you'd fly from and what
+            shape it should be; everything else has a sensible default and
+            lives behind "Refine". */}
+        <section className="border-y border-line py-6">
           <form onSubmit={runSearch} className="space-y-6">
             <div>
-              <OriginPicker
-                selected={form.originAirports}
-                labels={originLabels}
-                onToggle={toggleAirport}
-                onAdd={addOrigin}
-                limit={originLimit}
-              />
-              <QuickSearchControls
-                value={form}
-                onChange={(changes) => {
-                  for (const field of Object.keys(changes) as (keyof AdvancedForm)[]) explicitSearchFields.current.add(field);
-                  setForm((current) => ({ ...current, ...changes }));
-                }}
-              />
-              {form.destinationCountries.length || form.destinationRegions.length || form.destinationContinents.length || form.destinationAirports.length ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3 border-l-2 border-mint/50 pl-3 text-sm text-cloud">
-                  <span>Destination: {[
-                    ...form.destinationCountries, ...form.destinationRegions,
-                    ...form.destinationContinents, ...form.destinationAirports,
-                  ].join(" · ")}</span>
-                  <button type="button" onClick={clearDestinations} className="min-h-11 text-xs text-mint underline">Clear destination</button>
-                </div>
-              ) : null}
-            </div>
-            <button type="button" aria-expanded={askOpen} onClick={() => setAskOpen((open) => !open)}
-              className="min-h-11 font-mono text-[11px] font-semibold uppercase tracking-label text-mint hover:text-cloud">
-              {askOpen ? "Hide AI request −" : "Describe a trip to Farelin AI +"}
-            </button>
-            {askOpen ? <div>
               {/* The box reads like a parser but is answered by a language
                   model, and a traveller deciding how to phrase a request
                   deserves to know which. Named here, explained beneath. */}
@@ -671,7 +636,21 @@ export function DiscoverClient() {
                   placeholder={PLACEHOLDER_FOR_PLAN[form.tripPlan]}
                 />
               </div>
-            </div> : null}
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+              <OriginPicker
+                selected={form.originAirports}
+                labels={originLabels}
+                onToggle={toggleAirport}
+                onAdd={addOrigin}
+                limit={originLimit}
+              />
+              <TripPlanChoice
+                value={form.tripPlan}
+                onChange={(tripPlan) => { explicitSearchFields.current.add("tripPlan"); setForm((current) => ({ ...current, tripPlan })); }}
+              />
+            </div>
 
             {form.tripPlan !== "return" ? (
               <p className="border-l-2 border-mint/40 pl-3 text-xs leading-relaxed text-mist">
@@ -688,10 +667,10 @@ export function DiscoverClient() {
                 aria-expanded={refineOpen}
                 className="min-h-11 font-mono text-[11px] font-semibold uppercase tracking-label text-mist transition-colors hover:text-mint"
               >
-                {refineOpen ? "Hide details −" : "More options: destination, route, precise dates +"}
+                {refineOpen ? "Hide details −" : "Dates, budget, destination +"}
               </button>
               <Button type="submit" size="lg" disabled={isLoading || form.originAirports.length === 0}>
-                {isLoading ? "Exploring…" : askOpen && aiMessage.trim().length >= 8 ? "Ask Farelin" : "Explore trips"}
+                {isLoading ? "Searching…" : "Find trips"}
               </Button>
             </div>
 
@@ -704,7 +683,6 @@ export function DiscoverClient() {
                   className="overflow-hidden"
                 >
                   <div className="space-y-5 border-t border-line pt-6">
-                    <TripPlanChoice value={form.tripPlan} onChange={(tripPlan) => { explicitSearchFields.current.add("tripPlan"); setForm((current) => ({ ...current, tripPlan })); }} />
                     <div>
                       <div className="mb-2 flex items-center justify-between">
                         <p className="font-mono text-[10px] font-semibold uppercase tracking-label text-mist">
@@ -846,14 +824,13 @@ export function DiscoverClient() {
             </AnimatePresence>
           </form>
 
-          {askOpen ? <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-5">
+          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-5">
             {EXAMPLE_PROMPTS.map((prompt) => (
               <button
                 key={prompt.text}
                 type="button"
                 onClick={() => {
                   setAiMessage(prompt.text);
-                  setAskOpen(true);
                   setForm((current) => ({ ...current, tripPlan: prompt.plan }));
                 }}
                 className="font-mono text-xs text-mist-dim transition-colors hover:text-mint"
@@ -861,11 +838,8 @@ export function DiscoverClient() {
                 {prompt.text}
               </button>
             ))}
-          </div> : null}
+          </div>
         </section>
-        {/* Search stays first: a long observed-fare board must never bury the
-            controls. The board remains available below the composer. */}
-        {!hasSearched && user ? <OpportunityRail {...opportunities} /> : null}
         {/* Results */}
         <section className="mt-8 space-y-4" aria-live="polite">
           {isLoading ? <ScanningRoutes /> : null}
@@ -1074,13 +1048,34 @@ export function DiscoverClient() {
           ) : null}
 
           {!isLoading && hasSearched && trips.length === 0 && !error ? (
-            <EmptyState title="No trips matched this search">
+            <EmptyState icon="🛫" title="No trips matched this search">
               {emptyStateMessage(lastPayload)}
             </EmptyState>
           ) : null}
 
-          {!isLoading && !hasSearched && form.originAirports.length === 0 ? (
-            <p className="border-t border-line py-8 text-sm text-mist">Choose a departure airport above to explore observed trips. AI is optional.</p>
+          {!isLoading && !hasSearched ? (
+            <EmptyState title="Where could you go?">
+              <span className="block">
+                Farelin builds complete trips from real fares — out and back, a chain of cities, or in one
+                city and home from another. Try one of these:
+              </span>
+              <span className="mt-4 flex flex-col items-center gap-2">
+                {EXAMPLE_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt.text}
+                    type="button"
+                    onClick={() => {
+                      setAiMessage(prompt.text);
+                      setForm((current) => ({ ...current, tripPlan: prompt.plan }));
+                      void performAiSearch(prompt.text, prompt.plan);
+                    }}
+                    className="font-mono text-xs text-mint transition-colors hover:text-cloud"
+                  >
+                    → {prompt.text}
+                  </button>
+                ))}
+              </span>
+            </EmptyState>
           ) : null}
         </section>
       </div>
